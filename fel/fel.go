@@ -1,13 +1,19 @@
 package main
 
 import (
+	"fmt"
+
 	"github.com/silbinarywolf/compiler-fel/parser"
 )
 
 func main() {
-	_, err := parser.ParseFile("../testdata/sampleproject/fel/config.fel")
-	if err != nil {
-		panic(err)
+	p := parser.New()
+	p.ParseFile("../testdata/sampleproject/fel/config.fel")
+	if p.HasError() {
+		for _, err := range p.GetErrors() {
+			fmt.Printf(err.Error())
+		}
+		panic("errors!")
 	}
 	panic("end of main")
 }

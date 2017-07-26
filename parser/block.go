@@ -7,7 +7,7 @@ import (
 	"github.com/silbinarywolf/compiler-fel/token"
 )
 
-func (p *Parser) parseBlock() (*ast.Block, error) {
+func (p *Parser) parseBlock() *ast.Block {
 	for {
 		t := p.GetNextToken()
 		switch t.Kind {

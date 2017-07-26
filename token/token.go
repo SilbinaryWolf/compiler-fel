@@ -32,6 +32,7 @@ const (
 	Identifier      // ABunchOfUnquotedLetters
 	InteropVariable // $var
 	Number          // 30, 1.462
+	Character       // 'C'
 	String          // "ABunchOfQuotedLetters"
 
 	unique_end
@@ -88,6 +89,7 @@ var kindToString = []string{
 	DeclareSet:   ":=",
 	Define:       "::",
 	Semicolon:    ";",
+	Character:    "character",
 	String:       "string",
 	Not:          "!",
 	Dot:          ".",

@@ -11,18 +11,23 @@ import (
 
 type Parser struct {
 	*scanner.Scanner
+	errors []error
 }
 
-func ParseFile(filepath string) (*ast.File, error) {
+func New() *Parser {
+	p := new(Parser)
+	return p
+}
+
+func (p *Parser) ParseFile(filepath string) *ast.File {
 	filecontentsAsBytes, err := ioutil.ReadFile(filepath)
 	if err != nil {
-		return nil, err
+		return nil
 	}
-	return Parse(filecontentsAsBytes, filepath)
+	return p.Parse(filecontentsAsBytes, filepath)
 }
 
-func Parse(filecontentsAsBytes []byte, filepath string) (*ast.File, error) {
-	p := new(Parser)
+func (p *Parser) Parse(filecontentsAsBytes []byte, filepath string) *ast.File {
 	p.Scanner = scanner.New(filecontentsAsBytes, filepath)
 
 	resultNode := &ast.File{
@@ -39,18 +44,20 @@ func Parse(filecontentsAsBytes []byte, filepath string) (*ast.File, error) {
 			case "config":
 				t := p.GetNextToken()
 				if t.Kind != token.BraceOpen {
-					return nil, p.expect(t, token.BraceOpen)
+					p.addError(p.expect(t, token.BraceOpen))
+					return nil
 				}
 				p.parseBlock()
 				panic("todo: Finish Parse() func")
 			default:
-				return nil, p.expect(t, "config")
+				p.addError(p.expect(t, "config"))
+				return nil
 			}
 		default:
 			panic(fmt.Sprintf("Parse(): Unhandled token: %s on Line %d", t.Kind.String(), t.Line))
 		}
 	}
-	return resultNode, nil
+	return resultNode
 }
 
 func (p *Parser) expect(thisToken token.Token, expectedList ...interface{}) error {
@@ -90,6 +97,18 @@ func (p *Parser) expect(thisToken token.Token, expectedList ...interface{}) erro
 	}
 
 	return fmt.Errorf("Line %d, Expected %s instead got \"%s\".", p.GetLine(), expectedItemsString, thisToken.String())
+}
+
+func (p *Parser) HasError() bool {
+	return len(p.errors) > 0
+}
+
+func (p *Parser) GetErrors() []error {
+	return p.errors
+}
+
+func (p *Parser) addError(message error) {
+	p.errors = append(p.errors, message)
 }
 
 /*

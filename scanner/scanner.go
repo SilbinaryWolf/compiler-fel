@@ -202,7 +202,20 @@ func (scanner *Scanner) _getNextToken(eatNewline bool) token.Token {
 			(isAlpha(scanner.getChar(0)) || isNumber(scanner.getChar(0)) || scanner.getChar(0) == '_') {
 			scanner.index++
 		}
-	case '"', '\'', '`':
+	case '\'':
+		t.Kind = token.Character
+		t.Start++
+		for scanner.index < len(scanner.filecontents) &&
+			scanner.getChar(0) != C {
+			if scanner.getChar(0) == '\\' {
+				// Skip command code
+				scanner.index++
+			}
+			scanner.index++
+		}
+		t.End = scanner.index
+		scanner.index++
+	case '"', '`':
 		t.Kind = token.String
 		t.Start++
 		for scanner.index < len(scanner.filecontents) &&
