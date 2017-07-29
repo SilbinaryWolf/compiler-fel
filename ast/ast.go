@@ -5,11 +5,14 @@ import (
 )
 
 type Node interface {
+	Nodes() []Node
 }
 
 type Base struct {
-	Start int
-	End   int
+	Node
+	Start      int
+	End        int
+	ChildNodes []Node
 }
 
 type File struct {
@@ -21,17 +24,30 @@ type Block struct {
 	Base
 }
 
+type NamedBlock struct {
+	Name token.Token
+	Block
+}
+
 type Expression struct {
 	Base
-	Nodes []Node
 	//InfixNodes *Base
 }
 
 type DeclareStatement struct {
-	Name       token.Token
-	Expression *Expression
+	Name token.Token
+	*Expression
 }
 
 type Token struct {
+	Node
 	token.Token
+}
+
+func (node *Base) Nodes() []Node {
+	return node.ChildNodes
+}
+
+func (node *Token) Nodes() []Node {
+	return nil
 }

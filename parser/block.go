@@ -8,29 +8,34 @@ import (
 )
 
 func (p *Parser) parseBlock() *ast.Block {
+	resultNodes := make([]ast.Node, 0, 10)
+
+Loop:
 	for {
 		t := p.GetNextToken()
 		switch t.Kind {
 		case token.Identifier:
 			// p.parseStatement()
-			resultNode := &ast.DeclareStatement{}
-			resultNode.Name = t
+			node := &ast.DeclareStatement{}
+			node.Name = t
 			t := p.PeekNextToken()
 			if t.Kind == token.DeclareSet {
 				p.GetNextToken()
-				node, err := p.parseExpression()
-				if err != nil {
-					// todo
-				}
-				resultNode.Expression = node
-				panic("parseBlock(): Handle after parse expression")
+				node.Expression = p.parseExpression()
+				resultNodes = append(resultNodes, node)
 			} else {
 				panic(fmt.Sprintf("parseBlock(): Handle other ident case"))
 			}
-			panic("parseBlock(): Finish expression")
+		case token.BraceClose:
+			break Loop
+		case token.Newline:
+			// no-op
 		default:
 			panic(fmt.Sprintf("parseBlock(): Unhandled token: %s on Line %d", t.Kind.String(), t.Line))
 		}
 	}
-	panic("todo: Finish parseBlock() func")
+
+	resultNode := &ast.Block{}
+	resultNode.ChildNodes = resultNodes
+	return resultNode
 }

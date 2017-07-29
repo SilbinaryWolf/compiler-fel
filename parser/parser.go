@@ -29,12 +29,9 @@ func (p *Parser) ParseFile(filepath string) *ast.File {
 
 func (p *Parser) Parse(filecontentsAsBytes []byte, filepath string) *ast.File {
 	p.Scanner = scanner.New(filecontentsAsBytes, filepath)
+	nodes := make([]ast.Node, 0, 10)
 
-	resultNode := &ast.File{
-		Filepath: filepath,
-	}
-
-	//Loop:
+Loop:
 	for {
 		t := p.GetNextToken()
 		switch t.Kind {
@@ -42,25 +39,45 @@ func (p *Parser) Parse(filecontentsAsBytes []byte, filepath string) *ast.File {
 			ident := t.String()
 			switch ident {
 			case "config":
+				identToken := t
 				t := p.GetNextToken()
 				if t.Kind != token.BraceOpen {
 					p.addError(p.expect(t, token.BraceOpen))
 					return nil
 				}
-				p.parseBlock()
-				panic("todo: Finish Parse() func")
+				nodeBlock := p.parseBlock()
+				if nodeBlock == nil {
+					break Loop
+				}
+				node := &ast.NamedBlock{
+					Name:  identToken,
+					Block: *nodeBlock,
+				}
+				nodes = append(nodes, node)
 			default:
 				p.addError(p.expect(t, "config"))
 				return nil
 			}
+		case token.Newline:
+			// no-op
+		case token.EOF:
+			break Loop
 		default:
 			panic(fmt.Sprintf("Parse(): Unhandled token: %s on Line %d", t.Kind.String(), t.Line))
 		}
 	}
+
+	resultNode := &ast.File{
+		Filepath: filepath,
+	}
+	resultNode.ChildNodes = nodes
 	return resultNode
 }
 
 func (p *Parser) expect(thisToken token.Token, expectedList ...interface{}) error {
+
+	// todo(Jake): switch to using a buffer as that uses less allocations
+	//			   ie. increase speed from 6500ns to 15ns
 	expectedItemsString := ""
 	lengthMinusOne := len(expectedList) - 1
 	for i, expectedItem := range expectedList {
@@ -72,7 +89,7 @@ func (p *Parser) expect(thisToken token.Token, expectedList ...interface{}) erro
 			case token.InteropVariable:
 				expectedItemsString += "interop variable"
 			default:
-				panic(fmt.Sprintf("Unhandled token kind: %s", value.String()))
+				expectedItemsString += value.String()
 			}
 		case string:
 			expectedItemsString += fmt.Sprintf("keyword \"%s\"", value)
@@ -96,7 +113,15 @@ func (p *Parser) expect(thisToken token.Token, expectedList ...interface{}) erro
 		}*/
 	}
 
-	return fmt.Errorf("Line %d, Expected %s instead got \"%s\".", p.GetLine(), expectedItemsString, thisToken.String())
+	line := p.GetLine()
+	if thisToken.Kind == token.Newline {
+		// Reading the newline token will offset to the next line causing a mistake in the
+		// error message
+		line--
+	}
+
+	// NOTE(Jake): Line 1, Expected { instead got "newline"
+	return fmt.Errorf("Line %d, Expected %s instead got \"%s\".", line, expectedItemsString, thisToken.String())
 }
 
 func (p *Parser) HasError() bool {

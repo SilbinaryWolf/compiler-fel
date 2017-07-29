@@ -68,10 +68,23 @@ const (
 	operator_end
 )
 
+var precedence = []int{
+	Unknown:          0,
+	ParenOpen:        1,
+	ParenClose:       1,
+	ConditionalOr:    2,
+	ConditionalAnd:   2,
+	ConditionalEqual: 3,
+	Add:              4,
+	Subtract:         4,
+	Divide:           4,
+	Multiply:         4,
+}
+
 var kindToString = []string{
 	Unknown:         "unknown token",
 	EOF:             "eof",
-	Newline:         "\n",
+	Newline:         "newline",
 	Whitespace:      " ",
 	InteropVariable: "interop variable",
 
@@ -166,6 +179,10 @@ func (token Token) String() string {
 		return " "
 	}
 	return kindToString[token.Kind]
+}
+
+func (token Token) Precedence() int {
+	return precedence[token.Kind]
 }
 
 func (token Token) Debug() {

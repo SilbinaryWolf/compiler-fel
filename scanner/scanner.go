@@ -8,7 +8,7 @@ import (
 
 type ScannerState struct {
 	index         int
-	lastLineIndex int
+	lastLineIndex int // Helps calculate column on token
 	lineNumber    int
 }
 
@@ -163,7 +163,7 @@ func (scanner *Scanner) _getNextToken(eatNewline bool) token.Token {
 		}
 	}()
 
-	eatAllWhitespaceAndComments(scanner, eatNewline, true)
+	eatAllWhitespaceAndComments(scanner, false, true)
 
 	C := scanner.getChar(0)
 	t.Start = scanner.index
