@@ -8,6 +8,7 @@ import (
 
 	"github.com/silbinarywolf/compiler-fel/ast"
 	"github.com/silbinarywolf/compiler-fel/parser"
+	"github.com/silbinarywolf/compiler-fel/token"
 )
 
 type Program struct {
@@ -115,6 +116,8 @@ func (program *Program) evaluateBlock(blockNode ast.Node, parentScope *Scope) {
 			if _, exists := scope.GetCurrentScope(name); exists {
 				panic(fmt.Sprintf("Cannot redeclare %v", name))
 			}
+			program.evaluateExpression(node.Expression, scope)
+
 			//scope.Set(name,
 			panic("todo(Jake): scope.Set() code")
 		default:
@@ -122,7 +125,63 @@ func (program *Program) evaluateBlock(blockNode ast.Node, parentScope *Scope) {
 		}
 
 		// Add children
+		// NOTE(Jake): I only want this on ast.Block or similar, NOT ast.DeclareStatement
+		//			   as that will just be buggy / odd behaviour
 		//nodesQueue = append(nodesQueue, currentNode.Nodes()...)
 	}
 	panic("Evaluator::evaluateBlock(): todo(Jake): The rest of the function")
+}
+
+func (program *Program) evaluateExpression(expressionNode *ast.Expression, parentScope *Scope) {
+	var stack []DataType
+
+	// todo(Jake): Rewrite string concat to use `var stringBuffer bytes.Buffer` and see if
+	//			   there is a speedup
+
+	for _, itNode := range expressionNode.Nodes() {
+		switch node := itNode.(type) {
+		case *ast.Token:
+			switch node.Kind {
+			case token.String:
+				result := &String{Value: node.String()}
+				stack = append(stack, result)
+			default:
+				if node.IsOperator() {
+					rightValue := stack[len(stack)-1]
+					stack = stack[:len(stack)-1]
+					if len(stack) == 0 {
+						panic(fmt.Sprintf("Only got %s %s", rightValue, node.String()))
+					}
+					leftValue := stack[len(stack)-1]
+					stack = stack[:len(stack)-1]
+
+					rightType := rightValue.Kind()
+					leftType := leftValue.Kind()
+
+					switch node.Kind {
+					case token.Add:
+						if leftType == KindString && rightType == KindString {
+							result := &String{
+								Value: leftValue.String() + rightValue.String(),
+							}
+							stack = append(stack, result)
+							continue
+						}
+						panic("evaluateExpression(): Unhandled type computation in +")
+					default:
+						panic(fmt.Sprintf("evaluateExpression(): Unhandled operator type: %s", node.Kind.String()))
+					}
+				}
+				panic(fmt.Sprintf("Evaluator::evaluateExpression(): Unhandled *.astToken kind: %s", node.Kind.String()))
+			}
+		default:
+			panic(fmt.Sprintf("Unhandled type: %T", node))
+		}
+	}
+	if len(stack) == 0 || len(stack) > 1 {
+		panic("evaluateExpression(): Invalid stack. Either 0 or above 1")
+	}
+	result := stack[0]
+	fmt.Printf("Result value: %s\n", result.String())
+	panic("Evaluator::evaluateExpression(): todo(Jake): The rest of the function")
 }

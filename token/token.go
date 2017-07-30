@@ -174,7 +174,9 @@ func (token Token) String() string {
 	case Identifier, Number:
 		return token.Data
 	case String:
-		return fmt.Sprintf("\"%s\"", token.Data)
+		// NOTE(Jake): Change this so string outputs properly in Evaluator
+		//return fmt.Sprintf("\"%s\"", token.Data)
+		return token.Data
 	case Whitespace:
 		return " "
 	}
