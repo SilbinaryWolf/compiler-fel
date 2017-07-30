@@ -19,19 +19,21 @@ func New() *Parser {
 	return p
 }
 
-func (p *Parser) ParseFile(filepath string) *ast.File {
+func (p *Parser) ParseFile(filepath string) (*ast.File, error) {
 	filecontentsAsBytes, err := ioutil.ReadFile(filepath)
 	if err != nil {
-		return nil
+		return nil, err
 	}
-	return p.Parse(filecontentsAsBytes, filepath)
+	return p.Parse(filecontentsAsBytes, filepath), nil
 }
 
 func (p *Parser) Parse(filecontentsAsBytes []byte, filepath string) *ast.File {
 	p.Scanner = scanner.New(filecontentsAsBytes, filepath)
-	nodes := make([]ast.Node, 0, 10)
+	//nodes := make([]ast.Node, 0, 10)
 
-Loop:
+	nodeBlock := p.parseBlock()
+
+	/*Loop:
 	for {
 		t := p.GetNextToken()
 		switch t.Kind {
@@ -56,7 +58,7 @@ Loop:
 				nodes = append(nodes, node)
 			default:
 				p.addError(p.expect(t, "config"))
-				return nil
+				break Loop
 			}
 		case token.Newline:
 			// no-op
@@ -65,12 +67,12 @@ Loop:
 		default:
 			panic(fmt.Sprintf("Parse(): Unhandled token: %s on Line %d", t.Kind.String(), t.Line))
 		}
-	}
+	}*/
 
 	resultNode := &ast.File{
 		Filepath: filepath,
 	}
-	resultNode.ChildNodes = nodes
+	resultNode.ChildNodes = nodeBlock.ChildNodes
 	return resultNode
 }
 
@@ -122,10 +124,6 @@ func (p *Parser) expect(thisToken token.Token, expectedList ...interface{}) erro
 
 	// NOTE(Jake): Line 1, Expected { instead got "newline"
 	return fmt.Errorf("Line %d, Expected %s instead got \"%s\".", line, expectedItemsString, thisToken.String())
-}
-
-func (p *Parser) HasError() bool {
-	return len(p.errors) > 0
 }
 
 func (p *Parser) GetErrors() []error {

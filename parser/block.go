@@ -30,6 +30,8 @@ Loop:
 			break Loop
 		case token.Newline:
 			// no-op
+		case token.EOF:
+			break Loop
 		default:
 			panic(fmt.Sprintf("parseBlock(): Unhandled token: %s on Line %d", t.Kind.String(), t.Line))
 		}
