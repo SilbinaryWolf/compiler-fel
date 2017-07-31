@@ -5,6 +5,13 @@ type Scope struct {
 	parent    *Scope
 }
 
+func NewScope(parent *Scope) *Scope {
+	result := new(Scope)
+	result.variables = make(map[string]DataType)
+	result.parent = parent
+	return result
+}
+
 func (scope *Scope) Set(name string, value DataType) {
 	scope.variables[name] = value
 }
