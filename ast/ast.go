@@ -9,7 +9,6 @@ type Node interface {
 }
 
 type Base struct {
-	Node
 	Start      int
 	End        int
 	ChildNodes []Node
@@ -24,9 +23,14 @@ type Block struct {
 	Base
 }
 
-type NamedBlock struct {
+/*type NamedBlock struct {
 	Name token.Token
 	Block
+}*/
+
+type HTMLNode struct {
+	Name token.Token
+	Base
 }
 
 type Expression struct {

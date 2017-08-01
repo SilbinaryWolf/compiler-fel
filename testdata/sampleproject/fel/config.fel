@@ -2,4 +2,4 @@
 
 // NOTE(Jake): Where to output HTML / PHP / JavaScript, depending on `backendLanguage`
 //             This is a 1-1 mapping, so if you made "Page.fel" it would output in /templates/Page.php
-templateOutputDirectory := "../templates"
+templateOutputDirectory := "../public"

@@ -7,6 +7,7 @@ import (
 	"github.com/silbinarywolf/compiler-fel/token"
 )
 
+// todo(Jake): Change to parseStatements, make it return []ast.Node slice
 func (p *Parser) parseBlock() *ast.Block {
 	resultNodes := make([]ast.Node, 0, 10)
 
@@ -15,16 +16,25 @@ Loop:
 		t := p.GetNextToken()
 		switch t.Kind {
 		case token.Identifier:
-			// p.parseStatement()
-			node := &ast.DeclareStatement{}
-			node.Name = t
+			name := t
 			t := p.PeekNextToken()
-			if t.Kind == token.DeclareSet {
+			switch t.Kind {
+			case token.DeclareSet:
 				p.GetNextToken()
+				node := &ast.DeclareStatement{}
+				node.Name = name
 				node.Expression = p.parseExpression()
 				resultNodes = append(resultNodes, node)
-			} else {
-				panic(fmt.Sprintf("parseBlock(): Handle other ident case"))
+			case token.BraceOpen:
+				p.GetNextToken()
+				subNode := p.parseBlock()
+				node := &ast.HTMLNode{}
+				node.Name = name
+				node.ChildNodes = subNode.ChildNodes
+				resultNodes = append(resultNodes, node)
+			//case token.ParenOpen:
+			default:
+				panic(fmt.Sprintf("parseBlock(): Handle other ident case kind: %s", t.Kind.String()))
 			}
 		case token.BraceClose:
 			break Loop

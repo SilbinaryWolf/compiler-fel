@@ -1,6 +1,7 @@
 package evaluator
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -21,54 +22,48 @@ func New() *Program {
 }
 
 func (program *Program) RunProject(projectDirpath string) error {
-	// Get all files in folder recursively with *.fel
-	filepathSet := make([]string, 0, 50)
-	err := filepath.Walk(projectDirpath, func(path string, f os.FileInfo, _ error) error {
-		if !f.IsDir() && filepath.Ext(f.Name()) == ".fel" {
-			filepathSet = append(filepathSet, path)
-		}
-		return nil
-	})
-	if err != nil {
-		return fmt.Errorf("An error occurred reading: %v, Error Message: %v", projectDirpath, err)
+	configFilepath := projectDirpath + "/config.fel"
+	if _, err := os.Stat(configFilepath); os.IsNotExist(err) {
+		return fmt.Errorf("Cannot find config.fel in root of project directory: %v", configFilepath)
 	}
 
-	if len(filepathSet) == 0 {
-		return fmt.Errorf("No *.fel files found in your project directory: %v", projectDirpath)
+	templateInputDirectory := projectDirpath + "/templates"
+	// Check if input templates directory exists
+	{
+		_, err := os.Stat(templateInputDirectory)
+		if err != nil {
+			return fmt.Errorf("Error with directory \"templates\" directory in project directory: %v", err)
+		}
+		if os.IsNotExist(err) {
+			return fmt.Errorf("Expected to find \"templates\" directory in: %s", projectDirpath)
+		}
 	}
 
 	// Find and parse config.fel
 	var configAstFile *ast.File
 	{
 		p := parser.New()
-		for _, filepath := range filepathSet {
-			baseFilename := filepath[len(projectDirpath):len(filepath)]
-			// If filename isn't config.fel in root dir, skip it.
-			if baseFilename != "\\config.fel" {
-				continue
-			}
-			filecontentsAsBytes, err := ioutil.ReadFile(filepath)
-			if err != nil {
-				return fmt.Errorf("An error occurred reading file: %v, Error message: %v", filepath, err)
-			}
-			astFile := p.Parse(filecontentsAsBytes, filepath)
-			if astFile == nil {
-				panic("Unexpected parse error (Parse() returned a nil ast.File node)")
-			}
-			if errors := p.GetErrors(); len(errors) > 0 {
-				errorOrErrors := "errors"
-				if len(errors) == 1 {
-					errorOrErrors = "error"
-				}
-				fmt.Printf("Found %d %s in \"%s\"\n", len(errors), errorOrErrors, filepath)
-				for _, err := range errors {
-					fmt.Printf("- %v \n\n", err)
-				}
-				return fmt.Errorf("Error parsing file: %v", filepath)
-			}
-			configAstFile = astFile
-			break
+		filepath := configFilepath
+		filecontentsAsBytes, err := ioutil.ReadFile(filepath)
+		if err != nil {
+			return fmt.Errorf("An error occurred reading file: %v, Error message: %v", filepath, err)
 		}
+		astFile := p.Parse(filecontentsAsBytes, filepath)
+		if astFile == nil {
+			panic("Unexpected parse error (Parse() returned a nil ast.File node)")
+		}
+		if errors := p.GetErrors(); len(errors) > 0 {
+			errorOrErrors := "errors"
+			if len(errors) == 1 {
+				errorOrErrors = "error"
+			}
+			fmt.Printf("Found %d %s in \"%s\"\n", len(errors), errorOrErrors, filepath)
+			for _, err := range errors {
+				fmt.Printf("- %v \n\n", err)
+			}
+			return fmt.Errorf("Error parsing file: %v", filepath)
+		}
+		configAstFile = astFile
 	}
 
 	if configAstFile == nil {
@@ -77,7 +72,6 @@ func (program *Program) RunProject(projectDirpath string) error {
 
 	// Evaluate config file
 	program.evaluateBlock(configAstFile, program.globalScope)
-
 	value, ok := program.globalScope.GetCurrentScope("templateOutputDirectory")
 	if !ok {
 		return fmt.Errorf("%s is undefined in config.fel. This definition is required.", "templateOutputDirectory")
@@ -87,6 +81,32 @@ func (program *Program) RunProject(projectDirpath string) error {
 	}
 
 	templateOutputDirectory := fmt.Sprintf("%s/%s", projectDirpath, value.String())
+	// Check if output templates directory exists
+	{
+		_, err := os.Stat(templateOutputDirectory)
+		if err != nil {
+			return fmt.Errorf("Error with directory: %v", err)
+		}
+		if os.IsNotExist(err) {
+			return fmt.Errorf("templateOutputDirectory does not exist: %s", templateOutputDirectory)
+		}
+	}
+
+	// Get all files in folder recursively with *.fel
+	filepathSet := make([]string, 0, 50)
+	err := filepath.Walk(templateInputDirectory, func(path string, f os.FileInfo, _ error) error {
+		if !f.IsDir() && filepath.Ext(f.Name()) == ".fel" {
+			filepathSet = append(filepathSet, path)
+		}
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("An error occurred reading: %v, Error Message: %v", templateInputDirectory, err)
+	}
+
+	if len(filepathSet) == 0 {
+		return fmt.Errorf("No *.fel files found in your project's \"templates\" directory: %v", templateInputDirectory)
+	}
 
 	// Parse files
 	astFiles := make([]*ast.File, 0, 50)
@@ -114,6 +134,10 @@ func (program *Program) RunProject(projectDirpath string) error {
 		}
 		astFiles = append(astFiles, astFile)
 	}
+
+	// DEBUG
+	json, _ := json.MarshalIndent(astFiles, "", "   ")
+	fmt.Printf("%s", string(json))
 
 	// Execute templates
 	// todo(Jake): Refactor above filewalk logic to find "config.fel" directly first, then walk "components"

@@ -1,4 +1,4 @@
-html {
+/*html {
     html {
         head {
             meta(name="viewport", content="width=device-width")
@@ -23,6 +23,19 @@ html {
             }
             footer {
             }
+        }
+    }
+}*/
+html {
+    head {
+       
+    }
+    body {
+        header {
+        }
+        div {
+        }
+        footer {
         }
     }
 }
