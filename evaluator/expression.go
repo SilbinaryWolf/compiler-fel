@@ -7,13 +7,13 @@ import (
 	"github.com/silbinarywolf/compiler-fel/token"
 )
 
-func (program *Program) evaluateExpression(expressionNode *ast.Expression, parentScope *Scope) DataType {
+func (program *Program) evaluateExpression(expressionNodes []ast.Node, parentScope *Scope) DataType {
 	var stack []DataType
 
 	// todo(Jake): Rewrite string concat to use `var stringBuffer bytes.Buffer` and see if
 	//			   there is a speedup
 
-	for _, itNode := range expressionNode.Nodes() {
+	for _, itNode := range expressionNodes {
 		switch node := itNode.(type) {
 		case *ast.Token:
 			switch node.Kind {

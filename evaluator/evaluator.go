@@ -52,22 +52,14 @@ func (program *Program) RunProject(projectDirpath string) error {
 		if astFile == nil {
 			panic("Unexpected parse error (Parse() returned a nil ast.File node)")
 		}
-		if errors := p.GetErrors(); len(errors) > 0 {
-			errorOrErrors := "errors"
-			if len(errors) == 1 {
-				errorOrErrors = "error"
-			}
-			fmt.Printf("Found %d %s in \"%s\"\n", len(errors), errorOrErrors, filepath)
-			for _, err := range errors {
-				fmt.Printf("- %v \n\n", err)
-			}
-			return fmt.Errorf("Error parsing file: %v", filepath)
-		}
 		configAstFile = astFile
-	}
-
-	if configAstFile == nil {
-		return fmt.Errorf("Cannot find config.fel in root of project directory: %v", projectDirpath)
+		if p.HasErrors() {
+			p.PrintErrors()
+			return fmt.Errorf("Parse errors in config.fel in root of project directory")
+		}
+		if configAstFile == nil {
+			return fmt.Errorf("Cannot find config.fel in root of project directory: %v", projectDirpath)
+		}
 	}
 
 	// Evaluate config file
@@ -121,23 +113,17 @@ func (program *Program) RunProject(projectDirpath string) error {
 		if astFile == nil {
 			panic("Unexpected parse error (Parse() returned a nil ast.File node)")
 		}
-		if errors := p.GetErrors(); len(errors) > 0 {
-			errorOrErrors := "errors"
-			if len(errors) == 1 {
-				errorOrErrors = "error"
-			}
-			fmt.Printf("Found %d %s in \"%s\"\n", len(errors), errorOrErrors, filepath)
-			for _, err := range errors {
-				fmt.Printf("- %v \n\n", err)
-			}
-			return fmt.Errorf("Error parsing file: %v", filepath)
-		}
 		astFiles = append(astFiles, astFile)
 	}
 
 	// DEBUG
 	json, _ := json.MarshalIndent(astFiles, "", "   ")
 	fmt.Printf("%s", string(json))
+
+	if p.HasErrors() {
+		p.PrintErrors()
+		return fmt.Errorf("Stopping due to parsing errors.")
+	}
 
 	// Execute templates
 	// todo(Jake): Refactor above filewalk logic to find "config.fel" directly first, then walk "components"

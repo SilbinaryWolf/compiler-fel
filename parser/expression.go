@@ -7,9 +7,7 @@ import (
 	"github.com/silbinarywolf/compiler-fel/token"
 )
 
-func (p *Parser) parseExpression() *ast.Expression {
-	resultNode := &ast.Expression{}
-
+func (p *Parser) parseExpression() []ast.Node {
 	parenOpenCount := 0
 	parenCloseCount := 0
 
@@ -30,14 +28,19 @@ Loop:
 		case token.String:
 			p.GetNextToken()
 			infixNodes = append(infixNodes, &ast.Token{Token: t})
-		case token.Semicolon, token.Newline, token.Comma:
+		case token.Semicolon, token.Newline:
 			p.GetNextToken()
 			break Loop
-		case token.BraceOpen, token.BraceClose:
+		case token.BraceOpen, token.BraceClose, token.Comma:
 			break Loop
 		case token.ParenOpen:
 			parenOpenCount++
 		case token.ParenClose:
+			// If hit end of parameter list
+			if parenCloseCount == 0 && parenOpenCount == 0 {
+				break Loop
+			}
+
 			parenCloseCount++
 
 			topOperatorNode := operatorNodes[len(operatorNodes)-1]
@@ -76,12 +79,10 @@ Loop:
 		panic("Mismatching paren open and close count")
 	}
 
-	resultNode.ChildNodes = infixNodes
-
 	// DEBUG
-	//json, _ := json.MarshalIndent(resultNode, "", "   ")
+	//json, _ := json.MarshalIndent(infixNodes, "", "   ")
 	//fmt.Printf("%s", string(json))
 	//panic("todo: Finish parseExpression() func")
 
-	return resultNode
+	return infixNodes
 }

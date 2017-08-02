@@ -133,13 +133,12 @@ var kindToString = []string{
 }
 
 type Token struct {
-	Kind     Kind
-	Data     string
-	Pathname string
-	Line     int
-	Column   int
-	Start    int
-	End      int
+	Kind   Kind
+	Data   string
+	Line   int
+	Column int
+	Start  int
+	End    int
 }
 
 func GetKeywordKindFromString(keyword string) Kind {

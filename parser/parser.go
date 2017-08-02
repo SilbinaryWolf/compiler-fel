@@ -31,48 +31,10 @@ func (p *Parser) Parse(filecontentsAsBytes []byte, filepath string) *ast.File {
 	p.Scanner = scanner.New(filecontentsAsBytes, filepath)
 	//nodes := make([]ast.Node, 0, 10)
 
-	nodeBlock := p.parseBlock()
-
-	/*Loop:
-	for {
-		t := p.GetNextToken()
-		switch t.Kind {
-		case token.Identifier:
-			ident := t.String()
-			switch ident {
-			case "config":
-				identToken := t
-				t := p.GetNextToken()
-				if t.Kind != token.BraceOpen {
-					p.addError(p.expect(t, token.BraceOpen))
-					return nil
-				}
-				nodeBlock := p.parseBlock()
-				if nodeBlock == nil {
-					break Loop
-				}
-				node := &ast.NamedBlock{
-					Name:  identToken,
-					Block: *nodeBlock,
-				}
-				nodes = append(nodes, node)
-			default:
-				p.addError(p.expect(t, "config"))
-				break Loop
-			}
-		case token.Newline:
-			// no-op
-		case token.EOF:
-			break Loop
-		default:
-			panic(fmt.Sprintf("Parse(): Unhandled token: %s on Line %d", t.Kind.String(), t.Line))
-		}
-	}*/
-
 	resultNode := &ast.File{
 		Filepath: filepath,
 	}
-	resultNode.ChildNodes = nodeBlock.ChildNodes
+	resultNode.ChildNodes = p.parseStatements()
 	return resultNode
 }
 
@@ -123,15 +85,38 @@ func (p *Parser) expect(thisToken token.Token, expectedList ...interface{}) erro
 	}
 
 	// NOTE(Jake): Line 1, Expected { instead got "newline"
-	return fmt.Errorf("Line %d, Expected %s instead got \"%s\".", line, expectedItemsString, thisToken.String())
+	result := fmt.Errorf("Line %d, Expected %s instead got \"%s\".", line, expectedItemsString, thisToken.String())
+
+	// For debugging
+	panic(result)
+
+	return result
 }
 
 func (p *Parser) GetErrors() []error {
 	return p.errors
 }
 
+func (p *Parser) HasErrors() bool {
+	return len(p.errors) > 0
+}
+
 func (p *Parser) addError(message error) {
 	p.errors = append(p.errors, message)
+}
+
+func (p *Parser) PrintErrors() {
+	if errors := p.GetErrors(); len(errors) > 0 {
+		errorOrErrors := "errors"
+		if len(errors) == 1 {
+			errorOrErrors = "error"
+		}
+		fmt.Printf("Error parsing file: %v\n", p.Filepath)
+		fmt.Printf("Found %d %s in \"%s\"\n", len(errors), errorOrErrors, p.Filepath)
+		for _, err := range errors {
+			fmt.Printf("- %v \n\n", err)
+		}
+	}
 }
 
 /*

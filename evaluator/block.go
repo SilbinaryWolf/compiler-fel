@@ -24,7 +24,7 @@ func (program *Program) evaluateBlock(blockNode ast.Node, scope *Scope) {
 			if _, exists := scope.GetCurrentScope(name); exists {
 				panic(fmt.Sprintf("Cannot redeclare %v", name))
 			}
-			value := program.evaluateExpression(node.Expression, scope)
+			value := program.evaluateExpression(node.ChildNodes, scope)
 			scope.Set(name, value)
 		default:
 			panic(fmt.Sprintf("evaluateBlock(): Unhandled type: %T", node))

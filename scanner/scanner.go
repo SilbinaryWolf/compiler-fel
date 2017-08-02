@@ -15,8 +15,7 @@ type ScannerState struct {
 type Scanner struct {
 	ScannerState
 	filecontents []byte
-	pathname     string
-	inPHPMode    bool
+	Filepath     string
 }
 
 func New(filecontents []byte, filepath string) *Scanner {
@@ -25,7 +24,7 @@ func New(filecontents []byte, filepath string) *Scanner {
 	scanner.filecontents = filecontents
 	// NOTE(Jake): Pad the ending of the file
 	scanner.filecontents = append(scanner.filecontents, 0, 0, 0, 0, 0, 0, 0, 0)
-	scanner.pathname = filepath
+	scanner.Filepath = filepath
 	return scanner
 }
 
@@ -156,7 +155,6 @@ func (scanner *Scanner) getNextTokenIncludeNewline() token.Token {
 func (scanner *Scanner) _getNextToken(eatNewline bool) token.Token {
 	t := token.Token{}
 	t.Kind = token.Unknown
-	t.Pathname = scanner.pathname
 	defer func() {
 		if t.Kind == token.Unknown {
 			scannerDeveloperError("Token kind not set properly by developer")
@@ -288,7 +286,7 @@ func (scanner *Scanner) _getNextToken(eatNewline bool) token.Token {
 		} else if C == '\\' || C == '_' || isAlpha(C) {
 			t.Kind = token.Identifier
 			for scanner.index < len(scanner.filecontents) &&
-				(isAlpha(scanner.getChar(0)) || isNumber(scanner.getChar(0)) || scanner.getChar(0) == '\\' || scanner.getChar(0) == '_' || scanner.getChar(0) == '.') {
+				(isAlpha(scanner.getChar(0)) || isNumber(scanner.getChar(0)) || scanner.getChar(0) == '\\' || scanner.getChar(0) == '-' || scanner.getChar(0) == '_' || scanner.getChar(0) == '.') {
 				scanner.index++
 			}
 			identifierOrKeyword := string(scanner.filecontents[t.Start:scanner.index])
@@ -308,7 +306,7 @@ func (scanner *Scanner) _getNextToken(eatNewline bool) token.Token {
 				}
 			}
 		} else {
-			panic(fmt.Sprintf("Unknown token type found in getToken(): %q (%v), at Line %d (%s)", C, C, scanner.lineNumber, scanner.pathname))
+			panic(fmt.Sprintf("Unknown token type found in getToken(): %q (%v), at Line %d (%s)", C, C, scanner.lineNumber, scanner.Filepath))
 		}
 	}
 	if t.Start > len(scanner.filecontents) {

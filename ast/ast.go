@@ -1,25 +1,26 @@
 package ast
 
-import (
-	"github.com/silbinarywolf/compiler-fel/token"
-)
+import "github.com/silbinarywolf/compiler-fel/token"
 
 type Node interface {
 	Nodes() []Node
 }
 
 type Base struct {
-	Start      int
-	End        int
 	ChildNodes []Node
 }
 
 type File struct {
-	Base
 	Filepath string
+	Base
 }
 
 type Block struct {
+	Base
+}
+
+type Parameter struct {
+	Name token.Token
 	Base
 }
 
@@ -29,7 +30,8 @@ type Block struct {
 }*/
 
 type HTMLNode struct {
-	Name token.Token
+	Name       token.Token
+	Parameters []Parameter
 	Base
 }
 
@@ -40,11 +42,10 @@ type Expression struct {
 
 type DeclareStatement struct {
 	Name token.Token
-	*Expression
+	Base
 }
 
 type Token struct {
-	Node
 	token.Token
 }
 
