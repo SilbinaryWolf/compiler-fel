@@ -6,9 +6,7 @@ import (
 	"github.com/silbinarywolf/compiler-fel/ast"
 )
 
-func (program *Program) evaluateBlock(blockNode ast.Node, scope *Scope) {
-	nodesQueue := blockNode.Nodes()
-
+func (program *Program) evaluateStatements(nodesQueue []ast.Node, scope *Scope) {
 	// DEBUG
 	/*json, _ := json.MarshalIndent(nodesQueue, "", "   ")
 	fmt.Printf("%s", string(json))

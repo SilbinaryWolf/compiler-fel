@@ -1,7 +1,6 @@
 package parser
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"github.com/silbinarywolf/compiler-fel/ast"
@@ -14,17 +13,24 @@ func (p *Parser) parseStatements() []ast.Node {
 
 Loop:
 	for {
-		t := p.GetNextToken()
+		t := p.PeekNextToken()
 		switch t.Kind {
 		case token.Identifier:
-			name := t
-			t := p.PeekNextToken()
-			switch t.Kind {
+			name := p.GetNextToken()
+			switch p.PeekNextToken().Kind {
 			case token.DeclareSet:
 				p.GetNextToken()
 				node := &ast.DeclareStatement{}
 				node.Name = name
 				node.ChildNodes = p.parseExpression()
+				resultNodes = append(resultNodes, node)
+			// div \n
+			//	   ^
+			case token.Newline:
+				p.GetNextToken()
+				node := &ast.HTMLNode{
+					Name: name,
+				}
 				resultNodes = append(resultNodes, node)
 			// div {
 			//     ^
@@ -46,8 +52,7 @@ Loop:
 				if node.Parameters == nil {
 					panic("parseStatements(): No parameters")
 				}
-				t = p.PeekNextToken()
-				if t.Kind == token.BraceOpen {
+				if p.PeekNextToken().Kind == token.BraceOpen {
 					p.GetNextToken()
 					node.ChildNodes = p.parseStatements()
 				}
@@ -56,16 +61,23 @@ Loop:
 			default:
 				panic(fmt.Sprintf("parseStatements(): Handle other ident case kind: %s", t.Kind.String()))
 			}
+		case token.String:
+			node := &ast.Expression{}
+			node.ChildNodes = p.parseExpression()
+			resultNodes = append(resultNodes, node)
 		case token.BraceClose:
+			p.GetNextToken()
 			break Loop
 		case token.Newline:
 			// no-op
+			p.GetNextToken()
 		case token.EOF:
 			break Loop
 		default:
+			p.GetNextToken()
 			p.PrintErrors()
-			json, _ := json.MarshalIndent(resultNodes, "", "   ")
-			fmt.Printf("%s", string(json))
+			//json, _ := json.MarshalIndent(resultNodes, "", "   ")
+			//fmt.Printf("%s", string(json))
 			panic(fmt.Sprintf("parseStatements(): Unhandled token: %s on Line %d", t.Kind.String(), t.Line))
 		}
 	}

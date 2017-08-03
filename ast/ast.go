@@ -24,6 +24,10 @@ type Parameter struct {
 	Base
 }
 
+type Expression struct {
+	Base
+}
+
 /*type NamedBlock struct {
 	Name token.Token
 	Block
@@ -33,11 +37,6 @@ type HTMLNode struct {
 	Name       token.Token
 	Parameters []Parameter
 	Base
-}
-
-type Expression struct {
-	Base
-	//InfixNodes *Base
 }
 
 type DeclareStatement struct {

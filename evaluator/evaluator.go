@@ -13,6 +13,7 @@ import (
 
 type Program struct {
 	globalScope *Scope
+	debugLevel  int
 }
 
 func New() *Program {
@@ -63,7 +64,9 @@ func (program *Program) RunProject(projectDirpath string) error {
 	}
 
 	// Evaluate config file
-	program.evaluateBlock(configAstFile, program.globalScope)
+	program.evaluateStatements(configAstFile.Nodes(), program.globalScope)
+
+	// Get config variables
 	value, ok := program.globalScope.GetCurrentScope("templateOutputDirectory")
 	if !ok {
 		return fmt.Errorf("%s is undefined in config.fel. This definition is required.", "templateOutputDirectory")
@@ -71,8 +74,9 @@ func (program *Program) RunProject(projectDirpath string) error {
 	if value.Kind() != KindString {
 		return fmt.Errorf("%s is expected to be a string.", "templateOutputDirectory")
 	}
-
 	templateOutputDirectory := fmt.Sprintf("%s/%s", projectDirpath, value.String())
+	program.globalScope = NewScope(nil)
+
 	// Check if output templates directory exists
 	{
 		_, err := os.Stat(templateOutputDirectory)
@@ -116,16 +120,29 @@ func (program *Program) RunProject(projectDirpath string) error {
 		astFiles = append(astFiles, astFile)
 	}
 
-	// DEBUG
-	json, _ := json.MarshalIndent(astFiles, "", "   ")
-	fmt.Printf("%s", string(json))
-
 	if p.HasErrors() {
 		p.PrintErrors()
 		return fmt.Errorf("Stopping due to parsing errors.")
 	}
 
+	{
+		json, _ := json.MarshalIndent(astFiles, "", "   ")
+		fmt.Printf("%s", string(json))
+	}
+
 	// Execute templates
+	// Clear config values so they can't be accessed
+	for _, astFile := range astFiles {
+		htmlNode := program.evaluateTemplate(astFile.Nodes(), program.globalScope)
+
+		// DEBUG
+		if htmlNode != nil {
+			//json, _ := json.MarshalIndent(htmlNode, "", "   ")
+			//fmt.Printf("%s", string(json))
+		}
+		panic("RunProject(): astFile")
+	}
+
 	// todo(Jake): Refactor above filewalk logic to find "config.fel" directly first, then walk "components"
 	//			   then walk "templates"
 	fmt.Printf("templateOutputDirectory: %s\n", templateOutputDirectory)

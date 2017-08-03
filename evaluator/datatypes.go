@@ -1,6 +1,9 @@
 package evaluator
 
-import "strconv"
+import (
+	"bytes"
+	"strconv"
+)
 
 type Kind int
 
@@ -9,6 +12,7 @@ const (
 	KindString
 	KindInteger64
 	KindFloat64
+	KindHTMLNode
 )
 
 type DataType interface {
@@ -50,4 +54,34 @@ func (f *Float64) String() string {
 
 func (s *Float64) Kind() Kind {
 	return KindFloat64
+}
+
+type HTMLNode struct {
+	Name       string
+	Attributes []HTMLAttribute
+	ChildNodes []*HTMLNode
+}
+
+type HTMLAttribute struct {
+	Name  string
+	Value string
+}
+
+func (node *HTMLNode) String() string {
+	var buffer bytes.Buffer
+	buffer.WriteByte('<')
+	buffer.WriteString(node.Name)
+	buffer.WriteByte(' ')
+	for _, attribute := range node.Attributes {
+		buffer.WriteString(attribute.Name)
+		buffer.WriteString("=\"")
+		buffer.WriteString(attribute.Value)
+		buffer.WriteString("\" ")
+	}
+	buffer.WriteByte('>')
+	return buffer.String()
+}
+
+func (node *HTMLNode) Kind() Kind {
+	return KindHTMLNode
 }
