@@ -7,7 +7,7 @@ import (
 	"github.com/silbinarywolf/compiler-fel/token"
 )
 
-func (program *Program) evaluateExpression(expressionNodes []ast.Node, parentScope *Scope) DataType {
+func (program *Program) evaluateExpression(expressionNodes []ast.Node, scope *Scope) DataType {
 	var stack []DataType
 
 	// todo(Jake): Rewrite string concat to use `var stringBuffer bytes.Buffer` and see if
@@ -18,8 +18,15 @@ func (program *Program) evaluateExpression(expressionNodes []ast.Node, parentSco
 		case *ast.Token:
 			switch node.Kind {
 			case token.String:
-				result := &String{Value: node.String()}
-				stack = append(stack, result)
+				value := &String{Value: node.String()}
+				stack = append(stack, value)
+			case token.Identifier:
+				name := node.String()
+				value, exists := scope.GetAllScopes(name)
+				if !exists {
+					panic(fmt.Sprintf("Variable isn't declared '%v'", name))
+				}
+				stack = append(stack, value)
 			default:
 				if node.IsOperator() {
 					rightValue := stack[len(stack)-1]

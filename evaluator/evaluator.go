@@ -125,10 +125,10 @@ func (program *Program) RunProject(projectDirpath string) error {
 		return fmt.Errorf("Stopping due to parsing errors.")
 	}
 
-	{
+	/*{
 		json, _ := json.MarshalIndent(astFiles, "", "   ")
 		fmt.Printf("%s", string(json))
-	}
+	}*/
 
 	// Execute templates
 	// Clear config values so they can't be accessed
@@ -137,8 +137,8 @@ func (program *Program) RunProject(projectDirpath string) error {
 
 		// DEBUG
 		if htmlNode != nil {
-			//json, _ := json.MarshalIndent(htmlNode, "", "   ")
-			//fmt.Printf("%s", string(json))
+			json, _ := json.MarshalIndent(htmlNode, "", "   ")
+			fmt.Printf("%s", string(json))
 		}
 		panic("RunProject(): astFile")
 	}
