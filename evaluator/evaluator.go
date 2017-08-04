@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 
 	"github.com/silbinarywolf/compiler-fel/ast"
+	"github.com/silbinarywolf/compiler-fel/data"
+	"github.com/silbinarywolf/compiler-fel/generate"
 	"github.com/silbinarywolf/compiler-fel/parser"
 )
 
@@ -71,7 +73,7 @@ func (program *Program) RunProject(projectDirpath string) error {
 	if !ok {
 		return fmt.Errorf("%s is undefined in config.fel. This definition is required.", "templateOutputDirectory")
 	}
-	if value.Kind() != KindString {
+	if value.Kind() != data.KindString {
 		return fmt.Errorf("%s is expected to be a string.", "templateOutputDirectory")
 	}
 	templateOutputDirectory := fmt.Sprintf("%s/%s", projectDirpath, value.String())
@@ -133,13 +135,18 @@ func (program *Program) RunProject(projectDirpath string) error {
 	// Execute templates
 	// Clear config values so they can't be accessed
 	for _, astFile := range astFiles {
-		htmlNode := program.evaluateTemplate(astFile.Nodes(), program.globalScope)
+		htmlNodes := program.evaluateTemplate(astFile.Nodes(), program.globalScope)
 
-		// DEBUG
-		if htmlNode != nil {
-			json, _ := json.MarshalIndent(htmlNode, "", "   ")
-			fmt.Printf("%s", string(json))
+		if len(htmlNodes) == 0 {
+			return fmt.Errorf("No top level HTMLNode found in %s.", astFile.Filepath)
 		}
+		if len(htmlNodes) > 1 {
+			return fmt.Errorf("Cannot have multiple top-level HTML nodes in %s.", astFile.Filepath)
+		}
+		htmlNode := htmlNodes[0]
+		json, _ := json.MarshalIndent(htmlNode, "", "   ")
+		fmt.Printf("%s", string(json))
+		fmt.Printf(generate.PrettyHTML(htmlNode))
 		panic("RunProject(): astFile")
 	}
 

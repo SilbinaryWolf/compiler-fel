@@ -1,16 +1,19 @@
 package evaluator
 
-import "github.com/silbinarywolf/compiler-fel/ast"
+import (
+	"github.com/silbinarywolf/compiler-fel/ast"
+	"github.com/silbinarywolf/compiler-fel/data"
+)
 
-func (program *Program) evaluateHTMLNode(node *ast.HTMLNode, parentScope *Scope) *HTMLNode {
-	resultDataNode := new(HTMLNode)
+func (program *Program) evaluateHTMLNode(node *ast.HTMLNode, parentScope *Scope) *data.HTMLNode {
+	resultDataNode := new(data.HTMLNode)
 	resultDataNode.Name = node.Name.String()
 
 	// Evaluate parameters
 	if parameterSet := node.Parameters; parameterSet != nil {
 		for _, parameter := range parameterSet {
 			value := program.evaluateExpression(parameter.Nodes(), parentScope)
-			attributeNode := HTMLAttribute{
+			attributeNode := data.HTMLAttribute{
 				Name:  parameter.Name.String(),
 				Value: value.String(),
 			}
@@ -32,8 +35,8 @@ func (program *Program) evaluateHTMLNode(node *ast.HTMLNode, parentScope *Scope)
 	return resultDataNode
 }
 
-func (program *Program) evaluateTemplate(nodes []ast.Node, scope *Scope) []*HTMLNode {
-	var resultDataNodeSet []*HTMLNode
+func (program *Program) evaluateTemplate(nodes []ast.Node, scope *Scope) []*data.HTMLNode {
+	var resultDataNodeSet []*data.HTMLNode
 
 	for _, itNode := range nodes {
 		switch node := itNode.(type) {

@@ -4,11 +4,12 @@ import (
 	"fmt"
 
 	"github.com/silbinarywolf/compiler-fel/ast"
+	"github.com/silbinarywolf/compiler-fel/data"
 	"github.com/silbinarywolf/compiler-fel/token"
 )
 
-func (program *Program) evaluateExpression(expressionNodes []ast.Node, scope *Scope) DataType {
-	var stack []DataType
+func (program *Program) evaluateExpression(expressionNodes []ast.Node, scope *Scope) data.Type {
+	var stack []data.Type
 
 	// todo(Jake): Rewrite string concat to use `var stringBuffer bytes.Buffer` and see if
 	//			   there is a speedup
@@ -18,7 +19,7 @@ func (program *Program) evaluateExpression(expressionNodes []ast.Node, scope *Sc
 		case *ast.Token:
 			switch node.Kind {
 			case token.String:
-				value := &String{Value: node.String()}
+				value := &data.String{Value: node.String()}
 				stack = append(stack, value)
 			case token.Identifier:
 				name := node.String()
@@ -42,8 +43,8 @@ func (program *Program) evaluateExpression(expressionNodes []ast.Node, scope *Sc
 
 					switch node.Kind {
 					case token.Add:
-						if leftType == KindString && rightType == KindString {
-							result := &String{
+						if leftType == data.KindString && rightType == data.KindString {
+							result := &data.String{
 								Value: leftValue.String() + rightValue.String(),
 							}
 							stack = append(stack, result)
