@@ -2,6 +2,7 @@ package generate
 
 import (
 	"bytes"
+	"fmt"
 
 	"github.com/silbinarywolf/compiler-fel/data"
 )
@@ -40,9 +41,16 @@ func (gen *Generator) getHTMLNode(node *data.HTMLNode) {
 
 	if len(node.ChildNodes) > 0 {
 		gen.indent++
-		for _, subNode := range node.ChildNodes {
+		for _, itNode := range node.ChildNodes {
 			gen.WriteLine()
-			gen.getHTMLNode(subNode)
+			switch subNode := itNode.(type) {
+			case *data.HTMLNode:
+				gen.getHTMLNode(subNode)
+			case *data.HTMLText:
+				gen.WriteString(subNode.String())
+			default:
+				panic(fmt.Sprintf("getHTMLNode(): Unhandled type: %T", itNode))
+			}
 		}
 	} else {
 		gen.WriteLine()

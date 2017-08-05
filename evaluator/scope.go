@@ -18,15 +18,15 @@ func (scope *Scope) Set(name string, value data.Type) {
 	scope.variables[name] = value
 }
 
-func (scope *Scope) GetAllScopes(name string) (data.Type, bool) {
+func (scope *Scope) Get(name string) (data.Type, bool) {
 	value, ok := scope.variables[name]
 	if !ok && scope.parent != nil {
-		value, ok = scope.parent.GetCurrentScope(name)
+		value, ok = scope.parent.Get(name)
 	}
 	return value, ok
 }
 
-func (scope *Scope) GetCurrentScope(name string) (data.Type, bool) {
+func (scope *Scope) GetThisScope(name string) (data.Type, bool) {
 	value, ok := scope.variables[name]
 	return value, ok
 }

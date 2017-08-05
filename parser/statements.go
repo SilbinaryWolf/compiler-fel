@@ -16,26 +16,19 @@ Loop:
 		t := p.PeekNextToken()
 		switch t.Kind {
 		case token.Identifier:
+			storeScannerState := p.ScannerState
 			name := p.GetNextToken()
-			switch p.PeekNextToken().Kind {
+			switch t := p.GetNextToken(); t.Kind {
+			// myVar := {Expression} \n
+			//
 			case token.DeclareSet:
-				p.GetNextToken()
 				node := &ast.DeclareStatement{}
 				node.Name = name
 				node.ChildNodes = p.parseExpression()
 				resultNodes = append(resultNodes, node)
-			// div \n
-			//	   ^
-			case token.Newline:
-				p.GetNextToken()
-				node := &ast.HTMLNode{
-					Name: name,
-				}
-				resultNodes = append(resultNodes, node)
 			// div {
 			//     ^
 			case token.BraceOpen:
-				p.GetNextToken()
 				node := &ast.HTMLNode{
 					Name: name,
 				}
@@ -44,7 +37,6 @@ Loop:
 			// div(class="hey")
 			//    ^
 			case token.ParenOpen:
-				p.GetNextToken()
 				node := &ast.HTMLNode{
 					Name: name,
 				}
@@ -57,8 +49,21 @@ Loop:
 					node.ChildNodes = p.parseStatements()
 				}
 				resultNodes = append(resultNodes, node)
-				//panic("Finish parseStatements() parseAttributes")
+			// div \n
+			//	   ^
+			case token.Newline:
+				p.ScannerState = storeScannerState
+				node := new(ast.Expression)
+				node.ChildNodes = p.parseExpression()
+				resultNodes = append(resultNodes, node)
 			default:
+				if t.IsOperator() {
+					p.ScannerState = storeScannerState
+					node := new(ast.Expression)
+					node.ChildNodes = p.parseExpression()
+					resultNodes = append(resultNodes, node)
+					continue
+				}
 				panic(fmt.Sprintf("parseStatements(): Handle other ident case kind: %s", t.Kind.String()))
 			}
 		case token.String:

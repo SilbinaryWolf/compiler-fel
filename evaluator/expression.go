@@ -15,6 +15,7 @@ func (program *Program) evaluateExpression(expressionNodes []ast.Node, scope *Sc
 	//			   there is a speedup
 
 	for _, itNode := range expressionNodes {
+
 		switch node := itNode.(type) {
 		case *ast.Token:
 			switch node.Kind {
@@ -23,9 +24,9 @@ func (program *Program) evaluateExpression(expressionNodes []ast.Node, scope *Sc
 				stack = append(stack, value)
 			case token.Identifier:
 				name := node.String()
-				value, exists := scope.GetAllScopes(name)
+				value, exists := scope.Get(name)
 				if !exists {
-					panic(fmt.Sprintf("Variable isn't declared '%v'", name))
+					panic(fmt.Sprintf("Variable isn't declared '%v' on Line %d", name, node.Line))
 				}
 				stack = append(stack, value)
 			default:
@@ -33,7 +34,7 @@ func (program *Program) evaluateExpression(expressionNodes []ast.Node, scope *Sc
 					rightValue := stack[len(stack)-1]
 					stack = stack[:len(stack)-1]
 					if len(stack) == 0 {
-						panic(fmt.Sprintf("Only got %s %s", rightValue, node.String()))
+						panic(fmt.Sprintf("evaluateExpression(): Only got rightValue: %s, operator: %s", rightValue, node.String()))
 					}
 					leftValue := stack[len(stack)-1]
 					stack = stack[:len(stack)-1]

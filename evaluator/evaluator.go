@@ -66,10 +66,12 @@ func (program *Program) RunProject(projectDirpath string) error {
 	}
 
 	// Evaluate config file
-	program.evaluateStatements(configAstFile.Nodes(), program.globalScope)
+	for _, node := range configAstFile.Nodes() {
+		program.evaluateStatement(node, program.globalScope)
+	}
 
 	// Get config variables
-	value, ok := program.globalScope.GetCurrentScope("templateOutputDirectory")
+	value, ok := program.globalScope.Get("templateOutputDirectory")
 	if !ok {
 		return fmt.Errorf("%s is undefined in config.fel. This definition is required.", "templateOutputDirectory")
 	}
@@ -135,7 +137,8 @@ func (program *Program) RunProject(projectDirpath string) error {
 	// Execute templates
 	// Clear config values so they can't be accessed
 	for _, astFile := range astFiles {
-		htmlNodes := program.evaluateTemplate(astFile.Nodes(), program.globalScope)
+		scope := NewScope(nil)
+		htmlNodes := program.evaluateTemplate(astFile.Nodes(), scope)
 
 		if len(htmlNodes) == 0 {
 			return fmt.Errorf("No top level HTMLNode found in %s.", astFile.Filepath)

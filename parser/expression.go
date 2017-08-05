@@ -11,6 +11,8 @@ func (p *Parser) parseExpression() []ast.Node {
 	parenOpenCount := 0
 	parenCloseCount := 0
 
+	expectOperator := false
+
 	//childNodes := make([]ast.Node, 0, 10)
 	infixNodes := make([]ast.Node, 0, 10)
 	operatorNodes := make([]*ast.Token, 0, 10)
@@ -21,12 +23,20 @@ Loop:
 		switch t.Kind {
 		case token.Identifier:
 			p.GetNextToken()
+			if expectOperator {
+				panic("Expected operator, not identifier")
+			}
 			if p.PeekNextToken().Kind == token.ParenOpen {
 				panic("parseExpression(): todo: Handle component/function in expression")
 			}
+			expectOperator = true
 			infixNodes = append(infixNodes, &ast.Token{Token: t})
 		case token.String:
 			p.GetNextToken()
+			if expectOperator {
+				panic("Expected operator, not identifier")
+			}
+			expectOperator = true
 			infixNodes = append(infixNodes, &ast.Token{Token: t})
 		case token.Semicolon, token.Newline:
 			p.GetNextToken()
@@ -50,6 +60,10 @@ Loop:
 			}
 		default:
 			if t.IsOperator() {
+				if !expectOperator {
+					panic(fmt.Sprintf("Expected identifiers or string, instead got operator \"%s\" on Line %d.", t.String(), t.Line))
+				}
+				expectOperator = false
 				p.GetNextToken()
 
 				// https://github.com/SilbinaryWolf/fel/blob/master/c_compiler/parser.h

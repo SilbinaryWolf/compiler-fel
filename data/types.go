@@ -13,6 +13,7 @@ const (
 	KindInteger64
 	KindFloat64
 	KindHTMLNode
+	KindHTMLText
 )
 
 type Type interface {
@@ -59,11 +60,15 @@ func (f *Float64) String() string {
 type HTMLNode struct {
 	Name       string
 	Attributes []HTMLAttribute
-	ChildNodes []*HTMLNode
+	ChildNodes []Type
 }
 
 type HTMLAttribute struct {
 	Name  string
+	Value string
+}
+
+type HTMLText struct {
 	Value string
 }
 
@@ -84,4 +89,12 @@ func (node *HTMLNode) String() string {
 	}
 	buffer.WriteByte('>')
 	return buffer.String()
+}
+
+func (node *HTMLText) Kind() Kind {
+	return KindHTMLText
+}
+
+func (node *HTMLText) String() string {
+	return node.Value
 }
