@@ -38,8 +38,15 @@ Loop:
 			}
 			expectOperator = true
 			infixNodes = append(infixNodes, &ast.Token{Token: t})
-		case token.Semicolon, token.Newline:
+		case token.Semicolon:
 			p.GetNextToken()
+			break Loop
+		case token.Newline:
+			p.GetNextToken()
+			// Allow expression to go over newline if operator is next
+			//if t := p.PeekNextToken(); t.IsOperator() {
+			//	continue
+			//}
 			break Loop
 		case token.BraceOpen, token.BraceClose, token.Comma:
 			break Loop

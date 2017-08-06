@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/silbinarywolf/compiler-fel/ast"
 	"github.com/silbinarywolf/compiler-fel/data"
@@ -25,6 +26,8 @@ func New() *Program {
 }
 
 func (program *Program) RunProject(projectDirpath string) error {
+	totalTimeStart := time.Now()
+
 	configFilepath := projectDirpath + "/config.fel"
 	if _, err := os.Stat(configFilepath); os.IsNotExist(err) {
 		return fmt.Errorf("Cannot find config.fel in root of project directory: %v", configFilepath)
@@ -111,6 +114,7 @@ func (program *Program) RunProject(projectDirpath string) error {
 	// Parse files
 	astFiles := make([]*ast.File, 0, 50)
 	p := parser.New()
+	parsingStart := time.Now()
 	for _, filepath := range filepathSet {
 		filecontentsAsBytes, err := ioutil.ReadFile(filepath)
 		if err != nil {
@@ -123,6 +127,7 @@ func (program *Program) RunProject(projectDirpath string) error {
 		}
 		astFiles = append(astFiles, astFile)
 	}
+	parsingElapsed := time.Since(parsingStart)
 
 	if p.HasErrors() {
 		p.PrintErrors()
@@ -136,21 +141,28 @@ func (program *Program) RunProject(projectDirpath string) error {
 
 	// Execute templates
 	// Clear config values so they can't be accessed
+	executionStart := time.Now()
 	for _, astFile := range astFiles {
 		scope := NewScope(nil)
-		htmlNodes := program.evaluateTemplate(astFile.Nodes(), scope)
+		htmlNode := program.evaluateTemplate(astFile, scope)
+		executionElapsed := time.Since(executionStart)
 
-		if len(htmlNodes) == 0 {
-			return fmt.Errorf("No top level HTMLNode found in %s.", astFile.Filepath)
+		if len(htmlNode.ChildNodes) == 0 {
+			return fmt.Errorf("No top level HTMLNode or HTMLText found in %s.", astFile.Filepath)
 		}
-		if len(htmlNodes) > 1 {
-			return fmt.Errorf("Cannot have multiple top-level HTML nodes in %s.", astFile.Filepath)
+		if htmlNode != nil {
+			json, _ := json.MarshalIndent(htmlNode, "", "   ")
+			fmt.Printf("%s", string(json))
+			fmt.Printf(generate.PrettyHTML(htmlNode))
+			fmt.Printf("\n\n")
+			fmt.Printf("Parsing time: %s\n", parsingElapsed)
+			fmt.Printf("Execution time: %s\n", executionElapsed)
+			totalTimeElapsed := time.Since(totalTimeStart)
+			fmt.Printf("Total time: %s\n", totalTimeElapsed)
+			panic("RunProject(): astFile")
+		} else {
+			panic("Error? No htmlNode returned")
 		}
-		htmlNode := htmlNodes[0]
-		json, _ := json.MarshalIndent(htmlNode, "", "   ")
-		fmt.Printf("%s", string(json))
-		fmt.Printf(generate.PrettyHTML(htmlNode))
-		panic("RunProject(): astFile")
 	}
 
 	// todo(Jake): Refactor above filewalk logic to find "config.fel" directly first, then walk "components"

@@ -5,6 +5,7 @@ import (
 
 	"github.com/silbinarywolf/compiler-fel/ast"
 	"github.com/silbinarywolf/compiler-fel/token"
+	"github.com/silbinarywolf/compiler-fel/util"
 )
 
 // todo(Jake): Change to parseStatements, make it return []ast.Node slice
@@ -33,6 +34,9 @@ Loop:
 					Name: name,
 				}
 				node.ChildNodes = p.parseStatements()
+				if len(node.ChildNodes) > 0 && util.IsSelfClosingTagName(name.String()) {
+					p.addError(fmt.Errorf("%s is a self-closing tag and cannot have child elements.", name.String()))
+				}
 				resultNodes = append(resultNodes, node)
 			// div(class="hey")
 			//    ^
@@ -41,16 +45,16 @@ Loop:
 					Name: name,
 				}
 				node.Parameters = p.parseParameters()
-				if node.Parameters == nil {
-					panic("parseStatements(): No parameters")
-				}
 				if p.PeekNextToken().Kind == token.BraceOpen {
 					p.GetNextToken()
 					node.ChildNodes = p.parseStatements()
+					if len(node.ChildNodes) > 0 && util.IsSelfClosingTagName(name.String()) {
+						p.addError(fmt.Errorf("%s is a self-closing tag and cannot have child elements.", name.String()))
+					}
 				}
 				resultNodes = append(resultNodes, node)
-			// div \n
-			//	   ^
+			// PrintThisVariable \n
+			// ^
 			case token.Newline:
 				p.ScannerState = storeScannerState
 				node := new(ast.Expression)

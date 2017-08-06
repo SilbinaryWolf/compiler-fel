@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/silbinarywolf/compiler-fel/data"
+	"github.com/silbinarywolf/compiler-fel/util"
 )
 
 type Generator struct {
@@ -28,19 +29,32 @@ func PrettyHTML(node *data.HTMLNode) string {
 }
 
 func (gen *Generator) getHTMLNode(node *data.HTMLNode) {
-	gen.WriteByte('<')
-	gen.WriteString(node.Name)
-	for _, attribute := range node.Attributes {
-		gen.WriteByte(' ')
-		gen.WriteString(attribute.Name)
-		gen.WriteString("=\"")
-		gen.WriteString(attribute.Value)
-		gen.WriteByte('"')
-	}
-	gen.WriteByte('>')
+	isNamedHTMLNode := len(node.Name) > 0
+	isSelfClosing := util.IsSelfClosingTagName(node.Name)
 
-	if len(node.ChildNodes) > 0 {
-		gen.indent++
+	if isNamedHTMLNode {
+		gen.WriteByte('<')
+		gen.WriteString(node.Name)
+		for _, attribute := range node.Attributes {
+			gen.WriteByte(' ')
+			gen.WriteString(attribute.Name)
+			gen.WriteString("=\"")
+			gen.WriteString(attribute.Value)
+			gen.WriteByte('"')
+		}
+		if isSelfClosing {
+			gen.WriteByte('/')
+		}
+		gen.WriteByte('>')
+
+		if !isSelfClosing && len(node.ChildNodes) > 0 {
+			gen.indent++
+		}
+	}
+
+	if len(node.ChildNodes) == 0 && !isSelfClosing {
+		gen.WriteLine()
+	} else {
 		for _, itNode := range node.ChildNodes {
 			gen.WriteLine()
 			switch subNode := itNode.(type) {
@@ -52,15 +66,15 @@ func (gen *Generator) getHTMLNode(node *data.HTMLNode) {
 				panic(fmt.Sprintf("getHTMLNode(): Unhandled type: %T", itNode))
 			}
 		}
-	} else {
-		gen.WriteLine()
 	}
 
-	if len(node.ChildNodes) > 0 {
-		gen.indent--
-		gen.WriteLine()
+	if !isSelfClosing && isNamedHTMLNode {
+		if len(node.ChildNodes) > 0 {
+			gen.indent--
+			gen.WriteLine()
+		}
+		gen.WriteString("</")
+		gen.WriteString(node.Name)
+		gen.WriteByte('>')
 	}
-	gen.WriteString("</")
-	gen.WriteString(node.Name)
-	gen.WriteByte('>')
 }

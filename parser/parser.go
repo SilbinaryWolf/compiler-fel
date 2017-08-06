@@ -24,13 +24,12 @@ func (p *Parser) ParseFile(filepath string) (*ast.File, error) {
 	if err != nil {
 		return nil, err
 	}
-	return p.Parse(filecontentsAsBytes, filepath), nil
+	result := p.Parse(filecontentsAsBytes, filepath)
+	return result, nil
 }
 
 func (p *Parser) Parse(filecontentsAsBytes []byte, filepath string) *ast.File {
 	p.Scanner = scanner.New(filecontentsAsBytes, filepath)
-	//nodes := make([]ast.Node, 0, 10)
-
 	resultNode := &ast.File{
 		Filepath: filepath,
 	}

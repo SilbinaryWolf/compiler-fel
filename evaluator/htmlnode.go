@@ -40,18 +40,10 @@ func (program *Program) evaluateHTMLNode(node *ast.HTMLNode, scope *Scope) *data
 	return resultDataNode
 }
 
-func (program *Program) evaluateTemplate(nodes []ast.Node, scope *Scope) []*data.HTMLNode {
-	var resultDataNodeSet []*data.HTMLNode
-
-	for _, itNode := range nodes {
-		switch node := itNode.(type) {
-		case *ast.HTMLNode:
-			subResultDataNode := program.evaluateHTMLNode(node, scope)
-			resultDataNodeSet = append(resultDataNodeSet, subResultDataNode)
-		default:
-			program.evaluateStatement(itNode, scope)
-		}
-	}
-
-	return resultDataNodeSet
+func (program *Program) evaluateTemplate(node *ast.File, scope *Scope) *data.HTMLNode {
+	htmlNode := ast.HTMLNode{}
+	htmlNode.ChildNodes = node.Nodes()
+	result := program.evaluateHTMLNode(&htmlNode, scope)
+	result.Name = ""
+	return result
 }
