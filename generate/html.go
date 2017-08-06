@@ -23,33 +23,42 @@ func (gen *Generator) WriteLine() {
 func PrettyHTML(node *data.HTMLNode) string {
 	gen := new(Generator)
 
-	gen.getHTMLNode(node)
+	if len(node.Name) > 0 {
+		gen.getHTMLNode(node)
+	} else {
+		for _, itNode := range node.ChildNodes {
+			switch childNode := itNode.(type) {
+			case *data.HTMLNode:
+				gen.getHTMLNode(childNode)
+			default:
+				panic(fmt.Sprintf("PrettyHTML(): Unhandled type: %T", itNode))
+			}
+		}
+	}
+	gen.WriteByte('\n')
 
 	return gen.String()
 }
 
 func (gen *Generator) getHTMLNode(node *data.HTMLNode) {
-	isNamedHTMLNode := len(node.Name) > 0
 	isSelfClosing := util.IsSelfClosingTagName(node.Name)
 
-	if isNamedHTMLNode {
-		gen.WriteByte('<')
-		gen.WriteString(node.Name)
-		for _, attribute := range node.Attributes {
-			gen.WriteByte(' ')
-			gen.WriteString(attribute.Name)
-			gen.WriteString("=\"")
-			gen.WriteString(attribute.Value)
-			gen.WriteByte('"')
-		}
-		if isSelfClosing {
-			gen.WriteByte('/')
-		}
-		gen.WriteByte('>')
+	gen.WriteByte('<')
+	gen.WriteString(node.Name)
+	for _, attribute := range node.Attributes {
+		gen.WriteByte(' ')
+		gen.WriteString(attribute.Name)
+		gen.WriteString("=\"")
+		gen.WriteString(attribute.Value)
+		gen.WriteByte('"')
+	}
+	if isSelfClosing {
+		gen.WriteByte('/')
+	}
+	gen.WriteByte('>')
 
-		if !isSelfClosing && len(node.ChildNodes) > 0 {
-			gen.indent++
-		}
+	if !isSelfClosing && len(node.ChildNodes) > 0 {
+		gen.indent++
 	}
 
 	if len(node.ChildNodes) == 0 && !isSelfClosing {
@@ -68,7 +77,7 @@ func (gen *Generator) getHTMLNode(node *data.HTMLNode) {
 		}
 	}
 
-	if !isSelfClosing && isNamedHTMLNode {
+	if !isSelfClosing {
 		if len(node.ChildNodes) > 0 {
 			gen.indent--
 			gen.WriteLine()

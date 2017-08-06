@@ -1,7 +1,6 @@
 package evaluator
 
 import (
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -13,6 +12,11 @@ import (
 	"github.com/silbinarywolf/compiler-fel/generate"
 	"github.com/silbinarywolf/compiler-fel/parser"
 )
+
+type TemplateFile struct {
+	Filepath string
+	Content  string
+}
 
 type Program struct {
 	globalScope *Scope
@@ -139,35 +143,49 @@ func (program *Program) RunProject(projectDirpath string) error {
 		fmt.Printf("%s", string(json))
 	}*/
 
+	outputTemplateFileSet := make([]TemplateFile, 0, len(astFiles))
+
 	// Execute templates
 	// Clear config values so they can't be accessed
 	executionStart := time.Now()
 	for _, astFile := range astFiles {
 		scope := NewScope(nil)
 		htmlNode := program.evaluateTemplate(astFile, scope)
-		executionElapsed := time.Since(executionStart)
 
 		if len(htmlNode.ChildNodes) == 0 {
 			return fmt.Errorf("No top level HTMLNode or HTMLText found in %s.", astFile.Filepath)
 		}
-		if htmlNode != nil {
-			json, _ := json.MarshalIndent(htmlNode, "", "   ")
-			fmt.Printf("%s", string(json))
-			fmt.Printf(generate.PrettyHTML(htmlNode))
-			fmt.Printf("\n\n")
-			fmt.Printf("Parsing time: %s\n", parsingElapsed)
-			fmt.Printf("Execution time: %s\n", executionElapsed)
-			totalTimeElapsed := time.Since(totalTimeStart)
-			fmt.Printf("Total time: %s\n", totalTimeElapsed)
-			panic("RunProject(): astFile")
-		} else {
-			panic("Error? No htmlNode returned")
+		if htmlNode == nil {
+			panic(fmt.Sprintf("No html node found in %s.", astFile.Filepath))
+		}
+
+		baseFilename := astFile.Filepath[len(templateInputDirectory) : len(astFile.Filepath)-4]
+		outputFilepath := filepath.Clean(fmt.Sprintf("%s%s.html", templateOutputDirectory, baseFilename))
+		result := TemplateFile{
+			Filepath: outputFilepath,
+			Content:  generate.PrettyHTML(htmlNode),
+		}
+		outputTemplateFileSet = append(outputTemplateFileSet, result)
+	}
+	executionElapsed := time.Since(executionStart)
+
+	for _, outputTemplateFile := range outputTemplateFileSet {
+		err := ioutil.WriteFile(
+			outputTemplateFile.Filepath,
+			[]byte(outputTemplateFile.Content),
+			0644,
+		)
+		if err != nil {
+			panic(err)
 		}
 	}
 
-	// todo(Jake): Refactor above filewalk logic to find "config.fel" directly first, then walk "components"
-	//			   then walk "templates"
-	fmt.Printf("templateOutputDirectory: %s\n", templateOutputDirectory)
+	//fmt.Printf("templateOutputDirectory: %s\n", templateOutputDirectory)
+
+	fmt.Printf("Parsing time: %s\n", parsingElapsed)
+	fmt.Printf("Execution time: %s\n", executionElapsed)
+	totalTimeElapsed := time.Since(totalTimeStart)
+	fmt.Printf("Total time: %s\n", totalTimeElapsed)
 	panic("Evaluator::RunProject(): todo(Jake): The rest of the function")
 	return nil
 }

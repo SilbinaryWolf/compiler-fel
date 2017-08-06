@@ -5,6 +5,14 @@ import (
 	"github.com/silbinarywolf/compiler-fel/data"
 )
 
+func (program *Program) evaluateTemplate(node *ast.File, scope *Scope) *data.HTMLNode {
+	htmlNode := ast.HTMLNode{}
+	htmlNode.ChildNodes = node.Nodes()
+	result := program.evaluateHTMLNode(&htmlNode, scope)
+	result.Name = ""
+	return result
+}
+
 func (program *Program) evaluateHTMLNode(node *ast.HTMLNode, scope *Scope) *data.HTMLNode {
 	resultDataNode := new(data.HTMLNode)
 	resultDataNode.Name = node.Name.String()
@@ -38,12 +46,4 @@ func (program *Program) evaluateHTMLNode(node *ast.HTMLNode, scope *Scope) *data
 		}
 	}
 	return resultDataNode
-}
-
-func (program *Program) evaluateTemplate(node *ast.File, scope *Scope) *data.HTMLNode {
-	htmlNode := ast.HTMLNode{}
-	htmlNode.ChildNodes = node.Nodes()
-	result := program.evaluateHTMLNode(&htmlNode, scope)
-	result.Name = ""
-	return result
 }

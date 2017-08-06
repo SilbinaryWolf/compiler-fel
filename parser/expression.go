@@ -70,8 +70,8 @@ Loop:
 				if !expectOperator {
 					panic(fmt.Sprintf("Expected identifiers or string, instead got operator \"%s\" on Line %d.", t.String(), t.Line))
 				}
-				expectOperator = false
 				p.GetNextToken()
+				expectOperator = false
 
 				// https://github.com/SilbinaryWolf/fel/blob/master/c_compiler/parser.h
 				for len(operatorNodes) > 0 {
