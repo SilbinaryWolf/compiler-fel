@@ -92,7 +92,7 @@ var kindToString = []string{
 
 	Identifier: "identifier",
 
-	//Number       // 30, 1.462
+	Number:       "number",
 	ParenOpen:    "(",
 	ParenClose:   ")",
 	BraceOpen:    "{",
