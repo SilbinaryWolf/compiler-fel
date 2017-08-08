@@ -18,6 +18,9 @@ type Scanner struct {
 	Filepath     string
 }
 
+const BYTE_ORDER_MARK = 0xFEFF // byte order mark, only permitted as very first character
+const END_OF_FILE = 0
+
 func New(filecontents []byte, filepath string) *Scanner {
 	scanner := new(Scanner)
 	scanner.lineNumber = 1
@@ -101,19 +104,32 @@ func eatAllWhitespaceAndComments(scanner *Scanner, eatNewline bool, eatWhitespac
 	for {
 		if eatNewline && eatEndOfLine(scanner) {
 			continue
-		} else if eatWhitespace && isWhitespace(scanner.getChar(0)) {
-			scanner.index++
-		} else if scanner.getChar(0) == '#' || (scanner.getChar(0) == '/' && scanner.getChar(1) == '/') {
-			scanner.index += 2
-			for scanner.getChar(0) != 0 && !isEndOfLine(scanner.getChar(0)) {
-				scanner.index++
+		}
+		lastIndex := scanner.index
+		C := scanner.nextRune()
+		C2 := scanner.nextRune()
+		if eatWhitespace && isWhitespace(C) {
+			continue
+		}
+		if C == '/' && C2 == '/' {
+			for {
+				C := scanner.nextRune()
+				if C == 0 || isEndOfLine(C) {
+					break
+				}
 			}
-			eatEndOfLine(scanner)
-		} else if scanner.getChar(0) == '/' && scanner.getChar(1) == '*' {
+			//eatEndOfLine(scanner)
+			continue
+		}
+		if C == '/' && C2 == '*' {
 			commentBlockDepth += 1
-			scanner.index += 2
-			for scanner.getChar(0) != 0 && commentBlockDepth > 0 {
-				if scanner.getChar(0) == '/' && scanner.getChar(1) == '*' {
+			for {
+				C := scanner.nextRune()
+				if C == 0 || commentBlockDepth == 0 {
+					break
+				}
+				C2 := scanner.nextRune()
+				if C == '/' && scanner.getChar(1) == '*' {
 					commentBlockDepth += 1
 					scanner.index += 2
 				} else if scanner.getChar(0) == '*' && scanner.getChar(1) == '/' {
@@ -123,19 +139,42 @@ func eatAllWhitespaceAndComments(scanner *Scanner, eatNewline bool, eatWhitespac
 					scanner.index++
 				}
 			}
-		} else {
-			break
+			continue
 		}
+
+		// If no matches, rewind and break
+		scanner.index = lastIndex
+		break
 	}
 }
 
-func (scanner *Scanner) getChar(lookAhead int) byte {
-	index := scanner.index + lookAhead
+/*func (scanner *Scanner) getByte() byte {
 	if index >= 0 && index < len(scanner.filecontents) {
-		r := scanner.filecontents[index]
-		return r
+		return scanner.filecontents[index]
 	}
 	return 0
+}*/
+
+func (scanner *Scanner) nextRune() rune {
+	index := scanner.index + lookAhead
+	if index < 0 && index >= len(scanner.filecontents) {
+		return 0
+	}
+	r, size := rune(scanner.filecontents[index]), 1
+	switch {
+	case r == 0:
+		panic("Illegal character NUL")
+	case r >= utf8.RuneSelf:
+		// not ASCII
+		r, size = utf8.DecodeRune(scanner.filecontents[index:])
+		if r == utf8.RuneError && w == 1 {
+			panic("illegal UTF-8 encoding")
+		} else if r == BYTE_ORDER_MARK && s.offset > 0 {
+			panic("illegal byte order mark")
+		}
+	}
+	scanner.index += size
+	return r
 }
 
 /*func (scanner *Scanner) peekNextTokenIncludeNewline() token.Token {
@@ -163,9 +202,9 @@ func (scanner *Scanner) _getNextToken(eatNewline bool) token.Token {
 
 	eatAllWhitespaceAndComments(scanner, false, true)
 
-	C := scanner.getChar(0)
 	t.Start = scanner.index
-	scanner.index++
+	C := scanner.nextRune()
+	t.Start = scanner.index
 	switch C {
 	case 0:
 		t.Kind = token.EOF
@@ -196,46 +235,58 @@ func (scanner *Scanner) _getNextToken(eatNewline bool) token.Token {
 		//if isAlpha(scanner.getChar(0)) || scanner.getChar(0) == '_' {
 		//	scanner.index++
 		//}
-		for scanner.index < len(scanner.filecontents) &&
-			(isAlpha(scanner.getChar(0)) || isNumber(scanner.getChar(0)) || scanner.getChar(0) == '_') {
-			scanner.index++
+		for {
+			C := scanner.nextRune()
+			if C != END_OF_FILE &&
+				(isAlpha(C) || isNumber(C) || C == '_') {
+				continue
+			}
+			break
 		}
 	case '\'':
-		t.Kind = token.Character
+		panic("Character string unsupported.")
+		/*t.Kind = token.Character
 		t.Start++
-		for scanner.index < len(scanner.filecontents) &&
-			scanner.getChar(0) != C {
-			if scanner.getChar(0) == '\\' {
-				// Skip command code
+		for {
+			nextC := scanner.nextRune(0)
+			if C != END_OF_FILE && C != nextC {
+				if nextC == '\\' {
+					// Skip command code
+					scanner.index++
+				}
 				scanner.index++
+				continue
 			}
-			scanner.index++
+			break
 		}
 		t.End = scanner.index
-		scanner.index++
+		scanner.index++*/
 	case '"', '`':
-		t.Kind = token.String
+		t.Kind = token.Character
 		t.Start++
-		for scanner.index < len(scanner.filecontents) &&
-			scanner.getChar(0) != C {
-			if scanner.getChar(0) == '\\' {
-				// Skip command code
+		for {
+			nextC := scanner.nextRune()
+			if C != END_OF_FILE && C != nextC {
+				if nextC == '\\' {
+					// Skip command code
+					scanner.index++
+				}
 				scanner.index++
+				continue
 			}
-			scanner.index++
+			break
 		}
 		t.End = scanner.index
 		scanner.index++
 	case ':':
 		t.Kind = token.Declare
-		nextC := scanner.getChar(0)
-		switch nextC {
+		switch lastIndex := scanner.index; scanner.nextRune() {
 		case C:
 			t.Kind = token.Define
-			scanner.index++
 		case '=':
 			t.Kind = token.DeclareSet
-			scanner.index++
+		default:
+			scanner.index = lastIndex
 		}
 	// Operators
 	case '+':
@@ -258,21 +309,27 @@ func (scanner *Scanner) _getNextToken(eatNewline bool) token.Token {
 		t.Kind = token.Ternary
 	case '&':
 		t.Kind = token.And
-		if scanner.getChar(0) == C {
+		switch lastIndex := scanner.index; scanner.nextRune() {
+		case C:
 			t.Kind = token.ConditionalAnd
-			scanner.index++
+		default:
+			scanner.index = lastIndex
 		}
 	case '|':
 		t.Kind = token.Or
-		if scanner.getChar(0) == C {
+		switch lastIndex := scanner.index; scanner.nextRune() {
+		case C:
 			t.Kind = token.ConditionalOr
-			scanner.index++
+		default:
+			scanner.index = lastIndex
 		}
 	case '=':
 		t.Kind = token.Equal
-		if scanner.getChar(0) == C {
+		switch lastIndex := scanner.index; scanner.nextRune() {
+		case C:
 			t.Kind = token.ConditionalEqual
-			scanner.index++
+		default:
+			scanner.index = lastIndex
 		}
 	// Other
 	default:
@@ -289,11 +346,10 @@ func (scanner *Scanner) _getNextToken(eatNewline bool) token.Token {
 				(isAlpha(scanner.getChar(0)) || isNumber(scanner.getChar(0)) || scanner.getChar(0) == '\\' || scanner.getChar(0) == '-' || scanner.getChar(0) == '_' || scanner.getChar(0) == '.') {
 				scanner.index++
 			}
-			identifierOrKeyword := string(scanner.filecontents[t.Start:scanner.index])
 			keywordKind := token.GetKeywordKindFromString(identifierOrKeyword)
 			if keywordKind != token.Unknown {
 				t.Kind = keywordKind
-				t.Data = identifierOrKeyword
+				t.Data = string(scanner.filecontents[t.Start:scanner.index])
 			}
 		} else if C == '.' || isNumber(C) {
 			if C == '.' && !isNumber(scanner.getChar(0)) {
