@@ -9,6 +9,7 @@ type Kind int
 
 const (
 	Unknown Kind = 0 + iota
+	Illegal
 	EOF
 	Newline      // \r, \n
 	Whitespace   // \t
@@ -83,6 +84,7 @@ var precedence = []int{
 
 var kindToString = []string{
 	Unknown:         "unknown token",
+	Illegal:         "illegal token",
 	EOF:             "eof",
 	Newline:         "newline",
 	Whitespace:      " ",
@@ -168,6 +170,8 @@ func (kind Kind) String() string {
 
 func (token Token) String() string {
 	switch token.Kind {
+	case Illegal:
+		// no-op
 	case InteropVariable:
 		return token.Data
 	case Identifier, Number:

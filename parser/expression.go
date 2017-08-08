@@ -50,6 +50,13 @@ Loop:
 			break Loop
 		case token.BraceOpen, token.BraceClose, token.Comma:
 			break Loop
+		case token.Number:
+			p.GetNextToken()
+			if expectOperator {
+				panic("Expected operator, not number")
+			}
+			expectOperator = true
+			panic("todo(jake): Handle number")
 		case token.ParenOpen:
 			parenOpenCount++
 		case token.ParenClose:

@@ -97,7 +97,7 @@ func (p *Parser) GetErrors() []error {
 }
 
 func (p *Parser) HasErrors() bool {
-	return len(p.errors) > 0
+	return p.Scanner.Error != nil || len(p.errors) > 0
 }
 
 func (p *Parser) addError(message error) {
@@ -105,15 +105,23 @@ func (p *Parser) addError(message error) {
 }
 
 func (p *Parser) PrintErrors() {
-	if errors := p.GetErrors(); len(errors) > 0 {
+	errors := p.GetErrors()
+	errorCount := len(errors)
+	if p.Scanner.Error != nil {
+		errorCount += 1
+	}
+	if errorCount > 0 {
 		errorOrErrors := "errors"
 		if len(errors) == 1 {
 			errorOrErrors = "error"
 		}
 		fmt.Printf("Error parsing file: %v\n", p.Filepath)
-		fmt.Printf("Found %d %s in \"%s\"\n", len(errors), errorOrErrors, p.Filepath)
+		fmt.Printf("Found %d %s in \"%s\"\n", errorCount, errorOrErrors, p.Filepath)
 		for _, err := range errors {
 			fmt.Printf("- %v \n\n", err)
+		}
+		if p.Scanner.Error != nil {
+			fmt.Printf("- %v \n\n", p.Scanner.Error)
 		}
 	}
 }

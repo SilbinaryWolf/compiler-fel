@@ -80,7 +80,7 @@ Loop:
 		case token.Newline:
 			// no-op
 			p.GetNextToken()
-		case token.EOF:
+		case token.EOF, token.Illegal:
 			break Loop
 		default:
 			p.GetNextToken()

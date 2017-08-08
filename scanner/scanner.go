@@ -18,6 +18,7 @@ type Scanner struct {
 	ScannerState
 	filecontents []byte
 	Filepath     string
+	Error        error
 }
 
 const BYTE_ORDER_MARK = 0xFEFF // byte order mark, only permitted as very first character
@@ -80,18 +81,17 @@ func isNumber(C rune) bool {
 	return (C >= '0' && C <= '9') || (C >= utf8.RuneSelf && unicode.IsDigit(C))
 }
 
-func eatEndOfLine(scanner *Scanner) bool {
+func (scanner *Scanner) eatEndOfLine() bool {
 	lastIndex := scanner.index
 	C := scanner.nextRune()
-	C2 := scanner.nextRune()
-
-	if C == '\r' && C2 == '\n' {
-		// Windows line-endings
+	if C == '\n' {
+		// Unix line-endings
 		scanner.incrementLineNumber()
 		return true
 	}
-	if C == '\n' {
-		// Unix line-endings
+	C2 := scanner.nextRune()
+	if C == '\r' && C2 == '\n' {
+		// Windows line-endings
 		scanner.incrementLineNumber()
 		return true
 	}
@@ -115,8 +115,7 @@ func eatAllWhitespaceAndComments(scanner *Scanner) {
 		if C == '/' && C2 == '/' {
 			for {
 				C := scanner.nextRune()
-				if isEndOfLine(C) {
-					scanner.incrementLineNumber()
+				if scanner.eatEndOfLine() {
 					break
 				}
 				if C == 0 {
@@ -132,8 +131,7 @@ func eatAllWhitespaceAndComments(scanner *Scanner) {
 				if C == 0 || commentBlockDepth == 0 {
 					break
 				}
-				if isEndOfLine(C) {
-					scanner.incrementLineNumber()
+				if scanner.eatEndOfLine() {
 					continue
 				}
 				C2 := scanner.nextRune()
@@ -156,31 +154,23 @@ func eatAllWhitespaceAndComments(scanner *Scanner) {
 	}
 }
 
-/*func (scanner *Scanner) getByte() byte {
-	if index >= 0 && index < len(scanner.filecontents) {
-		return scanner.filecontents[index]
-	}
-	return 0
-}*/
-
 func (scanner *Scanner) nextRune() rune {
 	index := scanner.index
 	if index < 0 || index >= len(scanner.filecontents) {
 		return END_OF_FILE
 	}
 	r, size := rune(scanner.filecontents[index]), 1
-	switch {
-	case r == 0:
-		panic("Illegal character NUL")
+	if r == 0 {
+		scanner.Error = fmt.Errorf("Illegal character NUL on Line %d", scanner.lineNumber)
 		return END_OF_FILE
-	case r >= utf8.RuneSelf:
-		// not ASCII
+	}
+	if r >= utf8.RuneSelf {
 		r, size = utf8.DecodeRune(scanner.filecontents[index:])
 		if r == utf8.RuneError && size == 1 {
-			panic("illegal UTF-8 encoding")
+			scanner.Error = fmt.Errorf("Illegal UTF-8 encoding on Line %d", scanner.lineNumber)
 			return END_OF_FILE
 		} else if r == BYTE_ORDER_MARK && scanner.index > 0 {
-			panic("illegal byte order mark")
+			scanner.Error = fmt.Errorf("Illegal byte order mark on Line %d", scanner.lineNumber)
 			return END_OF_FILE
 		}
 	}
@@ -346,12 +336,13 @@ func (scanner *Scanner) _getNextToken() token.Token {
 	default:
 		if isEndOfLine(C) {
 			t.Kind = token.Newline
-			scanner.incrementLineNumber()
-			// Check for \r for Windows line endings
-			lastIndex := scanner.index
-			if !isEndOfLine(scanner.nextRune()) {
-				scanner.index = lastIndex
+			// Consume \n after \r for Windows line-endings
+			if C == '\r' {
+				if lastIndex := scanner.index; scanner.nextRune() != '\n' {
+					scanner.index = lastIndex
+				}
 			}
+			scanner.incrementLineNumber()
 		} else if C == '\\' || C == '_' || isAlpha(C) {
 			t.Kind = token.Identifier
 			for {
@@ -407,6 +398,9 @@ func (scanner *Scanner) _getNextToken() token.Token {
 	t.Column = scanner.index - scanner.lastLineIndex
 	if len(t.Data) == 0 && t.HasUniqueData() {
 		t.Data = string(scanner.filecontents[t.Start:t.End])
+	}
+	if scanner.Error != nil {
+		t.Kind = token.Illegal
 	}
 	return t
 }
