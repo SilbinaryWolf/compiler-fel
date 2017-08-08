@@ -21,13 +21,7 @@ MyContent := "Hey look at this code!" + "otherstring"
 研芸ホヱ多1参1町ホメレケ推能リナ致奥ツチニ基者矢実シ重批情レコウア実左わぼべだ研友批みるかっ。掲トラこ幕要ルス霊検ウメ治洗クセヘホ写引せげっ倉変がク狭浜掘ひよ月規刻づまぱ白護なとよ台42鳥片透君ね。台えッレ長事両びのゆレ登猶っよ報豊イマヨト厳豊づこめ禁説ふおもし屋時イモレ光乗ぼか堅1言づし協面クせな読環レ死小ケオミ見索アムルナ間長ぼぽね勢世ヒスアホ拠3坂ッス。
 */
 
-//報ノコテヌ旅 := "Test Japanese variable name (UTF-8)"
-
-/*:css {
-    .main {
-        background-color: #000;
-    }
-}*/
+報ノコテヌ旅 := "Test Japanese variable name (UTF-8)"
 
 html {
     head {

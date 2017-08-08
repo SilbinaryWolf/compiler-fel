@@ -2,6 +2,7 @@ package scanner
 
 import (
 	"fmt"
+	"unicode"
 	"unicode/utf8"
 
 	"github.com/silbinarywolf/compiler-fel/token"
@@ -26,22 +27,20 @@ func New(filecontents []byte, filepath string) *Scanner {
 	scanner := new(Scanner)
 	scanner.lineNumber = 1
 	scanner.filecontents = filecontents
-	// NOTE(Jake): Pad the ending of the file
-	scanner.filecontents = append(scanner.filecontents, 0, 0, 0, 0, 0, 0, 0, 0)
 	scanner.Filepath = filepath
 	return scanner
 }
 
 func (scanner *Scanner) PeekNextToken() token.Token {
 	state := scanner.ScannerState
-	result := scanner._getNextToken(true)
+	result := scanner._getNextToken()
 	scanner.ScannerState = state
 	return result
 }
 
 func (scanner *Scanner) GetNextToken() token.Token {
 	//fmt.Printf("Getting next token...")
-	token := scanner._getNextToken(true)
+	token := scanner._getNextToken()
 	//token.Debug()
 	return token
 }
@@ -70,15 +69,15 @@ func isEndOfLine(C rune) bool {
 }
 
 func isWhitespace(C rune) bool {
-	return C == ' ' || C == '\t' || C == '\v' || C == '\f'
+	return (C != '\n' && unicode.IsSpace(C))
 }
 
 func isAlpha(C rune) bool {
-	return (C >= 'a' && C <= 'z') || (C >= 'A' && C <= 'Z')
+	return (C >= 'a' && C <= 'z') || (C >= 'A' && C <= 'Z') || C >= utf8.RuneSelf && unicode.IsLetter(C)
 }
 
 func isNumber(C rune) bool {
-	return C >= '0' && C <= '9'
+	return (C >= '0' && C <= '9') || (C >= utf8.RuneSelf && unicode.IsDigit(C))
 }
 
 func eatEndOfLine(scanner *Scanner) bool {
@@ -100,36 +99,42 @@ func eatEndOfLine(scanner *Scanner) bool {
 	return false
 }
 
-func eatAllWhitespaceAndComments(scanner *Scanner, eatNewline bool, eatWhitespace bool) {
+func eatAllWhitespaceAndComments(scanner *Scanner) {
 	commentBlockDepth := 0
 
 	for {
-		if eatNewline && eatEndOfLine(scanner) {
-			continue
-		}
+		//if eatNewline && eatEndOfLine(scanner) {
+		//	continue
+		//}
 		lastIndex := scanner.index
 		C := scanner.nextRune()
-		C2 := scanner.nextRune()
-		if eatWhitespace && isWhitespace(C) {
+		if isWhitespace(C) {
 			continue
 		}
+		C2 := scanner.nextRune()
 		if C == '/' && C2 == '/' {
 			for {
 				C := scanner.nextRune()
-				if C == 0 || isEndOfLine(C) {
+				if isEndOfLine(C) {
+					scanner.incrementLineNumber()
+					break
+				}
+				if C == 0 {
 					break
 				}
 			}
-			//eatEndOfLine(scanner)
 			continue
 		}
 		if C == '/' && C2 == '*' {
 			commentBlockDepth += 1
 			for {
-				lastIndex := scanner.index
 				C := scanner.nextRune()
 				if C == 0 || commentBlockDepth == 0 {
 					break
+				}
+				if isEndOfLine(C) {
+					scanner.incrementLineNumber()
+					continue
 				}
 				C2 := scanner.nextRune()
 				if C == '/' && C2 == '*' {
@@ -140,11 +145,7 @@ func eatAllWhitespaceAndComments(scanner *Scanner, eatNewline bool, eatWhitespac
 					commentBlockDepth -= 1
 					continue
 				}
-				//if !eatEndOfLine(scanner) {
-				//	scanner.index++
-				//}
-				scanner.index = lastIndex
-				break
+				//scanner.index = lastIndex
 			}
 			continue
 		}
@@ -164,20 +165,23 @@ func eatAllWhitespaceAndComments(scanner *Scanner, eatNewline bool, eatWhitespac
 
 func (scanner *Scanner) nextRune() rune {
 	index := scanner.index
-	if index < 0 && index >= len(scanner.filecontents) {
-		return 0
+	if index < 0 || index >= len(scanner.filecontents) {
+		return END_OF_FILE
 	}
 	r, size := rune(scanner.filecontents[index]), 1
 	switch {
 	case r == 0:
 		panic("Illegal character NUL")
+		return END_OF_FILE
 	case r >= utf8.RuneSelf:
 		// not ASCII
 		r, size = utf8.DecodeRune(scanner.filecontents[index:])
 		if r == utf8.RuneError && size == 1 {
 			panic("illegal UTF-8 encoding")
+			return END_OF_FILE
 		} else if r == BYTE_ORDER_MARK && scanner.index > 0 {
 			panic("illegal byte order mark")
+			return END_OF_FILE
 		}
 	}
 	scanner.index += size
@@ -198,7 +202,7 @@ func (scanner *Scanner) getNextTokenIncludeNewline() token.Token {
 	return token
 }*/
 
-func (scanner *Scanner) _getNextToken(eatNewline bool) token.Token {
+func (scanner *Scanner) _getNextToken() token.Token {
 	t := token.Token{}
 	t.Kind = token.Unknown
 	defer func() {
@@ -207,11 +211,10 @@ func (scanner *Scanner) _getNextToken(eatNewline bool) token.Token {
 		}
 	}()
 
-	eatAllWhitespaceAndComments(scanner, false, true)
+	eatAllWhitespaceAndComments(scanner)
 
 	t.Start = scanner.index
 	C := scanner.nextRune()
-	t.Start = scanner.index
 	switch C {
 	case 0:
 		t.Kind = token.EOF
@@ -269,22 +272,23 @@ func (scanner *Scanner) _getNextToken(eatNewline bool) token.Token {
 		t.End = scanner.index
 		scanner.index++*/
 	case '"', '`':
-		t.Kind = token.Character
-		t.Start++
+		t.Kind = token.String
+		t.Start = scanner.index
+
 		for {
-			nextC := scanner.nextRune()
-			if C != END_OF_FILE && C != nextC {
-				if nextC == '\\' {
-					// Skip command code
-					scanner.index++
-				}
-				scanner.index++
-				continue
+			lastIndex := scanner.index
+			subC := scanner.nextRune()
+			if subC == C {
+				scanner.index = lastIndex
+				break
 			}
-			break
+			if subC == END_OF_FILE {
+				panic("Expected end of string but instead got end of file.")
+			}
 		}
 		t.End = scanner.index
-		scanner.index++
+		scanner.nextRune()
+		//panic(string(scanner.filecontents[t.Start:t.End]))
 	case ':':
 		t.Kind = token.Declare
 		switch lastIndex := scanner.index; scanner.nextRune() {
@@ -342,12 +346,12 @@ func (scanner *Scanner) _getNextToken(eatNewline bool) token.Token {
 	default:
 		if isEndOfLine(C) {
 			t.Kind = token.Newline
+			scanner.incrementLineNumber()
 			// Check for \r for Windows line endings
 			lastIndex := scanner.index
-			if C := scanner.nextRune(); !isEndOfLine(C) {
+			if !isEndOfLine(scanner.nextRune()) {
 				scanner.index = lastIndex
 			}
-			scanner.incrementLineNumber()
 		} else if C == '\\' || C == '_' || isAlpha(C) {
 			t.Kind = token.Identifier
 			for {
@@ -368,10 +372,10 @@ func (scanner *Scanner) _getNextToken(eatNewline bool) token.Token {
 			}
 		} else if C == '.' || isNumber(C) {
 			lastIndex := scanner.index
-			C2 := scanner.nextRune()
-			if C == '.' && !isNumber(C2) {
+			if C == '.' && !isNumber(scanner.nextRune()) {
 				// Detect .567
 				t.Kind = token.Dot
+				scanner.index = lastIndex
 			} else {
 				// Regular number
 				scanner.index = lastIndex

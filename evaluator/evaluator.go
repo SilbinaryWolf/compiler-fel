@@ -76,6 +76,7 @@ func (program *Program) RunProject(projectDirpath string) error {
 	for _, node := range configAstFile.Nodes() {
 		program.evaluateStatement(node, program.globalScope)
 	}
+	//panic("Finished evaluating config file")
 
 	// Get config variables
 	value, ok := program.globalScope.Get("templateOutputDirectory")

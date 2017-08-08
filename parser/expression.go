@@ -34,7 +34,7 @@ Loop:
 		case token.String:
 			p.GetNextToken()
 			if expectOperator {
-				panic("Expected operator, not identifier")
+				panic("Expected operator, not string")
 			}
 			expectOperator = true
 			infixNodes = append(infixNodes, &ast.Token{Token: t})
@@ -65,6 +65,8 @@ Loop:
 				infixNodes = append(infixNodes, topOperatorNode)
 				operatorNodes = operatorNodes[:len(operatorNodes)-1]
 			}
+		case token.EOF:
+			break Loop
 		default:
 			if t.IsOperator() {
 				if !expectOperator {
