@@ -70,6 +70,28 @@ Loop:
 				}
 				panic(fmt.Sprintf("parseStatements(): Handle other ident case kind: %s", t.Kind.String()))
 			}
+		case token.Define:
+			p.GetNextToken()
+			t := p.PeekNextToken()
+			switch t.Kind {
+			case token.Identifier:
+				name := p.GetNextToken()
+				switch keyword := name.String(); keyword {
+				case "css":
+					if t := p.GetNextToken(); t.Kind != token.BraceOpen {
+						p.addError(p.expect(t, token.BraceOpen))
+						break Loop
+					}
+					p.parseCSS()
+					panic("parseStatement(): Todo finish parseCSS()")
+				default:
+					p.addError(fmt.Errorf("Unexpected keyword '%s' for definition (::) type. Expected 'css' on Line %d", keyword, name.Line))
+					break Loop
+				}
+			default:
+				p.addError(fmt.Errorf("Unexpected token '%s' for definition (::) type. Expected 'css' on Line %d", t.Kind.String(), t.Line))
+				break Loop
+			}
 		case token.String:
 			node := &ast.Expression{}
 			node.ChildNodes = p.parseExpression()

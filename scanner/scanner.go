@@ -8,6 +8,13 @@ import (
 	"github.com/silbinarywolf/compiler-fel/token"
 )
 
+type Mode int
+
+const (
+	ModeDefault Mode = 0 + iota
+	ModeCSS
+)
+
 type ScannerState struct {
 	index         int
 	lastLineIndex int // Helps calculate column on token
@@ -16,6 +23,7 @@ type ScannerState struct {
 
 type Scanner struct {
 	ScannerState
+	scanmode     Mode
 	filecontents []byte
 	Filepath     string
 	Error        error
@@ -44,6 +52,10 @@ func (scanner *Scanner) GetNextToken() token.Token {
 	token := scanner._getNextToken()
 	//token.Debug()
 	return token
+}
+
+func (scanner *Scanner) SetScanMode(scanmode Mode) {
+	scanner.scanmode = scanmode
 }
 
 func (scanner *Scanner) GetPosition() int {
@@ -343,7 +355,8 @@ func (scanner *Scanner) _getNextToken() token.Token {
 				}
 			}
 			scanner.incrementLineNumber()
-		} else if C == '\\' || C == '_' || isAlpha(C) {
+		} else if C == '\\' || C == '_' || isAlpha(C) ||
+			(scanner.scanmode == ModeCSS && C == '.') {
 			t.Kind = token.Identifier
 			for {
 				lastIndex := scanner.index
@@ -364,7 +377,6 @@ func (scanner *Scanner) _getNextToken() token.Token {
 		} else if C == '.' || isNumber(C) {
 			lastIndex := scanner.index
 			if C == '.' && !isNumber(scanner.nextRune()) {
-				// Detect .567
 				t.Kind = token.Dot
 				scanner.index = lastIndex
 			} else {
