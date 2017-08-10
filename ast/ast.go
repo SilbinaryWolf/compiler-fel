@@ -10,6 +10,10 @@ type Base struct {
 	ChildNodes []Node
 }
 
+func (node *Base) Nodes() []Node {
+	return node.ChildNodes
+}
+
 type File struct {
 	Filepath string
 	Base
@@ -48,10 +52,20 @@ type Token struct {
 	token.Token
 }
 
-func (node *Base) Nodes() []Node {
-	return node.ChildNodes
-}
-
 func (node *Token) Nodes() []Node {
 	return nil
+}
+
+type CSSRule struct {
+	Selectors []CSSSelector
+	Base
+}
+
+type CSSSelector struct {
+	Base
+}
+
+type CSSProperty struct {
+	Name token.Token
+	Base
 }

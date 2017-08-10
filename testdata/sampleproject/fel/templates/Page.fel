@@ -4,7 +4,8 @@ MyContent := "Hey look at this code!" + "otherstring"
 :: css {
     //myVar := 'test'
 
-    .main {
+    .main,
+    .other {
         background-color: red
     }
 }
