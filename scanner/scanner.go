@@ -255,41 +255,50 @@ func (scanner *Scanner) _getNextToken() token.Token {
 			}
 			break
 		}
-	case '\'':
-		panic("Character string unsupported.")
-		/*t.Kind = token.Character
-		t.Start++
-		for {
-			nextC := scanner.nextRune(0)
-			if C != END_OF_FILE && C != nextC {
-				if nextC == '\\' {
-					// Skip command code
-					scanner.index++
-				}
-				scanner.index++
-				continue
-			}
-			break
+	case '"', '\'':
+		if scanner.scanmode == ModeDefault && C == '\'' {
+			panic("Cannot use ' for strings outside of CSS.")
 		}
-		t.End = scanner.index
-		scanner.index++*/
-	case '"', '`':
+
+		// Handle HereDoc (triple quote """)
+		{
+			lastIndex := scanner.index
+			C2 := scanner.nextRune()
+			C3 := scanner.nextRune()
+			if C == '"' && C2 == '"' && C3 == '"' {
+				t.Kind = token.String
+				t.Start = scanner.index
+				for {
+					t.End = scanner.index
+					C := scanner.nextRune()
+					C2 := scanner.nextRune()
+					C3 := scanner.nextRune()
+					if C == '"' && C2 == '"' && C3 == '"' {
+						break
+					}
+					if C == END_OF_FILE || C2 == END_OF_FILE || C3 == END_OF_FILE {
+						panic("Expected end of heredoc string but instead got end of file.")
+					}
+				}
+				//panic(string(scanner.filecontents[t.Start:t.End]))
+				break
+			}
+			scanner.index = lastIndex
+		}
+
 		t.Kind = token.String
 		t.Start = scanner.index
 
 		for {
-			lastIndex := scanner.index
+			t.End = scanner.index
 			subC := scanner.nextRune()
 			if subC == C {
-				scanner.index = lastIndex
 				break
 			}
 			if subC == END_OF_FILE {
 				panic("Expected end of string but instead got end of file.")
 			}
 		}
-		t.End = scanner.index
-		scanner.nextRune()
 		//panic(string(scanner.filecontents[t.Start:t.End]))
 	case ':':
 		t.Kind = token.Declare

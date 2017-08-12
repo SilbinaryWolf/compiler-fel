@@ -35,11 +35,18 @@ Loop:
 				tokenList = append(tokenList, &ast.Token{Token: t})
 				continue
 			}
-			switch nextT := p.PeekNextToken(); nextT.Kind {
+			name := t
+			switch t := p.PeekNextToken(); t.Kind {
+			case token.DeclareSet:
+				p.GetNextToken()
+				node := &ast.DeclareStatement{}
+				node.Name = name
+				node.ChildNodes = p.parseExpression()
+				resultNodes = append(resultNodes, node)
 			case token.Declare:
 				p.GetNextToken() // :
 				node := new(ast.CSSProperty)
-				node.Name = t
+				node.Name = name
 			PropertyLoop:
 				for {
 					t := p.GetNextToken()
@@ -54,8 +61,8 @@ Loop:
 				}
 				node.ChildNodes = tokenList
 				resultNodes = append(resultNodes, node)
-			case token.Identifier, token.BraceOpen:
-				tokenList = append(tokenList, &ast.Token{Token: t})
+			case token.Identifier, token.BraceOpen, token.Comma:
+				tokenList = append(tokenList, &ast.Token{Token: name})
 			default:
 				panic(fmt.Sprintf("Unhandled token type: %s after CSS identifier", t.Kind))
 			}
@@ -78,12 +85,14 @@ Loop:
 			tokenList = make([]ast.Node, 0, 5)
 			selectorList = make([]ast.CSSSelector, 0, 3)*/
 		case token.BraceOpen:
-			if len(tokenList) == 0 {
+			if len(tokenList) == 0 && len(selectorList) == 0 {
 				panic("Got {, expected identifiers preceding")
 			}
-			selectorNode := ast.CSSSelector{}
-			selectorNode.ChildNodes = tokenList
-			selectorList = append(selectorList, selectorNode)
+			if len(tokenList) > 0 {
+				selectorNode := ast.CSSSelector{}
+				selectorNode.ChildNodes = tokenList
+				selectorList = append(selectorList, selectorNode)
+			}
 			rule := new(ast.CSSRule)
 			rule.Selectors = selectorList
 			rule.ChildNodes = p.parseCSSStatements()
@@ -96,15 +105,9 @@ Loop:
 			// Finish statement
 			break Loop
 		case token.Newline:
-			if len(tokenList) == 0 {
-				continue
-			}
-			fallthrough
+			// no-op
 		case token.Semicolon:
-			if len(tokenList) == 0 {
-				panic("parseCSS(): Expected statement before ;")
-			}
-			panic("handle end of statement")
+			panic("Unexpected ;")
 		default:
 			panic(fmt.Sprintf("parseCSS(): Unhandled token type: \"%s\" (value: %s) on Line %d", t.Kind.String(), t.String(), t.Line))
 		}
