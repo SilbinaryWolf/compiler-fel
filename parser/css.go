@@ -51,12 +51,12 @@ Loop:
 				for {
 					t := p.GetNextToken()
 					switch t.Kind {
-					case token.Identifier:
+					case token.Identifier, token.Number:
 						tokenList = append(tokenList, &ast.Token{Token: t})
 					case token.Newline, token.Semicolon:
 						break PropertyLoop
 					default:
-						panic(fmt.Sprintf("Unhandled token type: %s in CSS property statement", t.Kind))
+						panic(fmt.Sprintf("parseCSSStatements(): Unhandled token type: %s in CSS property statement", t.Kind))
 					}
 				}
 				node.ChildNodes = tokenList
@@ -64,7 +64,7 @@ Loop:
 			case token.Identifier, token.BraceOpen, token.Comma:
 				tokenList = append(tokenList, &ast.Token{Token: name})
 			default:
-				panic(fmt.Sprintf("Unhandled token type: %s after CSS identifier", t.Kind))
+				panic(fmt.Sprintf("parseCSSStatements(): Unhandled token type: %s after CSS identifier", t.Kind))
 			}
 		case token.Declare: // :
 			panic("parseCSSStatements(): Invalid :")
@@ -86,7 +86,7 @@ Loop:
 			selectorList = make([]ast.CSSSelector, 0, 3)*/
 		case token.BraceOpen:
 			if len(tokenList) == 0 && len(selectorList) == 0 {
-				panic("Got {, expected identifiers preceding")
+				panic("parseCSSStatements(): Got {, expected identifiers preceding for CSS rule")
 			}
 			if len(tokenList) > 0 {
 				selectorNode := ast.CSSSelector{}
@@ -107,9 +107,11 @@ Loop:
 		case token.Newline:
 			// no-op
 		case token.Semicolon:
-			panic("Unexpected ;")
+			panic("parseCSSStatements(): Unexpected ;")
+		case token.EOF:
+			panic("parseCSSStatements(): Reached end of file, Should be closed with }")
 		default:
-			panic(fmt.Sprintf("parseCSS(): Unhandled token type: \"%s\" (value: %s) on Line %d", t.Kind.String(), t.String(), t.Line))
+			panic(fmt.Sprintf("parseCSSStatements(): Unhandled token type: \"%s\" (value: %s) on Line %d", t.Kind.String(), t.String(), t.Line))
 		}
 	}
 	return resultNodes

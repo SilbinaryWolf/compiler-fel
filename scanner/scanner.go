@@ -313,8 +313,9 @@ func (scanner *Scanner) _getNextToken() token.Token {
 	// Operators
 	case '+':
 		t.Kind = token.Add
-	case '-':
-		t.Kind = token.Subtract
+	// todo(Jake): Handle subtract again (identifiers have - so needs extra work)
+	//case '-':
+	///./.;'>">">'	t.Kind = token.Subtract
 	case '/':
 		t.Kind = token.Divide
 	case '*':
@@ -364,14 +365,14 @@ func (scanner *Scanner) _getNextToken() token.Token {
 				}
 			}
 			scanner.incrementLineNumber()
-		} else if C == '\\' || C == '_' || isAlpha(C) ||
+		} else if C == '_' || C == '-' || isAlpha(C) ||
 			(scanner.scanmode == ModeCSS && C == '.') {
 			t.Kind = token.Identifier
 			for {
 				lastIndex := scanner.index
 				C := scanner.nextRune()
 				if scanner.index < len(scanner.filecontents) &&
-					(isAlpha(C) || isNumber(C) || C == '\\' || C == '-' || C == '_' || C == '.') {
+					(isAlpha(C) || isNumber(C) || C == '-' || C == '_' || C == '.') {
 					continue
 				}
 				scanner.index = lastIndex
@@ -385,13 +386,12 @@ func (scanner *Scanner) _getNextToken() token.Token {
 			}
 		} else if C == '.' || isNumber(C) {
 			lastIndex := scanner.index
-			if C == '.' && !isNumber(scanner.nextRune()) {
-				t.Kind = token.Dot
-				scanner.index = lastIndex
-			} else {
-				// Regular number
-				scanner.index = lastIndex
+			nextIsNotNumber := !isNumber(scanner.nextRune())
+			scanner.index = lastIndex
 
+			if C == '.' && nextIsNotNumber {
+				t.Kind = token.Dot
+			} else {
 				// Regular number
 				t.Kind = token.Number
 				for {
@@ -402,6 +402,24 @@ func (scanner *Scanner) _getNextToken() token.Token {
 					}
 					scanner.index = lastIndex
 					break
+				}
+
+				// Handle %, rem, px, additional non-whitespace text in CSS
+				if scanner.scanmode == ModeCSS {
+					lastIndex := scanner.index
+					C := scanner.nextRune()
+					if isWhitespace(C) {
+						scanner.index = lastIndex
+					} else {
+						for {
+							lastIndex := scanner.index
+							C := scanner.nextRune()
+							if isWhitespace(C) || isEndOfLine(C) || C == ';' {
+								scanner.index = lastIndex
+								break
+							}
+						}
+					}
 				}
 			}
 		} else {

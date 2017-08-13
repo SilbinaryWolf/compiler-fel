@@ -33,6 +33,7 @@ const (
 	Identifier      // ABunchOfUnquotedLetters
 	InteropVariable // $var
 	Number          // 30, 1.462
+	NumberWithUnit  // 100%, 32px, 5.5em
 	Character       // 'C'
 	String          // "ABunchOfQuotedLetters"
 
@@ -92,24 +93,25 @@ var kindToString = []string{
 
 	Identifier: "identifier",
 
-	Number:       "number",
-	ParenOpen:    "(",
-	ParenClose:   ")",
-	BraceOpen:    "{",
-	BraceClose:   "}",
-	BracketOpen:  "[",
-	BracketClose: "]",
-	Comma:        ",",
-	Declare:      ":",
-	DeclareSet:   ":=",
-	Define:       "::",
-	Semicolon:    ";",
-	Character:    "character",
-	String:       "string",
-	Not:          "!",
-	Dot:          ".",
-	Hash:         "#",
-	Ternary:      "?",
+	Number:         "number",
+	NumberWithUnit: "number with unit",
+	ParenOpen:      "(",
+	ParenClose:     ")",
+	BraceOpen:      "{",
+	BraceClose:     "}",
+	BracketOpen:    "[",
+	BracketClose:   "]",
+	Comma:          ",",
+	Declare:        ":",
+	DeclareSet:     ":=",
+	Define:         "::",
+	Semicolon:      ";",
+	Character:      "character",
+	String:         "string",
+	Not:            "!",
+	Dot:            ".",
+	Hash:           "#",
+	Ternary:        "?",
 
 	KeywordIf:   "if",
 	KeywordElse: "else",
