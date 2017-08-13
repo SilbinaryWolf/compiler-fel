@@ -51,23 +51,30 @@ Loop:
 				for {
 					t := p.GetNextToken()
 					switch t.Kind {
-					case token.Identifier, token.Number:
+					case token.Identifier, token.Number, token.Comma:
 						tokenList = append(tokenList, &ast.Token{Token: t})
 					case token.Newline, token.Semicolon:
 						break PropertyLoop
 					default:
-						panic(fmt.Sprintf("parseCSSStatements(): Unhandled token type: %s in CSS property statement", t.Kind))
+						panic(fmt.Sprintf("parseCSSStatements(): Unhandled token type: %s in CSS property statement on Line %d", t.Kind, t.Line))
 					}
 				}
 				node.ChildNodes = tokenList
 				resultNodes = append(resultNodes, node)
+
+				// Clear tokens
+				tokenList = make([]ast.Node, 0, 5)
 			case token.Identifier, token.BraceOpen, token.Comma:
 				tokenList = append(tokenList, &ast.Token{Token: name})
 			default:
-				panic(fmt.Sprintf("parseCSSStatements(): Unhandled token type: %s after CSS identifier", t.Kind))
+				panic(fmt.Sprintf("parseCSSStatements(): Unhandled token type: %s after CSS identifier on Line %d", t.Kind, t.Line))
 			}
 		case token.Declare: // :
-			panic("parseCSSStatements(): Invalid :")
+			{
+				json, _ := json.MarshalIndent(tokenList, "", "   ")
+				fmt.Printf("%s", string(json))
+				panic(fmt.Sprintf("parseCSSStatements(): Invalid : on Line %d", t.Line))
+			}
 		case token.Comma:
 			if len(tokenList) == 0 {
 				// Ignore comma if no tokens

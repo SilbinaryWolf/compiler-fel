@@ -139,23 +139,29 @@ func eatAllWhitespaceAndComments(scanner *Scanner) {
 		if C == '/' && C2 == '*' {
 			commentBlockDepth += 1
 			for {
-				C := scanner.nextRune()
-				if C == 0 || commentBlockDepth == 0 {
-					break
-				}
 				if scanner.eatEndOfLine() {
 					continue
 				}
+				C := scanner.nextRune()
+				if C == 0 {
+					panic(fmt.Sprintf("eatAllWhitespaceAndComments(): Null character. Should not happen. Line %d", scanner.GetLine()))
+					break
+				}
+				lastIndex := scanner.index
 				C2 := scanner.nextRune()
+				//fmt.Printf("-- COMMENT CHECK: %s%s\n", string(C), string(C2))
 				if C == '/' && C2 == '*' {
 					commentBlockDepth += 1
 					continue
 				}
 				if C == '*' && C2 == '/' {
 					commentBlockDepth -= 1
+					if commentBlockDepth <= 0 {
+						break
+					}
 					continue
 				}
-				//scanner.index = lastIndex
+				scanner.index = lastIndex
 			}
 			continue
 		}
@@ -408,17 +414,18 @@ func (scanner *Scanner) _getNextToken() token.Token {
 				if scanner.scanmode == ModeCSS {
 					lastIndex := scanner.index
 					C := scanner.nextRune()
-					if isWhitespace(C) {
-						scanner.index = lastIndex
-					} else {
+					if !isWhitespace(C) && !isEndOfLine(C) && (isAlpha(C) || C == '%') {
 						for {
 							lastIndex := scanner.index
 							C := scanner.nextRune()
-							if isWhitespace(C) || isEndOfLine(C) || C == ';' {
-								scanner.index = lastIndex
-								break
+							if !isWhitespace(C) && !isEndOfLine(C) && (isAlpha(C) || C == '%') {
+								continue
 							}
+							scanner.index = lastIndex
+							break
 						}
+					} else {
+						scanner.index = lastIndex
 					}
 				}
 			}
