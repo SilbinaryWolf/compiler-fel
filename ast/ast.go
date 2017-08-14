@@ -65,7 +65,18 @@ type CSSSelector struct {
 	Base
 }
 
+type CSSAttributeSelector struct {
+	Name     token.Token
+	Operator token.Token
+	Value    token.Token
+	Base
+}
+
 type CSSProperty struct {
 	Name token.Token
+	Base
+}
+
+type CSSTokens struct {
 	Base
 }

@@ -372,7 +372,7 @@ func (scanner *Scanner) _getNextToken() token.Token {
 			}
 			scanner.incrementLineNumber()
 		} else if C == '_' || C == '-' || isAlpha(C) ||
-			(scanner.scanmode == ModeCSS && C == '.') {
+			(scanner.scanmode == ModeCSS && (C == '.' || C == '#')) {
 			t.Kind = token.Identifier
 			for {
 				lastIndex := scanner.index
