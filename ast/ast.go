@@ -81,7 +81,3 @@ type CSSProperty struct {
 	Name token.Token
 	Base
 }
-
-type CSSTokens struct {
-	Base
-}

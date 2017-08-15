@@ -1,6 +1,7 @@
 package evaluator
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 
@@ -15,7 +16,6 @@ func (program *Program) evaluateCSSDefinition(topNode *ast.CSSDefinition, scope 
 		case *ast.DeclareStatement:
 			program.evaluateDeclareSet(node, scope)
 		case *ast.CSSRule:
-
 			// Evaluate selectors
 			selectorList := make([]data.CSSSelector, 0, 5)
 			for _, selectorListNode := range node.Selectors {
@@ -25,6 +25,22 @@ func (program *Program) evaluateCSSDefinition(topNode *ast.CSSDefinition, scope 
 					switch selectorPartNode := itSelectorPartNode.(type) {
 					case *ast.Token:
 						value = selectorPartNode.String()
+					case *ast.CSSSelector:
+						{
+							json, _ := json.MarshalIndent(selectorPartNode, "", "   ")
+							fmt.Printf("%s", string(json))
+							panic("Tests")
+						}
+						//for _, token := range selectorPartNode.ChildNodes {
+						//	value += token.String() + " "
+						//}
+						value = value[:len(value)-1]
+					case *ast.CSSAttributeSelector:
+						if selectorPartNode.Operator.Kind != 0 {
+							value = fmt.Sprintf("[%s%s%s]", selectorPartNode.Name, selectorPartNode.Operator, selectorPartNode.Value)
+							break
+						}
+						value = fmt.Sprintf("[%s]", selectorPartNode.Name)
 					default:
 						panic(fmt.Sprintf("evaluateCSSDefinition(): Unhandled selector node type: %T", selectorPartNode))
 					}
@@ -34,23 +50,41 @@ func (program *Program) evaluateCSSDefinition(topNode *ast.CSSDefinition, scope 
 			}
 
 			// Evaluate child nodes / properties
+			propertyList := make([]data.CSSProperty, 0, 5)
 			for _, itNode := range node.Nodes() {
-				switch itNode.(type) {
+				switch node := itNode.(type) {
+				case *ast.CSSProperty:
+					property := data.CSSProperty{
+						Name: node.Name.String(),
+					}
+
+					var value bytes.Buffer
+					for _, itNode := range node.ChildNodes {
+						switch node := itNode.(type) {
+						case *ast.Token:
+							value.WriteString(node.String())
+							value.WriteByte(' ')
+						default:
+							panic(fmt.Sprintf("evaluateCSSDefinition(): Unhandled CSS property value node type: %T", itNode))
+						}
+					}
+
+					property.Value = value.String()
+					property.Value = property.Value[:len(property.Value)-1]
+					propertyList = append(propertyList, property)
 				default:
 					panic(fmt.Sprintf("evaluateCSSDefinition(): Unhandled child node type: %T", itNode))
 				}
-				//property := data.CSSProperty{
-				//	Name: itNode.Name.String(),
-				//}
 			}
 
 			ruleNode := new(data.CSSRule)
 			ruleNode.Selectors = selectorList
-			{
-				json, _ := json.MarshalIndent(ruleNode, "", "   ")
-				fmt.Printf("%s", string(json))
-			}
-			panic("evaluateCSSDefinition(): finish function")
+			ruleNode.Properties = propertyList
+			//{
+			//	json, _ := json.MarshalIndent(ruleNode, "", "   ")
+			//	fmt.Printf("%s", string(json))
+			//}
+			//panic("evaluateCSSDefinition(): finish function")
 		default:
 			{
 				json, _ := json.MarshalIndent(node, "", "   ")

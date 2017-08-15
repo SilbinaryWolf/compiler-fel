@@ -165,9 +165,12 @@ Loop:
 	}
 
 	if len(tokenList) > 0 {
-		node := new(ast.CSSTokens)
-		node.ChildNodes = tokenList
-		resultNodes = append(resultNodes, node)
+		selectorNode := new(ast.CSSSelector)
+		selectorNode.ChildNodes = tokenList
+		resultNodes = append(resultNodes, selectorNode)
+		//node := new(ast.CSSTokens)
+		//node.ChildNodes = tokenList
+		//resultNodes = append(resultNodes, node)
 	}
 
 	return resultNodes
