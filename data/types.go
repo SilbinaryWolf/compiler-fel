@@ -98,3 +98,17 @@ func (node *HTMLText) Kind() Kind {
 func (node *HTMLText) String() string {
 	return node.Value
 }
+
+type CSSRule struct {
+	Selectors  []CSSSelector
+	Properties []CSSProperty
+}
+
+type CSSSelector struct {
+	Tokens []string
+}
+
+type CSSProperty struct {
+	Name  string
+	Value string
+}

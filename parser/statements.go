@@ -82,8 +82,10 @@ Loop:
 						p.addError(p.expect(t, token.BraceOpen))
 						break Loop
 					}
-					p.parseCSS()
-					panic("parseStatement(): Todo finish parseCSS()")
+					node := new(ast.CSSDefinition)
+					node.ChildNodes = p.parseCSS()
+					resultNodes = append(resultNodes, node)
+					//panic("parseStatement(): Todo finish parseCSS()")
 				default:
 					p.addError(fmt.Errorf("Unexpected keyword '%s' for definition (::) type. Expected 'css' on Line %d", keyword, name.Line))
 					break Loop
@@ -93,7 +95,7 @@ Loop:
 				break Loop
 			}
 		case token.String:
-			node := &ast.Expression{}
+			node := new(ast.Expression)
 			node.ChildNodes = p.parseExpression()
 			resultNodes = append(resultNodes, node)
 		case token.BraceClose:

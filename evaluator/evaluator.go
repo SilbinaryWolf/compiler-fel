@@ -146,8 +146,7 @@ func (program *Program) RunProject(projectDirpath string) error {
 
 	outputTemplateFileSet := make([]TemplateFile, 0, len(astFiles))
 
-	// Execute templates
-	// Clear config values so they can't be accessed
+	// Execute template
 	executionStart := time.Now()
 	for _, astFile := range astFiles {
 		scope := NewScope(nil)

@@ -56,6 +56,11 @@ func (node *Token) Nodes() []Node {
 	return nil
 }
 
+type CSSDefinition struct {
+	Name token.Token
+	Base
+}
+
 type CSSRule struct {
 	Selectors []CSSSelector
 	Base

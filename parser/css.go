@@ -1,7 +1,7 @@
 package parser
 
 import (
-	"encoding/json"
+	//"encoding/json"
 	"fmt"
 
 	"github.com/silbinarywolf/compiler-fel/ast"
@@ -13,11 +13,11 @@ func (p *Parser) parseCSS() []ast.Node {
 	p.SetScanMode(scanner.ModeCSS)
 	resultNodes := p.parseCSSStatements()
 	p.SetScanMode(scanner.ModeDefault)
-	{
-		json, _ := json.MarshalIndent(resultNodes, "", "   ")
-		fmt.Printf("%s", string(json))
-	}
-	panic("Finish parseCSS()")
+	//{
+	//	json, _ := json.MarshalIndent(resultNodes, "", "   ")
+	//	fmt.Printf("%s", string(json))
+	//}
+	//panic("Finish parseCSS()")
 	return resultNodes
 }
 
