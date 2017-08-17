@@ -45,6 +45,10 @@ Loop:
 				resultNodes = append(resultNodes, node)
 			case token.Declare:
 				colonToken := p.GetNextToken() // :
+
+				// Check if this is not a property
+				//peekIdent := p.PeekNextToken()
+
 			PropertyLoop:
 				for {
 					t := p.GetNextToken()
@@ -69,6 +73,10 @@ Loop:
 						panic(fmt.Sprintf("parseCSSStatements(): Unhandled token type: %s in CSS property statement on Line %d", t.Kind, t.Line))
 					}
 				}
+
+				//if peekIdent.Kind == token.Identifier {
+				//	panic(fmt.Sprintf("Token: %s", tokenList[len(tokenList)-1]))
+				//}
 				node := new(ast.CSSProperty)
 				node.Name = name
 				node.ChildNodes = tokenList
@@ -156,7 +164,7 @@ Loop:
 		case token.Newline:
 			// no-op
 		case token.Semicolon:
-			panic("parseCSSStatements(): Unexpected ;")
+			panic(fmt.Sprintf("parseCSSStatements(): Unexpected ; at Line %d", t.Line))
 		case token.EOF:
 			panic("parseCSSStatements(): Reached end of file, Should be closed with }")
 		default:

@@ -7,9 +7,69 @@ import (
 
 	"github.com/silbinarywolf/compiler-fel/ast"
 	"github.com/silbinarywolf/compiler-fel/data"
+	"github.com/silbinarywolf/compiler-fel/token"
 )
 
+func (program *Program) evaluateSelector(nodes []ast.Node) data.CSSSelector {
+	selectorList := make(data.CSSSelector, 0, len(nodes))
+	for _, itSelectorPartNode := range nodes {
+		//var value string
+		switch selectorPartNode := itSelectorPartNode.(type) {
+		case *ast.Token:
+			switch selectorPartNode.Kind {
+			case token.Identifier:
+				selectorList = append(selectorList, &data.CSSSelectorIdentifier{
+					Name: selectorPartNode.String(),
+				})
+			case token.Declare:
+				selectorList = append(selectorList, &data.CSSSelectorOperator{
+					Operator: ":",
+				})
+			case token.Define:
+				selectorList = append(selectorList, &data.CSSSelectorOperator{
+					Operator: "::",
+				})
+			default:
+				if selectorPartNode.IsOperator() {
+					selectorList = append(selectorList, &data.CSSSelectorOperator{
+						Operator: selectorPartNode.String(),
+					})
+					continue
+				}
+				panic(fmt.Sprintf("evaluateSelector(): Unhandled selector sub-node kind: %s", selectorPartNode.Kind.String()))
+			}
+		case *ast.CSSSelector:
+			subSelectorList := program.evaluateSelector(selectorPartNode.Nodes())
+			selectorList = append(selectorList, subSelectorList)
+			//for _, token := range selectorPartNode.ChildNodes {
+			//	value += token.String() + " "
+			//}
+			//value = value[:len(value)-1]
+		case *ast.CSSAttributeSelector:
+			if selectorPartNode.Operator.Kind != 0 {
+				value := &data.CSSSelectorAttribute{
+					Name:     selectorPartNode.Name.String(),
+					Operator: selectorPartNode.Operator.String(),
+					Value:    selectorPartNode.Value.String(),
+				}
+				selectorList = append(selectorList, value)
+				break
+			}
+			value := &data.CSSSelectorAttribute{
+				Name: selectorPartNode.Name.String(),
+			}
+			selectorList = append(selectorList, value)
+			//value = fmt.Sprintf("[%s]", selectorPartNode.Name)
+			//panic("evaluateSelector(): Handle attribute selector")
+		default:
+			panic(fmt.Sprintf("evaluateSelector(): Unhandled selector node type: %T", selectorPartNode))
+		}
+	}
+	return selectorList
+}
+
 func (program *Program) evaluateCSSDefinition(topNode *ast.CSSDefinition, scope *Scope) {
+	resultList := make([]*data.CSSRule, 0, 10)
 	scope = NewScope(scope)
 	for _, itNode := range topNode.Nodes() {
 		switch node := itNode.(type) {
@@ -17,40 +77,14 @@ func (program *Program) evaluateCSSDefinition(topNode *ast.CSSDefinition, scope 
 			program.evaluateDeclareSet(node, scope)
 		case *ast.CSSRule:
 			// Evaluate selectors
-			selectorList := make([]data.CSSSelector, 0, 5)
+			selectorRuleList := make([]data.CSSSelector, 0, 10)
 			for _, selectorListNode := range node.Selectors {
-				selector := data.CSSSelector{}
-				for _, itSelectorPartNode := range selectorListNode.Nodes() {
-					var value string
-					switch selectorPartNode := itSelectorPartNode.(type) {
-					case *ast.Token:
-						value = selectorPartNode.String()
-					case *ast.CSSSelector:
-						{
-							json, _ := json.MarshalIndent(selectorPartNode, "", "   ")
-							fmt.Printf("%s", string(json))
-							panic("Tests")
-						}
-						//for _, token := range selectorPartNode.ChildNodes {
-						//	value += token.String() + " "
-						//}
-						value = value[:len(value)-1]
-					case *ast.CSSAttributeSelector:
-						if selectorPartNode.Operator.Kind != 0 {
-							value = fmt.Sprintf("[%s%s%s]", selectorPartNode.Name, selectorPartNode.Operator, selectorPartNode.Value)
-							break
-						}
-						value = fmt.Sprintf("[%s]", selectorPartNode.Name)
-					default:
-						panic(fmt.Sprintf("evaluateCSSDefinition(): Unhandled selector node type: %T", selectorPartNode))
-					}
-					selector.Tokens = append(selector.Tokens, value)
-				}
-				selectorList = append(selectorList, selector)
+				selectorList := program.evaluateSelector(selectorListNode.Nodes())
+				selectorRuleList = append(selectorRuleList, selectorList)
 			}
 
 			// Evaluate child nodes / properties
-			propertyList := make([]data.CSSProperty, 0, 5)
+			propertyList := make([]data.CSSProperty, 0, 10)
 			for _, itNode := range node.Nodes() {
 				switch node := itNode.(type) {
 				case *ast.CSSProperty:
@@ -78,8 +112,9 @@ func (program *Program) evaluateCSSDefinition(topNode *ast.CSSDefinition, scope 
 			}
 
 			ruleNode := new(data.CSSRule)
-			ruleNode.Selectors = selectorList
+			ruleNode.Selectors = selectorRuleList
 			ruleNode.Properties = propertyList
+			resultList = append(resultList, ruleNode)
 			//{
 			//	json, _ := json.MarshalIndent(ruleNode, "", "   ")
 			//	fmt.Printf("%s", string(json))
@@ -89,7 +124,6 @@ func (program *Program) evaluateCSSDefinition(topNode *ast.CSSDefinition, scope 
 			{
 				json, _ := json.MarshalIndent(node, "", "   ")
 				fmt.Printf("%s", string(json))
-				panic("CSSRULE")
 			}
 			panic(fmt.Sprintf("evaluateCSSDefinition(): Unhandled type: %T", node))
 		}

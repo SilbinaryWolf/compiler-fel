@@ -2,10 +2,13 @@ package data
 
 import (
 	"bytes"
+	"fmt"
 	"strconv"
 )
 
 type Kind int
+
+type SelectorKind int
 
 const (
 	Unknown Kind = 0 + iota
@@ -104,8 +107,49 @@ type CSSRule struct {
 	Properties []CSSProperty
 }
 
-type CSSSelector struct {
-	Tokens []string
+type CSSSelector []CSSSelectorNode
+
+type CSSSelectorNode interface {
+	String() string
+}
+
+//type CSSSelector struct {
+//	ChildNodes []CSSSelectorNode
+//}
+
+func (nodes CSSSelector) String() string {
+	result := ""
+	for _, node := range nodes {
+		result += node.String() + " "
+	}
+	result = result[:len(result)-1]
+	return result
+}
+
+type CSSSelectorIdentifier struct {
+	Name string
+}
+
+func (node *CSSSelectorIdentifier) String() string {
+	return node.Name
+}
+
+type CSSSelectorOperator struct {
+	Operator string
+}
+
+func (node *CSSSelectorOperator) String() string {
+	return node.Operator
+}
+
+type CSSSelectorAttribute struct {
+	Name     string
+	Operator string
+	Value    string
+}
+
+func (node *CSSSelectorAttribute) String() string {
+	return fmt.Sprintf("[%s%s%s]", node.Name, node.Operator, node.Value)
 }
 
 type CSSProperty struct {
