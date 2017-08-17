@@ -23,100 +23,38 @@ func (p *Parser) parseCSS() []ast.Node {
 
 func (p *Parser) parseCSSStatements() []ast.Node {
 	resultNodes := make([]ast.Node, 0, 10)
-	tokenList := make([]ast.Node, 0, 5)
-	selectorList := make([]ast.CSSSelector, 0, 3)
+	tokenList := make([]ast.Node, 0, 30)
+	selectorList := make([]ast.CSSSelector, 0, 10)
 
 Loop:
 	for {
 		t := p.GetNextToken()
 		switch t.Kind {
 		case token.Identifier:
-			if len(tokenList) > 0 {
-				tokenList = append(tokenList, &ast.Token{Token: t})
-				continue
-			}
-			name := t
-			switch t := p.PeekNextToken(); t.Kind {
-			case token.DeclareSet:
-				p.GetNextToken()
-				node := &ast.DeclareStatement{}
-				node.Name = name
-				node.ChildNodes = p.parseExpression()
-				resultNodes = append(resultNodes, node)
-			case token.Declare:
-				colonToken := p.GetNextToken() // :
-
-				// Check if this is not a property
-				//peekIdent := p.PeekNextToken()
-
-			PropertyLoop:
-				for {
-					t := p.GetNextToken()
-					switch t.Kind {
-					case token.Identifier, token.Number, token.Comma:
-						tokenList = append(tokenList, &ast.Token{Token: t})
-					case token.ParenOpen:
-						nodes := p.parseCSSStatements()
-						if len(nodes) == 0 {
-							panic(fmt.Sprintf("parseCSSStatements(): Expected a node inside () on Line %d", t.Line))
-						}
-						if len(nodes) > 1 {
-							panic(fmt.Sprintf("parseCSSStatements(): Too many nodes inside () on Line %d", t.Line))
-						}
-						tokenList = append(tokenList, &ast.Token{Token: name})
-						tokenList = append(tokenList, &ast.Token{Token: colonToken})
-						tokenList = append(tokenList, nodes[0])
-						continue Loop
-					case token.Newline, token.Semicolon:
-						break PropertyLoop
-					default:
-						panic(fmt.Sprintf("parseCSSStatements(): Unhandled token type: %s in CSS property statement on Line %d", t.Kind, t.Line))
-					}
-				}
-
-				//if peekIdent.Kind == token.Identifier {
-				//	panic(fmt.Sprintf("Token: %s", tokenList[len(tokenList)-1]))
-				//}
-				node := new(ast.CSSProperty)
-				node.Name = name
-				node.ChildNodes = tokenList
-				resultNodes = append(resultNodes, node)
-
-				// Clear tokens
-				tokenList = make([]ast.Node, 0, 5)
-			//case token.Equal:
-			//p.GetNextToken() // =
-			//node := &ast.Statement{}
-			//node.Name = name
-			//node.ChildNodes = p.parseExpression()
-			//resultNodes = append(resultNodes, node)
-			case token.Identifier, token.BraceOpen, token.Comma, token.BracketOpen, token.Define:
-				tokenList = append(tokenList, &ast.Token{Token: name})
-			default:
-				panic(fmt.Sprintf("parseCSSStatements(): Unhandled token type: %s after CSS identifier on Line %d", t.Kind, t.Line))
-			}
+			tokenList = append(tokenList, &ast.Token{Token: t})
 		case token.Declare, token.Define: // : or ::
 			tokenList = append(tokenList, &ast.Token{Token: t})
-			//{
-			//	json, _ := json.MarshalIndent(tokenList, "", "   ")
-			//	fmt.Printf("%s", string(json))
-			//	panic(fmt.Sprintf("parseCSSStatements(): Invalid : on Line %d", t.Line))
-			//	}
-		case token.Comma:
+		case token.Semicolon, token.Newline:
 			if len(tokenList) == 0 {
-				// Ignore comma if no tokens
-				continue
+				continue Loop
 			}
-			selectorNode := ast.CSSSelector{}
-			selectorNode.ChildNodes = tokenList
-			selectorList = append(selectorList, selectorNode)
+			panic(fmt.Sprintf("parseCSSStatements(): Unexpected newline or ; at Line %d", t.Line))
+		case token.Comma:
+			tokenList = append(tokenList, &ast.Token{Token: t})
 
-			// Clear/create new slices
-			tokenList = make([]ast.Node, 0, 5)
+			// Consume any newlines
+			for {
+				t := p.PeekNextToken()
+				if t.Kind != token.Newline {
+					break
+				}
+				p.GetNextToken()
+			}
 		case token.BraceOpen:
 			if len(tokenList) == 0 && len(selectorList) == 0 {
 				panic(fmt.Sprintf("parseCSSStatements(): Got {, expected identifiers preceding for CSS rule on Line %d", t.Line))
 			}
+			panic("todo(Jake): Handle brace open")
 			if len(tokenList) > 0 {
 				selectorNode := ast.CSSSelector{}
 				selectorNode.ChildNodes = tokenList
@@ -129,7 +67,7 @@ Loop:
 
 			// Clear/create new slices
 			tokenList = make([]ast.Node, 0, 5)
-			selectorList = make([]ast.CSSSelector, 0, 3)
+			//selectorList = make([]ast.CSSSelector, 0, 3)
 		case token.BracketOpen:
 			node := new(ast.CSSAttributeSelector)
 			node.Name = p.GetNextToken()
@@ -161,10 +99,6 @@ Loop:
 		case token.BraceClose, token.ParenClose:
 			// Finish statement
 			break Loop
-		case token.Newline:
-			// no-op
-		case token.Semicolon:
-			panic(fmt.Sprintf("parseCSSStatements(): Unexpected ; at Line %d", t.Line))
 		case token.EOF:
 			panic("parseCSSStatements(): Reached end of file, Should be closed with }")
 		default:
