@@ -2,6 +2,7 @@ package parser
 
 import (
 	//"encoding/json"
+
 	"fmt"
 
 	"github.com/silbinarywolf/compiler-fel/ast"
@@ -24,21 +25,64 @@ func (p *Parser) parseCSS() []ast.Node {
 func (p *Parser) parseCSSStatements() []ast.Node {
 	resultNodes := make([]ast.Node, 0, 10)
 	tokenList := make([]ast.Node, 0, 30)
-	selectorList := make([]ast.CSSSelector, 0, 10)
 
 Loop:
 	for {
 		t := p.GetNextToken()
 		switch t.Kind {
-		case token.Identifier:
-			tokenList = append(tokenList, &ast.Token{Token: t})
-		case token.Declare, token.Define: // : or ::
+		case token.AtKeyword, token.Identifier, token.Colon, token.DoubleColon, token.Number:
 			tokenList = append(tokenList, &ast.Token{Token: t})
 		case token.Semicolon, token.Newline:
 			if len(tokenList) == 0 {
 				continue Loop
 			}
-			panic(fmt.Sprintf("parseCSSStatements(): Unexpected newline or ; at Line %d", t.Line))
+
+			// Get property name
+			var name token.Token
+			nameNode := tokenList[0]
+			switch tokenNode := nameNode.(type) {
+			case *ast.Token:
+				if tokenNode.Kind != token.Identifier {
+					panic(fmt.Sprintf("parseCSSStatements(): Expected property name to be identifier, not %s", tokenNode.Kind.String()))
+					break Loop
+				}
+				name = tokenNode.Token
+			default:
+				panic(fmt.Sprintf("parseCSSStatements(): Expected property to be identifier type, not %T"))
+			}
+
+			if len(tokenList) < 3 {
+				panic(fmt.Sprintf("parseCSSStatements(): Unexpected token count on property statement on Line %d", name.Line))
+				break Loop
+			}
+
+			// Get declare op
+			declareOpNode := tokenList[1]
+			switch tokenNode := declareOpNode.(type) {
+			case *ast.Token:
+				if tokenNode.Kind != token.Colon {
+					panic(fmt.Sprintf("parseCSSStatements(): Expected : after property name, not %s", tokenNode.Kind.String()))
+					break Loop
+				}
+			default:
+				panic(fmt.Sprintf("parseCSSStatements(): Expected property to begin with identifier type, not %T"))
+			}
+			if len(tokenList) < 3 {
+				panic(fmt.Sprintf("parseCSSStatements(): Expected property statement on Line %d"))
+				break Loop
+			}
+
+			valueNodes := tokenList[2:len(tokenList)]
+			/*for _, val := range valueNodes {
+				// something have to do with val
+			}*/
+			cssPropertyNode := new(ast.CSSProperty)
+			cssPropertyNode.Name = name
+			cssPropertyNode.ChildNodes = valueNodes
+			resultNodes = append(resultNodes, cssPropertyNode)
+
+			// Clear
+			tokenList = make([]ast.Node, 0, 30)
 		case token.Comma:
 			tokenList = append(tokenList, &ast.Token{Token: t})
 
@@ -51,23 +95,38 @@ Loop:
 				p.GetNextToken()
 			}
 		case token.BraceOpen:
-			if len(tokenList) == 0 && len(selectorList) == 0 {
+			if len(tokenList) == 0 {
 				panic(fmt.Sprintf("parseCSSStatements(): Got {, expected identifiers preceding for CSS rule on Line %d", t.Line))
 			}
-			panic("todo(Jake): Handle brace open")
-			if len(tokenList) > 0 {
-				selectorNode := ast.CSSSelector{}
-				selectorNode.ChildNodes = tokenList
-				selectorList = append(selectorList, selectorNode)
+
+			// Put selectors into a single array
+			selectorList := make([]ast.CSSSelector, 0, 10)
+			selector := ast.CSSSelector{}
+			for _, itNode := range tokenList {
+				switch node := itNode.(type) {
+				case *ast.Token:
+					if node.Kind == token.Comma {
+						if len(selector.ChildNodes) > 0 {
+							selectorList = append(selectorList, selector)
+							selector = ast.CSSSelector{}
+						}
+						continue
+					}
+				}
+				selector.ChildNodes = append(selector.ChildNodes, itNode)
 			}
+			if len(selector.ChildNodes) > 0 {
+				selectorList = append(selectorList, selector)
+			}
+
+			// Add node
 			rule := new(ast.CSSRule)
 			rule.Selectors = selectorList
 			rule.ChildNodes = p.parseCSSStatements()
 			resultNodes = append(resultNodes, rule)
 
-			// Clear/create new slices
-			tokenList = make([]ast.Node, 0, 5)
-			//selectorList = make([]ast.CSSSelector, 0, 3)
+			// Clear
+			tokenList = make([]ast.Node, 0, 30)
 		case token.BracketOpen:
 			node := new(ast.CSSAttributeSelector)
 			node.Name = p.GetNextToken()
@@ -96,13 +155,22 @@ Loop:
 				p.addError(p.expect(t, token.BracketClose))
 				break Loop
 			}
+		case token.ParenOpen:
+			nodes := p.parseCSSStatements()
+			if len(nodes) == 0 {
+				panic(fmt.Sprintf("parseCSSStatements(): Expected a node inside () on Line %d", t.Line))
+			}
+			if len(nodes) > 1 {
+				panic(fmt.Sprintf("parseCSSStatements(): Too many nodes inside () on Line %d", t.Line))
+			}
+			tokenList = append(tokenList, nodes[0])
 		case token.BraceClose, token.ParenClose:
 			// Finish statement
 			break Loop
 		case token.EOF:
 			panic("parseCSSStatements(): Reached end of file, Should be closed with }")
 		default:
-			panic(fmt.Sprintf("parseCSSStatements(): Unhandled token type: \"%s\" (value: %s) on Line %d", t.Kind.String(), t.String(), t.Line))
+			panic(fmt.Sprintf("parseCSSStatements(): Unhandled token type(%d): \"%s\" (value: %s) on Line %d", t.Kind, t.Kind.String(), t.String(), t.Line))
 		}
 	}
 

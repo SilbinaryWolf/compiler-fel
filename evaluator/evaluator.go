@@ -149,7 +149,9 @@ func (program *Program) RunProject(projectDirpath string) error {
 	// Execute template
 	executionStart := time.Now()
 	for _, astFile := range astFiles {
-		scope := NewScope(nil)
+		program.globalScope = NewScope(nil)
+
+		scope := program.globalScope
 		htmlNode := program.evaluateTemplate(astFile, scope)
 
 		if len(htmlNode.ChildNodes) == 0 {
@@ -157,6 +159,16 @@ func (program *Program) RunProject(projectDirpath string) error {
 		}
 		if htmlNode == nil {
 			panic(fmt.Sprintf("No html node found in %s.", astFile.Filepath))
+		}
+
+		// Print CSS definitions
+		cssDefinitionList := scope.cssDefinitions
+		if len(cssDefinitionList) > 0 {
+			for _, cssDefinition := range cssDefinitionList {
+				cssOutput := generate.PrettyCSS(cssDefinition)
+				fmt.Printf("CSS OUTPUT\n-------------\n\n%s", cssOutput)
+				panic("evalautor.go: Test")
+			}
 		}
 
 		baseFilename := astFile.Filepath[len(templateInputDirectory) : len(astFile.Filepath)-4]

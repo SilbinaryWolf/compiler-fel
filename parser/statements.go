@@ -70,7 +70,7 @@ Loop:
 				}
 				panic(fmt.Sprintf("parseStatements(): Handle other ident case kind: %s", t.Kind.String()))
 			}
-		case token.Define:
+		case token.DoubleColon:
 			p.GetNextToken()
 			t := p.PeekNextToken()
 			switch t.Kind {

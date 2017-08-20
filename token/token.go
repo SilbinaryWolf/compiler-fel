@@ -1,10 +1,5 @@
 package token
 
-import (
-	"fmt"
-	"runtime"
-)
-
 type Kind int
 
 const (
@@ -20,9 +15,9 @@ const (
 	BracketOpen  // [
 	BracketClose // ]
 	Comma        // ,
-	Declare      // :
+	Colon        // :
 	DeclareSet   // :=
-	Define       // ::
+	DoubleColon  // ::
 	Semicolon    // ;
 	Dot          // .
 	Hash         // #
@@ -31,6 +26,7 @@ const (
 	unique_begin
 
 	Identifier      // ABunchOfUnquotedLetters
+	AtKeyword       // @import, @media
 	InteropVariable // $var
 	Number          // 30, 1.462
 	NumberWithUnit  // 100%, 32px, 5.5em
@@ -92,6 +88,7 @@ var kindToString = []string{
 	InteropVariable: "interop variable",
 
 	Identifier: "identifier",
+	AtKeyword:  "at-keyword",
 
 	Number:         "number",
 	NumberWithUnit: "number with unit",
@@ -102,15 +99,16 @@ var kindToString = []string{
 	BracketOpen:    "[",
 	BracketClose:   "]",
 	Comma:          ",",
-	Declare:        ":",
+	Colon:          ":",
 	DeclareSet:     ":=",
-	Define:         "::",
+	DoubleColon:    "::",
 	Semicolon:      ";",
 	Character:      "character",
 	String:         "string",
 	Not:            "!",
 	Dot:            ".",
 	Hash:           "#",
+	At:             "@",
 	Ternary:        "?",
 
 	KeywordIf:   "if",
@@ -192,7 +190,7 @@ func (token Token) Precedence() int {
 	return precedence[token.Kind]
 }
 
-func (token Token) Debug() {
+/*func (token Token) Debug() {
 	// Get callee function stuff
 	fpcs := make([]uintptr, 1)
 	runtime.Callers(3, fpcs)
@@ -206,4 +204,4 @@ func (token Token) DebugString() string {
 	var result string
 	result = fmt.Sprintf("%-10v (Line: %v)", token.String(), token.Line)
 	return result
-}
+}*/

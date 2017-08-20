@@ -41,6 +41,9 @@ func (program *Program) evaluateHTMLNode(node *ast.HTMLNode, scope *Scope) *data
 				Value: value.String(),
 			}
 			resultDataNode.ChildNodes = append(resultDataNode.ChildNodes, subResultDataNode)
+		case *ast.CSSDefinition:
+			// NOTE(Jake): Hack to ensure CSSDefinition is at top scope
+			program.evaluateCSSDefinition(node, scope.parent.parent)
 		default:
 			program.evaluateStatement(itNode, scope)
 		}

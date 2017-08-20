@@ -102,9 +102,15 @@ func (node *HTMLText) String() string {
 	return node.Value
 }
 
+type CSSDefinition struct {
+	Name       string
+	ChildNodes []*CSSRule
+}
+
 type CSSRule struct {
 	Selectors  []CSSSelector
 	Properties []CSSProperty
+	//Rules      []CSSRule
 }
 
 type CSSSelector []CSSSelectorNode
@@ -155,4 +161,8 @@ func (node *CSSSelectorAttribute) String() string {
 type CSSProperty struct {
 	Name  string
 	Value string
+}
+
+func (property *CSSProperty) String() string {
+	return fmt.Sprintf("%s: %s;", property.Name, property.Value)
 }

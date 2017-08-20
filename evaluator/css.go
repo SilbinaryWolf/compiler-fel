@@ -21,11 +21,11 @@ func (program *Program) evaluateSelector(nodes []ast.Node) data.CSSSelector {
 				selectorList = append(selectorList, &data.CSSSelectorIdentifier{
 					Name: selectorPartNode.String(),
 				})
-			case token.Declare:
+			case token.Colon:
 				selectorList = append(selectorList, &data.CSSSelectorOperator{
 					Operator: ":",
 				})
-			case token.Define:
+			case token.DoubleColon:
 				selectorList = append(selectorList, &data.CSSSelectorOperator{
 					Operator: "::",
 				})
@@ -68,7 +68,7 @@ func (program *Program) evaluateSelector(nodes []ast.Node) data.CSSSelector {
 	return selectorList
 }
 
-func (program *Program) evaluateCSSDefinition(topNode *ast.CSSDefinition, scope *Scope) {
+func (program *Program) evaluateCSSDefinition(topNode *ast.CSSDefinition, scope *Scope) *data.CSSDefinition {
 	resultList := make([]*data.CSSRule, 0, 10)
 	scope = NewScope(scope)
 	for _, itNode := range topNode.Nodes() {
@@ -115,11 +115,6 @@ func (program *Program) evaluateCSSDefinition(topNode *ast.CSSDefinition, scope 
 			ruleNode.Selectors = selectorRuleList
 			ruleNode.Properties = propertyList
 			resultList = append(resultList, ruleNode)
-			//{
-			//	json, _ := json.MarshalIndent(ruleNode, "", "   ")
-			//	fmt.Printf("%s", string(json))
-			//}
-			//panic("evaluateCSSDefinition(): finish function")
 		default:
 			{
 				json, _ := json.MarshalIndent(node, "", "   ")
@@ -128,5 +123,23 @@ func (program *Program) evaluateCSSDefinition(topNode *ast.CSSDefinition, scope 
 			panic(fmt.Sprintf("evaluateCSSDefinition(): Unhandled type: %T", node))
 		}
 	}
-	panic(fmt.Sprintf("evaluateCSSDefinition(): Finish handling CSS statement"))
+
+	cssDefinition := new(data.CSSDefinition)
+	cssDefinition.Name = topNode.Name.String()
+	cssDefinition.ChildNodes = resultList
+	if len(cssDefinition.Name) == 0 {
+		panic("evaluateCSSDefinition(): Todo! Cannot have named CSS blocks yet.")
+	}
+	if scope == nil {
+		panic("evaluateCSSDefinition(): Null scope provided.")
+	}
+	/*if scope.parent != nil {
+		{
+			json, _ := json.MarshalIndent(scope.parent, "", "   ")
+			fmt.Printf("%s", string(json))
+		}
+		panic("evaluateCSSDefinition(): Todo! Can only have CSS blocks at top-level")
+	}*/
+	program.globalScope.cssDefinitions = append(program.globalScope.cssDefinitions, cssDefinition)
+	return cssDefinition
 }

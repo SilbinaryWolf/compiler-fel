@@ -1,24 +1,11 @@
 package generate
 
 import (
-	"bytes"
 	"fmt"
 
 	"github.com/silbinarywolf/compiler-fel/data"
 	"github.com/silbinarywolf/compiler-fel/util"
 )
-
-type Generator struct {
-	bytes.Buffer
-	indent int
-}
-
-func (gen *Generator) WriteLine() {
-	gen.WriteByte('\n')
-	for i := 0; i < gen.indent; i++ {
-		gen.WriteString("    ")
-	}
-}
 
 func PrettyHTML(node *data.HTMLNode) string {
 	gen := new(Generator)

@@ -5,6 +5,9 @@ import "github.com/silbinarywolf/compiler-fel/data"
 type Scope struct {
 	variables map[string]data.Type
 	parent    *Scope
+
+	// Top-level unnamed block template-use
+	cssDefinitions []*data.CSSDefinition
 }
 
 func NewScope(parent *Scope) *Scope {

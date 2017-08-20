@@ -1,7 +1,3 @@
-div {
-  
-}
-
 :: css {
     /*! normalize.css v7.0.0 | MIT License | github.com/necolas/normalize.css */
     /* Document
@@ -216,6 +212,12 @@ div {
       display: none;
       height: 0;
     }
+
+    /*@media (max-width: 600px) {
+        .audio {
+            display: none;
+        }
+    }*/
 
     /**
      * Remove the border on images inside links in IE 10-.
@@ -448,5 +450,16 @@ div {
 
     [hidden] {
       display: none;
+    }
+}
+
+html {
+    head {
+
+    }
+    body {
+        div {
+            "Yo!"
+        }
     }
 }

@@ -210,6 +210,19 @@ func (scanner *Scanner) getNextTokenIncludeNewline() token.Token {
 	return token
 }*/
 
+func (scanner *Scanner) scanIdentifier() {
+	for {
+		lastIndex := scanner.index
+		C := scanner.nextRune()
+		if scanner.index < len(scanner.filecontents) &&
+			(isAlpha(C) || isNumber(C) || C == '-' || C == '_' || C == '.') {
+			continue
+		}
+		scanner.index = lastIndex
+		break
+	}
+}
+
 func (scanner *Scanner) _getNextToken() token.Token {
 	t := token.Token{}
 	t.Kind = token.Unknown
@@ -228,6 +241,12 @@ func (scanner *Scanner) _getNextToken() token.Token {
 		t.Kind = token.EOF
 	case '@':
 		t.Kind = token.At
+
+		// Scan at-keyword
+		if scanner.scanmode == ModeCSS {
+			t.Kind = token.AtKeyword
+			scanner.scanIdentifier()
+		}
 	case '(':
 		t.Kind = token.ParenOpen
 	case ')':
@@ -307,10 +326,10 @@ func (scanner *Scanner) _getNextToken() token.Token {
 		}
 		//panic(string(scanner.filecontents[t.Start:t.End]))
 	case ':':
-		t.Kind = token.Declare
+		t.Kind = token.Colon
 		switch lastIndex := scanner.index; scanner.nextRune() {
 		case C:
-			t.Kind = token.Define
+			t.Kind = token.DoubleColon
 		case '=':
 			t.Kind = token.DeclareSet
 		default:
@@ -374,16 +393,7 @@ func (scanner *Scanner) _getNextToken() token.Token {
 		} else if C == '_' || C == '-' || isAlpha(C) ||
 			(scanner.scanmode == ModeCSS && (C == '.' || C == '#')) {
 			t.Kind = token.Identifier
-			for {
-				lastIndex := scanner.index
-				C := scanner.nextRune()
-				if scanner.index < len(scanner.filecontents) &&
-					(isAlpha(C) || isNumber(C) || C == '-' || C == '_' || C == '.') {
-					continue
-				}
-				scanner.index = lastIndex
-				break
-			}
+			scanner.scanIdentifier()
 			identifierOrKeyword := string(scanner.filecontents[t.Start:scanner.index])
 			keywordKind := token.GetKeywordKindFromString(identifierOrKeyword)
 			if keywordKind != token.Unknown {
