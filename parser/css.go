@@ -30,6 +30,25 @@ Loop:
 	for {
 		t := p.GetNextToken()
 		switch t.Kind {
+		case token.DeclareSet:
+			if len(tokenList) != 1 {
+				panic(fmt.Sprintf("parseCSSStatements(): Invalid use of := on Line %d", t.Line))
+			}
+			var name token.Token
+			switch tok := tokenList[0].(type) {
+			case *ast.Token:
+				name = tok.Token
+			default:
+				panic(fmt.Sprintf("parseCSSStatements(): Invalid use of := on Line %d", t.Line))
+			}
+
+			node := &ast.DeclareStatement{}
+			node.Name = name
+			node.ChildNodes = p.parseExpression()
+			resultNodes = append(resultNodes, node)
+
+			// Clear
+			tokenList = make([]ast.Node, 0, 30)
 		case token.AtKeyword, token.Identifier, token.Colon, token.DoubleColon, token.Number:
 			tokenList = append(tokenList, &ast.Token{Token: t})
 		case token.Semicolon, token.Newline:
@@ -43,7 +62,7 @@ Loop:
 			switch tokenNode := nameNode.(type) {
 			case *ast.Token:
 				if tokenNode.Kind != token.Identifier {
-					panic(fmt.Sprintf("parseCSSStatements(): Expected property name to be identifier, not %s", tokenNode.Kind.String()))
+					panic(fmt.Sprintf("parseCSSStatements(): Expected property name to be identifier, not %s on Line %d", tokenNode.Kind.String(), tokenNode.Line))
 					break Loop
 				}
 				name = tokenNode.Token

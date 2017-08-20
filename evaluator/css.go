@@ -18,8 +18,9 @@ func (program *Program) evaluateSelector(nodes []ast.Node) data.CSSSelector {
 		case *ast.Token:
 			switch selectorPartNode.Kind {
 			case token.Identifier:
+				name := selectorPartNode.String()
 				selectorList = append(selectorList, &data.CSSSelectorIdentifier{
-					Name: selectorPartNode.String(),
+					Name: name,
 				})
 			case token.Colon:
 				selectorList = append(selectorList, &data.CSSSelectorOperator{
@@ -96,7 +97,20 @@ func (program *Program) evaluateCSSDefinition(topNode *ast.CSSDefinition, scope 
 					for _, itNode := range node.ChildNodes {
 						switch node := itNode.(type) {
 						case *ast.Token:
-							value.WriteString(node.String())
+							switch node.Kind {
+							case token.Identifier:
+								name := node.String()
+
+								// If a variable is declared with this name, use it instead.
+								value, ok := scope.Get(name)
+								if ok {
+									fmt.Printf("%v\n", value)
+									panic("todo(jake): Make it use this variable value")
+									//name = value
+								}
+							default:
+								value.WriteString(node.String())
+							}
 							value.WriteByte(' ')
 						default:
 							panic(fmt.Sprintf("evaluateCSSDefinition(): Unhandled CSS property value node type: %T", itNode))

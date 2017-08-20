@@ -56,7 +56,7 @@ Loop:
 				panic("Expected operator, not number")
 			}
 			expectOperator = true
-			panic("todo(jake): Handle number")
+			panic("parseExpression(): todo(jake): Handle number")
 		case token.ParenOpen:
 			parenOpenCount++
 		case token.ParenClose:
