@@ -99,15 +99,18 @@ func (program *Program) evaluateCSSDefinition(topNode *ast.CSSDefinition, scope 
 						case *ast.Token:
 							switch node.Kind {
 							case token.Identifier:
-								name := node.String()
+								identName := node.String()
 
 								// If a variable is declared with this name, use it instead.
-								value, ok := scope.Get(name)
+								variable, ok := scope.Get(identName)
 								if ok {
-									fmt.Printf("%v\n", value)
-									panic("todo(jake): Make it use this variable value")
-									//name = value
+									value.WriteString(variable.String())
+									//fmt.Printf("%v\n", value)
+									//panic("todo(jake): Make it use this variable value")
+									continue
 								}
+
+								value.WriteString(identName)
 							default:
 								value.WriteString(node.String())
 							}

@@ -1,6 +1,7 @@
 package evaluator
 
 import (
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -27,6 +28,17 @@ func New() *Program {
 	p := new(Program)
 	p.globalScope = NewScope(nil)
 	return p
+}
+
+func (program *Program) GetConfigString(configName string) (string, error) {
+	value, ok := program.globalScope.Get(configName)
+	if !ok {
+		return "", fmt.Errorf("%s is undefined in config.fel. This definition is required.", configName)
+	}
+	if value.Kind() != data.KindString {
+		return "", fmt.Errorf("%s is expected to be a string.", configName)
+	}
+	return value.String(), nil
 }
 
 func (program *Program) RunProject(projectDirpath string) error {
@@ -79,15 +91,16 @@ func (program *Program) RunProject(projectDirpath string) error {
 	//panic("Finished evaluating config file")
 
 	// Get config variables
-	value, ok := program.globalScope.Get("templateOutputDirectory")
-	if !ok {
-		return fmt.Errorf("%s is undefined in config.fel. This definition is required.", "templateOutputDirectory")
+	templateOutputDirectory, err := program.GetConfigString("templateOutputDirectory")
+	if err != nil {
+		return err
 	}
-	if value.Kind() != data.KindString {
-		return fmt.Errorf("%s is expected to be a string.", "templateOutputDirectory")
+	templateOutputDirectory = fmt.Sprintf("%s/%s", projectDirpath, templateOutputDirectory)
+	cssOutputDirectory, err := program.GetConfigString("cssOutputDirectory")
+	if err != nil {
+		return err
 	}
-	templateOutputDirectory := fmt.Sprintf("%s/%s", projectDirpath, value.String())
-	program.globalScope = NewScope(nil)
+	cssOutputDirectory = fmt.Sprintf("%s/%s", projectDirpath, cssOutputDirectory)
 
 	// Check if output templates directory exists
 	{
@@ -102,18 +115,20 @@ func (program *Program) RunProject(projectDirpath string) error {
 
 	// Get all files in folder recursively with *.fel
 	filepathSet := make([]string, 0, 50)
-	err := filepath.Walk(templateInputDirectory, func(path string, f os.FileInfo, _ error) error {
-		if !f.IsDir() && filepath.Ext(f.Name()) == ".fel" {
-			filepathSet = append(filepathSet, path)
+	{
+		err := filepath.Walk(templateInputDirectory, func(path string, f os.FileInfo, _ error) error {
+			if !f.IsDir() && filepath.Ext(f.Name()) == ".fel" {
+				filepathSet = append(filepathSet, path)
+			}
+			return nil
+		})
+		if err != nil {
+			return fmt.Errorf("An error occurred reading: %v, Error Message: %v", templateInputDirectory, err)
 		}
-		return nil
-	})
-	if err != nil {
-		return fmt.Errorf("An error occurred reading: %v, Error Message: %v", templateInputDirectory, err)
-	}
 
-	if len(filepathSet) == 0 {
-		return fmt.Errorf("No *.fel files found in your project's \"templates\" directory: %v", templateInputDirectory)
+		if len(filepathSet) == 0 {
+			return fmt.Errorf("No *.fel files found in your project's \"templates\" directory: %v", templateInputDirectory)
+		}
 	}
 
 	// Parse files
@@ -145,6 +160,7 @@ func (program *Program) RunProject(projectDirpath string) error {
 	}*/
 
 	outputTemplateFileSet := make([]TemplateFile, 0, len(astFiles))
+	outputCSSDefinitionSet := make([]*data.CSSDefinition, 0, 3)
 
 	// Execute template
 	executionStart := time.Now()
@@ -165,9 +181,7 @@ func (program *Program) RunProject(projectDirpath string) error {
 		cssDefinitionList := scope.cssDefinitions
 		if len(cssDefinitionList) > 0 {
 			for _, cssDefinition := range cssDefinitionList {
-				cssOutput := generate.PrettyCSS(cssDefinition)
-				fmt.Printf("CSS OUTPUT\n-------------\n\n%s", cssOutput)
-				panic("evalautor.go: Test")
+				outputCSSDefinitionSet = append(outputCSSDefinitionSet, cssDefinition)
 			}
 		}
 
@@ -181,6 +195,26 @@ func (program *Program) RunProject(projectDirpath string) error {
 	}
 	executionElapsed := time.Since(executionStart)
 
+	// Output CSS definitions
+	{
+		var cssOutput bytes.Buffer
+		for _, cssDefinition := range outputCSSDefinitionSet {
+			cssOutput.WriteString(fmt.Sprintf("/* Name: %s */\n", cssDefinition.Name))
+			cssOutput.WriteString(generate.PrettyCSS(cssDefinition))
+		}
+		outputFilepath := filepath.Clean(fmt.Sprintf("%s/%s.css", cssOutputDirectory, "main"))
+		fmt.Printf("%s\n", outputFilepath)
+		err := ioutil.WriteFile(
+			outputFilepath,
+			cssOutput.Bytes(),
+			0644,
+		)
+		if err != nil {
+			panic(err)
+		}
+	}
+
+	// Write to file
 	for _, outputTemplateFile := range outputTemplateFileSet {
 		err := ioutil.WriteFile(
 			outputTemplateFile.Filepath,
