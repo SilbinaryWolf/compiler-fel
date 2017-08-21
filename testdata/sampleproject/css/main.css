@@ -1,9 +1,13 @@
-/* Name: Test */
-div p {
-    background-color: red;
-}
-
 /* Name: Normalize */
+@media (min-width : 100px) and (max-width : 100px) {
+    
+}
+html {
+    
+}
+html @media (min-width : 100px) and (max-width : 100px) {
+    property: value;
+}
 html {
     line-height: 1.1;
     -ms-text-size-adjust: 100%;
@@ -91,14 +95,14 @@ audio,
 video {
     display: inline-block;
 }
-audio:not[controls] {
+audio:not ([controls]) {
     display: none;
     height: 0;
 }
 img {
     border-style: none;
 }
-svg:not: root {
+svg:not (: root) {
     overflow: hidden;
 }
 button,

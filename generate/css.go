@@ -46,7 +46,12 @@ func (gen *Generator) getCSSRuleNode(node *data.CSSRule) {
 				continue
 			// todo(Jake): Fix this, this is used for paren'd component values. ie ([controls])
 			case data.CSSSelector:
+				if i != 0 && lastSelectorWasOperator == false {
+					gen.WriteByte(' ')
+				}
+				gen.WriteByte('(')
 				gen.WriteString(node.String())
+				gen.WriteByte(')')
 				//panic(fmt.Sprintf("getCSSRuleNode(): Unhandled node type: %T, value: %s", node, node.String()))
 			default:
 				panic(fmt.Sprintf("getCSSRuleNode(): Unhandled node type: %T", node))

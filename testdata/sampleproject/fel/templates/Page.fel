@@ -11,6 +11,16 @@ Normalize :: css {
      *    IE on Windows Phone and in iOS.
      */
 
+    @media (min-width: 100px) and (max-width: 100px) {
+
+    }
+
+    html {
+      @media (min-width: 100px) and (max-width: 100px) {
+        property: value;
+      }
+    }
+
     html {
       line-height: 1.1; /* 1 */
       -ms-text-size-adjust: 100%; /* 2 */

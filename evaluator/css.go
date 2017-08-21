@@ -17,7 +17,7 @@ func (program *Program) evaluateSelector(nodes []ast.Node) data.CSSSelector {
 		switch selectorPartNode := itSelectorPartNode.(type) {
 		case *ast.Token:
 			switch selectorPartNode.Kind {
-			case token.Identifier:
+			case token.Identifier, token.AtKeyword, token.Number:
 				name := selectorPartNode.String()
 				selectorList = append(selectorList, &data.CSSSelectorIdentifier{
 					Name: name,
@@ -69,69 +69,91 @@ func (program *Program) evaluateSelector(nodes []ast.Node) data.CSSSelector {
 	return selectorList
 }
 
+func (program *Program) evaluateCSSRule(cssDefinition *data.CSSDefinition, topNode *ast.CSSRule, parentCSSRule *data.CSSRule, scope *Scope) {
+	scope = NewScope(scope)
+
+	ruleNode := new(data.CSSRule)
+	cssDefinition.ChildNodes = append(cssDefinition.ChildNodes, ruleNode)
+
+	// Evaluate selectors
+	ruleNode.Selectors = make([]data.CSSSelector, 0, 10)
+	if parentCSSRule != nil {
+		// Handle nested selectors
+		for _, parentSelectorListNode := range parentCSSRule.Selectors {
+			for _, selectorListNode := range topNode.Selectors {
+				selectorList := make(data.CSSSelector, 0, len(parentSelectorListNode))
+				selectorList = append(selectorList, parentSelectorListNode...)
+				selectorList = append(selectorList, program.evaluateSelector(selectorListNode.Nodes())...)
+				ruleNode.Selectors = append(ruleNode.Selectors, selectorList)
+			}
+		}
+	} else {
+		for _, selectorListNode := range topNode.Selectors {
+			selectorList := program.evaluateSelector(selectorListNode.Nodes())
+			ruleNode.Selectors = append(ruleNode.Selectors, selectorList)
+		}
+	}
+
+	// Evaluate child nodes / properties
+	ruleNode.Properties = make([]data.CSSProperty, 0, 10)
+	for _, itNode := range topNode.Nodes() {
+		switch node := itNode.(type) {
+		case *ast.CSSProperty:
+			property := data.CSSProperty{
+				Name: node.Name.String(),
+			}
+
+			var value bytes.Buffer
+			for _, itNode := range node.ChildNodes {
+				switch node := itNode.(type) {
+				case *ast.Token:
+					switch node.Kind {
+					case token.Identifier:
+						identName := node.String()
+
+						// If a variable is declared with this name, use it instead.
+						variable, ok := scope.Get(identName)
+						if ok {
+							value.WriteString(variable.String())
+							//fmt.Printf("%v\n", value)
+							//panic("todo(jake): Make it use this variable value")
+							continue
+						}
+
+						value.WriteString(identName)
+					default:
+						value.WriteString(node.String())
+					}
+					value.WriteByte(' ')
+				default:
+					panic(fmt.Sprintf("evaluateCSSDefinition(): Unhandled CSS property value node type: %T", itNode))
+				}
+			}
+
+			property.Value = value.String()
+			property.Value = property.Value[:len(property.Value)-1]
+			ruleNode.Properties = append(ruleNode.Properties, property)
+		case *ast.CSSRule:
+			program.evaluateCSSRule(cssDefinition, node, ruleNode, scope)
+		default:
+			panic(fmt.Sprintf("evaluateCSSDefinition(): Unhandled child node type: %T", itNode))
+		}
+	}
+}
+
 func (program *Program) evaluateCSSDefinition(topNode *ast.CSSDefinition, scope *Scope) *data.CSSDefinition {
-	resultList := make([]*data.CSSRule, 0, 10)
+	cssDefinition := new(data.CSSDefinition)
+	cssDefinition.Name = topNode.Name.String()
+	cssDefinition.ChildNodes = make([]*data.CSSRule, 0, 10)
+	program.globalScope.cssDefinitions = append(program.globalScope.cssDefinitions, cssDefinition)
+
 	scope = NewScope(scope)
 	for _, itNode := range topNode.Nodes() {
 		switch node := itNode.(type) {
 		case *ast.DeclareStatement:
 			program.evaluateDeclareSet(node, scope)
 		case *ast.CSSRule:
-			// Evaluate selectors
-			selectorRuleList := make([]data.CSSSelector, 0, 10)
-			for _, selectorListNode := range node.Selectors {
-				selectorList := program.evaluateSelector(selectorListNode.Nodes())
-				selectorRuleList = append(selectorRuleList, selectorList)
-			}
-
-			// Evaluate child nodes / properties
-			propertyList := make([]data.CSSProperty, 0, 10)
-			for _, itNode := range node.Nodes() {
-				switch node := itNode.(type) {
-				case *ast.CSSProperty:
-					property := data.CSSProperty{
-						Name: node.Name.String(),
-					}
-
-					var value bytes.Buffer
-					for _, itNode := range node.ChildNodes {
-						switch node := itNode.(type) {
-						case *ast.Token:
-							switch node.Kind {
-							case token.Identifier:
-								identName := node.String()
-
-								// If a variable is declared with this name, use it instead.
-								variable, ok := scope.Get(identName)
-								if ok {
-									value.WriteString(variable.String())
-									//fmt.Printf("%v\n", value)
-									//panic("todo(jake): Make it use this variable value")
-									continue
-								}
-
-								value.WriteString(identName)
-							default:
-								value.WriteString(node.String())
-							}
-							value.WriteByte(' ')
-						default:
-							panic(fmt.Sprintf("evaluateCSSDefinition(): Unhandled CSS property value node type: %T", itNode))
-						}
-					}
-
-					property.Value = value.String()
-					property.Value = property.Value[:len(property.Value)-1]
-					propertyList = append(propertyList, property)
-				default:
-					panic(fmt.Sprintf("evaluateCSSDefinition(): Unhandled child node type: %T", itNode))
-				}
-			}
-
-			ruleNode := new(data.CSSRule)
-			ruleNode.Selectors = selectorRuleList
-			ruleNode.Properties = propertyList
-			resultList = append(resultList, ruleNode)
+			program.evaluateCSSRule(cssDefinition, node, nil, scope)
 		default:
 			{
 				json, _ := json.MarshalIndent(node, "", "   ")
@@ -141,9 +163,6 @@ func (program *Program) evaluateCSSDefinition(topNode *ast.CSSDefinition, scope 
 		}
 	}
 
-	cssDefinition := new(data.CSSDefinition)
-	cssDefinition.Name = topNode.Name.String()
-	cssDefinition.ChildNodes = resultList
 	if len(cssDefinition.Name) == 0 {
 		panic("evaluateCSSDefinition(): Todo! Cannot have named CSS blocks yet.")
 	}
@@ -157,6 +176,5 @@ func (program *Program) evaluateCSSDefinition(topNode *ast.CSSDefinition, scope 
 		}
 		panic("evaluateCSSDefinition(): Todo! Can only have CSS blocks at top-level")
 	}*/
-	program.globalScope.cssDefinitions = append(program.globalScope.cssDefinitions, cssDefinition)
 	return cssDefinition
 }

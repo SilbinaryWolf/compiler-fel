@@ -171,17 +171,12 @@ func (kind Kind) String() string {
 func (token Token) String() string {
 	switch token.Kind {
 	case Illegal:
-		// no-op
-	case InteropVariable:
-		return token.Data
-	case Identifier, Number:
-		return token.Data
-	case String:
-		// NOTE(Jake): Change this so string outputs properly in Evaluator
-		//return fmt.Sprintf("\"%s\"", token.Data)
-		return token.Data
+		// no-o
 	case Whitespace:
 		return " "
+	}
+	if token.HasUniqueData() {
+		return token.Data
 	}
 	return kindToString[token.Kind]
 }
