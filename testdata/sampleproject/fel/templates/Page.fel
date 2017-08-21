@@ -11,10 +11,6 @@ Normalize :: css {
      *    IE on Windows Phone and in iOS.
      */
 
-    @media (min-width: 100px) and (max-width: 100px) {
-
-    }
-
     html {
       @media (min-width: 100px) and (max-width: 100px) {
         property: value;

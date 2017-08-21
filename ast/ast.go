@@ -2,6 +2,14 @@ package ast
 
 import "github.com/silbinarywolf/compiler-fel/token"
 
+type CSSRuleKind int
+
+const (
+	CSSKindUnknown CSSRuleKind = 0 + iota
+	CSSKindRule
+	CSSKindMediaQuery
+)
+
 type Node interface {
 	Nodes() []Node
 }
@@ -62,6 +70,7 @@ type CSSDefinition struct {
 }
 
 type CSSRule struct {
+	Kind      CSSRuleKind
 	Selectors []CSSSelector
 	Base
 }
@@ -74,7 +83,10 @@ type CSSAttributeSelector struct {
 	Name     token.Token
 	Operator token.Token
 	Value    token.Token
-	Base
+}
+
+func (node *CSSAttributeSelector) Nodes() []Node {
+	return nil
 }
 
 type CSSProperty struct {

@@ -138,8 +138,33 @@ Loop:
 				selectorList = append(selectorList, selector)
 			}
 
+			// Determine and validate type
+			kind := ast.CSSKindUnknown
+			for _, selector := range selectorList {
+				firstNode := selector.ChildNodes[0]
+				switch firstToken := firstNode.(type) {
+				case *ast.Token:
+					switch firstToken.Kind {
+					case token.AtKeyword:
+						if kind != ast.CSSKindUnknown && kind != ast.CSSKindMediaQuery {
+							panic("parseCSSStatements(): Cannot mix CSS rule then media query.")
+						}
+						kind = ast.CSSKindMediaQuery
+						continue
+					}
+				}
+				if kind == ast.CSSKindMediaQuery {
+					panic("parseCSSStatements(): Cannot mix media query then CSS rule.")
+				}
+				kind = ast.CSSKindRule
+			}
+			if kind == ast.CSSKindUnknown {
+				panic("parseCSSStatements: Unable to determine or validate CSS rule type")
+			}
+
 			// Add node
 			rule := new(ast.CSSRule)
+			rule.Kind = kind
 			rule.Selectors = selectorList
 			rule.ChildNodes = p.parseCSSStatements()
 			resultNodes = append(resultNodes, rule)

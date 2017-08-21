@@ -1,7 +1,9 @@
-/* Name: Normalize */
-@media (min-width : 100px) and (max-width : 100px) {
-    
+/* Name: Test */
+div p {
+    background-color: red;
 }
+
+/* Name: Normalize */
 html {
     
 }
