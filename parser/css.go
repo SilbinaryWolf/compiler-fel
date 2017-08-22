@@ -92,9 +92,7 @@ Loop:
 			}
 
 			valueNodes := tokenList[2:len(tokenList)]
-			/*for _, val := range valueNodes {
-				// something have to do with val
-			}*/
+
 			cssPropertyNode := new(ast.CSSProperty)
 			cssPropertyNode.Name = name
 			cssPropertyNode.ChildNodes = valueNodes
@@ -105,7 +103,8 @@ Loop:
 		case token.Comma:
 			tokenList = append(tokenList, &ast.Token{Token: t})
 
-			// Consume any newlines
+			// Consume any newlines to avoid end of statement if
+			// getting a list of selectors.
 			for {
 				t := p.PeekNextToken()
 				if t.Kind != token.Newline {
@@ -138,7 +137,7 @@ Loop:
 				selectorList = append(selectorList, selector)
 			}
 
-			// Determine and validate type
+			// Determine and validate rule type
 			kind := ast.CSSKindUnknown
 			for _, selector := range selectorList {
 				firstNode := selector.ChildNodes[0]
@@ -146,14 +145,14 @@ Loop:
 				case *ast.Token:
 					switch firstToken.Kind {
 					case token.AtKeyword:
-						if kind != ast.CSSKindUnknown && kind != ast.CSSKindMediaQuery {
+						if kind != ast.CSSKindUnknown && kind != ast.CSSKindAtKeyword {
 							panic("parseCSSStatements(): Cannot mix CSS rule then media query.")
 						}
-						kind = ast.CSSKindMediaQuery
+						kind = ast.CSSKindAtKeyword
 						continue
 					}
 				}
-				if kind == ast.CSSKindMediaQuery {
+				if kind == ast.CSSKindAtKeyword {
 					panic("parseCSSStatements(): Cannot mix media query then CSS rule.")
 				}
 				kind = ast.CSSKindRule

@@ -73,19 +73,42 @@ func (program *Program) evaluateCSSRule(cssDefinition *data.CSSDefinition, topNo
 	scope = NewScope(scope)
 
 	ruleNode := new(data.CSSRule)
-	cssDefinition.ChildNodes = append(cssDefinition.ChildNodes, ruleNode)
+	nextNodeToAppend := ruleNode
 
 	// Evaluate selectors
 	ruleNode.Selectors = make([]data.CSSSelector, 0, 10)
 	if parentCSSRule != nil {
-		// Handle nested selectors
-		for _, parentSelectorListNode := range parentCSSRule.Selectors {
+		switch topNode.Kind {
+		case ast.CSSKindRule:
+			// Handle nested selectors
+			for _, parentSelectorListNode := range parentCSSRule.Selectors {
+				for _, selectorListNode := range topNode.Selectors {
+					selectorList := make(data.CSSSelector, 0, len(parentSelectorListNode))
+					selectorList = append(selectorList, parentSelectorListNode...)
+					selectorList = append(selectorList, program.evaluateSelector(selectorListNode.Nodes())...)
+					ruleNode.Selectors = append(ruleNode.Selectors, selectorList)
+				}
+			}
+		case ast.CSSKindAtKeyword:
+			// Setup rule node
+			mediaRuleNode := new(data.CSSRule)
 			for _, selectorListNode := range topNode.Selectors {
+				selectorList := program.evaluateSelector(selectorListNode.Nodes())
+				mediaRuleNode.Selectors = append(mediaRuleNode.Selectors, selectorList)
+			}
+
+			// Get parent selector
+			for _, parentSelectorListNode := range parentCSSRule.Selectors {
 				selectorList := make(data.CSSSelector, 0, len(parentSelectorListNode))
 				selectorList = append(selectorList, parentSelectorListNode...)
-				selectorList = append(selectorList, program.evaluateSelector(selectorListNode.Nodes())...)
 				ruleNode.Selectors = append(ruleNode.Selectors, selectorList)
 			}
+			mediaRuleNode.Rules = append(mediaRuleNode.Rules, ruleNode)
+
+			// Become the wrapping @media query
+			nextNodeToAppend = mediaRuleNode
+		default:
+			panic("evaluateCSSRule(): Unhandled CSSType.")
 		}
 	} else {
 		for _, selectorListNode := range topNode.Selectors {
@@ -93,6 +116,7 @@ func (program *Program) evaluateCSSRule(cssDefinition *data.CSSDefinition, topNo
 			ruleNode.Selectors = append(ruleNode.Selectors, selectorList)
 		}
 	}
+	cssDefinition.ChildNodes = append(cssDefinition.ChildNodes, nextNodeToAppend)
 
 	// Evaluate child nodes / properties
 	ruleNode.Properties = make([]data.CSSProperty, 0, 10)

@@ -63,10 +63,17 @@ func (program *Program) RunProject(projectDirpath string) error {
 
 	// Find and parse config.fel
 	var configAstFile *ast.File
+	var readFileTime time.Duration
+
 	{
-		p := parser.New()
 		filepath := configFilepath
+
+		p := parser.New()
+
+		fileReadStart := time.Now()
 		filecontentsAsBytes, err := ioutil.ReadFile(filepath)
+		readFileTime += time.Since(fileReadStart)
+
 		if err != nil {
 			return fmt.Errorf("An error occurred reading file: %v, Error message: %v", filepath, err)
 		}
@@ -116,6 +123,7 @@ func (program *Program) RunProject(projectDirpath string) error {
 	// Get all files in folder recursively with *.fel
 	filepathSet := make([]string, 0, 50)
 	{
+		fileReadStart := time.Now()
 		err := filepath.Walk(templateInputDirectory, func(path string, f os.FileInfo, _ error) error {
 			if !f.IsDir() && filepath.Ext(f.Name()) == ".fel" {
 				filepathSet = append(filepathSet, path)
@@ -129,6 +137,7 @@ func (program *Program) RunProject(projectDirpath string) error {
 		if len(filepathSet) == 0 {
 			return fmt.Errorf("No *.fel files found in your project's \"templates\" directory: %v", templateInputDirectory)
 		}
+		readFileTime += time.Since(fileReadStart)
 	}
 
 	// Parse files
@@ -136,7 +145,9 @@ func (program *Program) RunProject(projectDirpath string) error {
 	p := parser.New()
 	parsingStart := time.Now()
 	for _, filepath := range filepathSet {
+		fileReadStart := time.Now()
 		filecontentsAsBytes, err := ioutil.ReadFile(filepath)
+		readFileTime += time.Since(fileReadStart)
 		if err != nil {
 			return fmt.Errorf("An error occurred reading file: %v, Error message: %v", filepath, err)
 			//continue
@@ -195,41 +206,48 @@ func (program *Program) RunProject(projectDirpath string) error {
 	}
 	executionElapsed := time.Since(executionStart)
 
-	// Output CSS definitions
+	// Output
+	var generateTimeElapsed time.Duration
 	{
-		var cssOutput bytes.Buffer
-		for _, cssDefinition := range outputCSSDefinitionSet {
-			cssOutput.WriteString(fmt.Sprintf("/* Name: %s */\n", cssDefinition.Name))
-			cssOutput.WriteString(generate.PrettyCSS(cssDefinition))
+		generateStartTime := time.Now()
+		// Output CSS definitions
+		{
+			var cssOutput bytes.Buffer
+			for _, cssDefinition := range outputCSSDefinitionSet {
+				cssOutput.WriteString(fmt.Sprintf("/* Name: %s */\n", cssDefinition.Name))
+				cssOutput.WriteString(generate.PrettyCSS(cssDefinition))
+			}
+			outputFilepath := filepath.Clean(fmt.Sprintf("%s/%s.css", cssOutputDirectory, "main"))
+			fmt.Printf("%s\n", outputFilepath)
+			err := ioutil.WriteFile(
+				outputFilepath,
+				cssOutput.Bytes(),
+				0644,
+			)
+			if err != nil {
+				panic(err)
+			}
 		}
-		outputFilepath := filepath.Clean(fmt.Sprintf("%s/%s.css", cssOutputDirectory, "main"))
-		fmt.Printf("%s\n", outputFilepath)
-		err := ioutil.WriteFile(
-			outputFilepath,
-			cssOutput.Bytes(),
-			0644,
-		)
-		if err != nil {
-			panic(err)
-		}
-	}
 
-	// Write to file
-	for _, outputTemplateFile := range outputTemplateFileSet {
-		err := ioutil.WriteFile(
-			outputTemplateFile.Filepath,
-			[]byte(outputTemplateFile.Content),
-			0644,
-		)
-		if err != nil {
-			panic(err)
+		// Write to file
+		for _, outputTemplateFile := range outputTemplateFileSet {
+			err := ioutil.WriteFile(
+				outputTemplateFile.Filepath,
+				[]byte(outputTemplateFile.Content),
+				0644,
+			)
+			if err != nil {
+				panic(err)
+			}
 		}
+		generateTimeElapsed = time.Since(generateStartTime)
 	}
 
 	//fmt.Printf("templateOutputDirectory: %s\n", templateOutputDirectory)
-
+	fmt.Printf("File read time: %s\n", readFileTime)
 	fmt.Printf("Parsing time: %s\n", parsingElapsed)
 	fmt.Printf("Execution time: %s\n", executionElapsed)
+	fmt.Printf("Generate/File write time: %s\n", generateTimeElapsed)
 	totalTimeElapsed := time.Since(totalTimeStart)
 	fmt.Printf("Total time: %s\n", totalTimeElapsed)
 	panic("Evaluator::RunProject(): todo(Jake): The rest of the function")

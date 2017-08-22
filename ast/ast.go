@@ -7,7 +7,7 @@ type CSSRuleKind int
 const (
 	CSSKindUnknown CSSRuleKind = 0 + iota
 	CSSKindRule
-	CSSKindMediaQuery
+	CSSKindAtKeyword
 )
 
 type Node interface {

@@ -9,13 +9,13 @@ import (
 func PrettyCSS(node *data.CSSDefinition) string {
 	gen := new(Generator)
 	for _, itNode := range node.ChildNodes {
-		gen.getCSSRuleNode(itNode)
+		gen.WriteCSSRuleNode(itNode)
 	}
 	gen.WriteByte('\n')
 	return gen.String()
 }
 
-func (gen *Generator) getCSSRuleNode(node *data.CSSRule) {
+func (gen *Generator) WriteCSSRuleNode(node *data.CSSRule) {
 	if len(node.Selectors) == 0 {
 		panic("getCSSRuleNode(): CSSRule with no selectors???")
 	}
@@ -70,6 +70,14 @@ func (gen *Generator) getCSSRuleNode(node *data.CSSRule) {
 			gen.WriteLine()
 		}
 		gen.WriteString(property.String())
+	}
+
+	// Print nested rules
+	for i, rule := range node.Rules {
+		if i != 0 {
+			gen.WriteLine()
+		}
+		gen.WriteCSSRuleNode(rule)
 	}
 
 	gen.indent--

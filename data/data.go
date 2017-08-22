@@ -110,7 +110,7 @@ type CSSDefinition struct {
 type CSSRule struct {
 	Selectors  []CSSSelector
 	Properties []CSSProperty
-	//Rules      []CSSRule
+	Rules      []*CSSRule
 }
 
 type CSSSelector []CSSSelectorNode
