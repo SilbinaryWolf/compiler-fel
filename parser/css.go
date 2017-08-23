@@ -22,6 +22,50 @@ func (p *Parser) parseCSS() []ast.Node {
 	return resultNodes
 }
 
+func (p *Parser) parseCSSProperty(tokenList []ast.Node) *ast.CSSProperty {
+	// Get property name
+	var name token.Token
+	nameNode := tokenList[0]
+	switch tokenNode := nameNode.(type) {
+	case *ast.Token:
+		if tokenNode.Kind != token.Identifier {
+			panic(fmt.Sprintf("parseCSSStatements(): Expected property name to be identifier, not %s on Line %d", tokenNode.Kind.String(), tokenNode.Line))
+			return nil
+		}
+		name = tokenNode.Token
+	default:
+		panic(fmt.Sprintf("parseCSSStatements(): Expected property to be identifier type, not %T"))
+	}
+
+	if len(tokenList) < 3 {
+		panic(fmt.Sprintf("parseCSSStatements(): Unexpected token count on property statement on Line %d", name.Line))
+		return nil
+	}
+
+	// Get declare op
+	declareOpNode := tokenList[1]
+	switch tokenNode := declareOpNode.(type) {
+	case *ast.Token:
+		if tokenNode.Kind != token.Colon {
+			panic(fmt.Sprintf("parseCSSStatements(): Expected : after property name, not %s", tokenNode.Kind.String()))
+			return nil
+		}
+	default:
+		panic(fmt.Sprintf("parseCSSStatements(): Expected property to begin with identifier type, not %T"))
+	}
+	if len(tokenList) < 3 {
+		panic(fmt.Sprintf("parseCSSStatements(): Expected property statement on Line %d"))
+		return nil
+	}
+
+	valueNodes := tokenList[2:len(tokenList)]
+
+	cssPropertyNode := new(ast.CSSProperty)
+	cssPropertyNode.Name = name
+	cssPropertyNode.ChildNodes = valueNodes
+	return cssPropertyNode
+}
+
 func (p *Parser) parseCSSStatements() []ast.Node {
 	resultNodes := make([]ast.Node, 0, 10)
 	tokenList := make([]ast.Node, 0, 30)
@@ -42,7 +86,7 @@ Loop:
 				panic(fmt.Sprintf("parseCSSStatements(): Invalid use of := on Line %d", t.Line))
 			}
 
-			node := &ast.DeclareStatement{}
+			node := new(ast.DeclareStatement)
 			node.Name = name
 			node.ChildNodes = p.parseExpression()
 			resultNodes = append(resultNodes, node)
@@ -56,46 +100,10 @@ Loop:
 				continue Loop
 			}
 
-			// Get property name
-			var name token.Token
-			nameNode := tokenList[0]
-			switch tokenNode := nameNode.(type) {
-			case *ast.Token:
-				if tokenNode.Kind != token.Identifier {
-					panic(fmt.Sprintf("parseCSSStatements(): Expected property name to be identifier, not %s on Line %d", tokenNode.Kind.String(), tokenNode.Line))
-					break Loop
-				}
-				name = tokenNode.Token
-			default:
-				panic(fmt.Sprintf("parseCSSStatements(): Expected property to be identifier type, not %T"))
-			}
-
-			if len(tokenList) < 3 {
-				panic(fmt.Sprintf("parseCSSStatements(): Unexpected token count on property statement on Line %d", name.Line))
+			cssPropertyNode := p.parseCSSProperty(tokenList)
+			if cssPropertyNode == nil {
 				break Loop
 			}
-
-			// Get declare op
-			declareOpNode := tokenList[1]
-			switch tokenNode := declareOpNode.(type) {
-			case *ast.Token:
-				if tokenNode.Kind != token.Colon {
-					panic(fmt.Sprintf("parseCSSStatements(): Expected : after property name, not %s", tokenNode.Kind.String()))
-					break Loop
-				}
-			default:
-				panic(fmt.Sprintf("parseCSSStatements(): Expected property to begin with identifier type, not %T"))
-			}
-			if len(tokenList) < 3 {
-				panic(fmt.Sprintf("parseCSSStatements(): Expected property statement on Line %d"))
-				break Loop
-			}
-
-			valueNodes := tokenList[2:len(tokenList)]
-
-			cssPropertyNode := new(ast.CSSProperty)
-			cssPropertyNode.Name = name
-			cssPropertyNode.ChildNodes = valueNodes
 			resultNodes = append(resultNodes, cssPropertyNode)
 
 			// Clear
