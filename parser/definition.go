@@ -21,8 +21,15 @@ func (p *Parser) parseDefinition(name token.Token) ast.Node {
 		}
 		node.ChildNodes = p.parseCSS()
 		return node
+	case "component":
+		if t := p.GetNextToken(); t.Kind != token.BraceOpen {
+			p.addError(p.expect(t, token.BraceOpen))
+			return nil
+		}
+		p.parseComponent()
+		panic(fmt.Sprintf("todo(Jake): Finish parseComponent call in parseDefinition"))
 	default:
-		p.addError(fmt.Errorf("Unexpected keyword '%s' for definition (::) type. Expected 'css' on Line %d", keyword, keywordToken.Line))
+		p.addError(fmt.Errorf("Unexpected keyword '%s' for definition (::) type. Expected 'css' or 'component' on Line %d", keyword, keywordToken.Line))
 		return nil
 	}
 	return nil
