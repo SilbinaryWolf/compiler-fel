@@ -1,18 +1,16 @@
-Link :: component {
-	properties {
+Link :: html {
+	:: properties {
 		url: string
 	}
+	
+	a(class="link", href=url) {
 
-	css {
-		.link {
-
-		}
 	}
+}
 
-	html {
-		a(class="link", href="") {
-
-		}
+Link :: css {
+	.link {
+		color: red;
 	}
 }
 

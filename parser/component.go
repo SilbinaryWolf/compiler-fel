@@ -1,12 +1,13 @@
 package parser
 
 import (
-	"fmt"
+//"fmt"
 
-	"github.com/silbinarywolf/compiler-fel/ast"
-	"github.com/silbinarywolf/compiler-fel/token"
+//"github.com/silbinarywolf/compiler-fel/ast"
+//"github.com/silbinarywolf/compiler-fel/token"
 )
 
+/*
 func (p *Parser) parseComponent() ast.Node {
 Loop:
 	for {
@@ -34,3 +35,4 @@ Loop:
 	panic(fmt.Sprintf("todo(Jake): Finish parseComponent"))
 	return nil
 }
+*/

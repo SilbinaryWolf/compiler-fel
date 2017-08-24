@@ -84,7 +84,7 @@ func (p *Parser) expect(thisToken token.Token, expectedList ...interface{}) erro
 	}
 
 	// NOTE(Jake): Line 1, Expected { instead got "newline"
-	result := fmt.Errorf("Line %d, Expected %s instead got \"%s\".", line, expectedItemsString, thisToken.String())
+	result := fmt.Errorf("Expected %s instead got \"%s\".", line, expectedItemsString, thisToken.String())
 
 	// For debugging
 	panic(result)
@@ -101,6 +101,8 @@ func (p *Parser) HasErrors() bool {
 }
 
 func (p *Parser) addError(message error) {
+	// todo(Jake): Expose this function to AST/token/etc data to retrieve line number
+	message = fmt.Errorf("Line %d - %s", -99, message)
 	p.errors = append(p.errors, message)
 }
 

@@ -1,6 +1,9 @@
 package ast
 
-import "github.com/silbinarywolf/compiler-fel/token"
+import (
+	//"github.com/silbinarywolf/compiler-fel/data"
+	"github.com/silbinarywolf/compiler-fel/token"
+)
 
 type CSSRuleKind int
 
@@ -45,6 +48,24 @@ type Expression struct {
 	Block
 }*/
 
+type HTMLDefinition struct {
+	Base
+}
+
+type HTMLProperties struct {
+	Properties []*DeclareStatement
+}
+
+func (node *HTMLProperties) Nodes() []Node {
+	return nil
+}
+
+type HTMLComponent struct {
+	Name       token.Token
+	Properties *HTMLProperties
+	Base
+}
+
 type HTMLNode struct {
 	Name       token.Token
 	Parameters []Parameter
@@ -53,6 +74,7 @@ type HTMLNode struct {
 
 type DeclareStatement struct {
 	Name token.Token
+	Type token.Token
 	Base
 }
 

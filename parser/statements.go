@@ -8,7 +8,6 @@ import (
 	"github.com/silbinarywolf/compiler-fel/util"
 )
 
-// todo(Jake): Change to parseStatements, make it return []ast.Node slice
 func (p *Parser) parseStatements() []ast.Node {
 	resultNodes := make([]ast.Node, 0, 10)
 
@@ -23,9 +22,26 @@ Loop:
 			// myVar := {Expression} \n
 			//
 			case token.DeclareSet:
-				node := &ast.DeclareStatement{}
+				node := new(ast.DeclareStatement)
 				node.Name = name
 				node.ChildNodes = p.parseExpression()
+				resultNodes = append(resultNodes, node)
+			// myVar : string \n
+			case token.Colon:
+				tType := p.GetNextToken()
+				if tType.Kind != token.Identifier {
+					p.addError(p.expect(tType, token.Identifier))
+					return nil
+				}
+				node := new(ast.DeclareStatement)
+				node.Name = name
+				node.Type = tType
+				node.ChildNodes = nil
+				// myVar : string = {Expression} \n
+				if p.PeekNextToken().Kind == token.Equal {
+					p.GetNextToken()
+					node.ChildNodes = p.parseExpression()
+				}
 				resultNodes = append(resultNodes, node)
 			// div {
 			//     ^

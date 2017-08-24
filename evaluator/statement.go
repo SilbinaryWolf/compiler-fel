@@ -19,6 +19,7 @@ func (program *Program) evaluateStatement(topNode ast.Node, scope *Scope) {
 	switch node := topNode.(type) {
 	case *ast.DeclareStatement:
 		program.evaluateDeclareSet(node, scope)
+	case *ast.HTMLDefinition, *ast.HTMLComponent:
 	case *ast.CSSDefinition:
 		panic("todo(Jake): Handle CSS definition in statement")
 	default:
