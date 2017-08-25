@@ -102,7 +102,12 @@ func (p *Parser) HasErrors() bool {
 
 func (p *Parser) addError(message error) {
 	// todo(Jake): Expose this function to AST/token/etc data to retrieve line number
-	message = fmt.Errorf("Line %d - %s", -99, message)
+	//message = fmt.Errorf("Line %d - %s", -99, message)
+	p.errors = append(p.errors, message)
+}
+
+func (p *Parser) addErrorLine(message error, line int) {
+	message = fmt.Errorf("Line %d | %s", line, message)
 	p.errors = append(p.errors, message)
 }
 

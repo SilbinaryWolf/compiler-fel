@@ -5,7 +5,6 @@ import (
 
 	"github.com/silbinarywolf/compiler-fel/ast"
 	"github.com/silbinarywolf/compiler-fel/token"
-	"github.com/silbinarywolf/compiler-fel/util"
 )
 
 func (p *Parser) parseStatements() []ast.Node {
@@ -50,9 +49,7 @@ Loop:
 					Name: name,
 				}
 				node.ChildNodes = p.parseStatements()
-				if len(node.ChildNodes) > 0 && util.IsSelfClosingTagName(name.String()) {
-					p.addError(fmt.Errorf("%s is a self-closing tag and cannot have child elements.", name.String()))
-				}
+				p.checkHTMLNode(node)
 				resultNodes = append(resultNodes, node)
 			// div(class="hey")
 			//    ^
@@ -64,9 +61,7 @@ Loop:
 				if p.PeekNextToken().Kind == token.BraceOpen {
 					p.GetNextToken()
 					node.ChildNodes = p.parseStatements()
-					if len(node.ChildNodes) > 0 && util.IsSelfClosingTagName(name.String()) {
-						p.addError(fmt.Errorf("%s is a self-closing tag and cannot have child elements.", name.String()))
-					}
+					p.checkHTMLNode(node)
 				}
 				resultNodes = append(resultNodes, node)
 			// PrintThisVariable \n
@@ -121,7 +116,7 @@ Loop:
 			p.PrintErrors()
 			//json, _ := json.MarshalIndent(resultNodes, "", "   ")
 			//fmt.Printf("%s", string(json))
-			panic(fmt.Sprintf("parseStatements(): Unhandled token: %s on Line %d", t.Kind.String(), t.Line))
+			panic(fmt.Errorf("parseStatements(): Unhandled token: %s on Line %d", t.Kind.String(), t.Line))
 		}
 	}
 	return resultNodes
