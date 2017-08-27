@@ -1,6 +1,8 @@
 package evaluator
 
 import (
+	"fmt"
+
 	"github.com/silbinarywolf/compiler-fel/ast"
 	"github.com/silbinarywolf/compiler-fel/data"
 )
@@ -13,7 +15,53 @@ func (program *Program) evaluateTemplate(node *ast.File, scope *Scope) *data.HTM
 	return result
 }
 
+func (program *Program) evaluateHTMLNodeChildren(nodes []ast.Node, scope *Scope) []data.Type {
+	resultNodes := make([]data.Type, 0, 5)
+
+	scope = NewScope(scope)
+	for _, itNode := range nodes {
+		switch node := itNode.(type) {
+		case *ast.HTMLNode:
+			subResultDataNode := program.evaluateHTMLNode(node, scope)
+			resultNodes = append(resultNodes, subResultDataNode)
+		case *ast.Expression:
+			valueInterface := program.evaluateExpression(node.ChildNodes, scope)
+			switch value := valueInterface.(type) {
+			case *data.String:
+				subResultDataNode := &data.HTMLText{
+					Value: value.String(),
+				}
+				resultNodes = append(resultNodes, subResultDataNode)
+			case *data.MixedArray:
+				for _, subValue := range value.Array {
+					resultNodes = append(resultNodes, subValue)
+				}
+			default:
+				panic(fmt.Sprintf("Unhandled value result in HTMLNode: %T", value))
+			}
+			/*if value.Kind() == data.KindMixedArray {
+				panic("test")
+			} else {
+				subResultDataNode := &data.HTMLText{
+					Value: value.String(),
+				}
+				resultNodes = append(resultNodes, subResultDataNode)
+			}*/
+		case *ast.CSSDefinition:
+			// NOTE(Jake): Hack to ensure CSSDefinition is at top scope
+			program.evaluateCSSDefinition(node, scope.parent.parent)
+		default:
+			program.evaluateStatement(itNode, scope)
+		}
+	}
+	return resultNodes
+}
+
 func (program *Program) evaluateHTMLNode(node *ast.HTMLNode, scope *Scope) *data.HTMLNode {
+	if node.HTMLDefinition != nil {
+		return program.evaluteHTMLComponent(node, scope)
+	}
+
 	resultDataNode := new(data.HTMLNode)
 	resultDataNode.Name = node.Name.String()
 
@@ -29,24 +77,6 @@ func (program *Program) evaluateHTMLNode(node *ast.HTMLNode, scope *Scope) *data
 		}
 	}
 
-	scope = NewScope(scope)
-	for _, itNode := range node.Nodes() {
-		switch node := itNode.(type) {
-		case *ast.HTMLNode:
-			subResultDataNode := program.evaluateHTMLNode(node, scope)
-			resultDataNode.ChildNodes = append(resultDataNode.ChildNodes, subResultDataNode)
-		case *ast.Expression:
-			value := program.evaluateExpression(node.ChildNodes, scope)
-			subResultDataNode := &data.HTMLText{
-				Value: value.String(),
-			}
-			resultDataNode.ChildNodes = append(resultDataNode.ChildNodes, subResultDataNode)
-		case *ast.CSSDefinition:
-			// NOTE(Jake): Hack to ensure CSSDefinition is at top scope
-			program.evaluateCSSDefinition(node, scope.parent.parent)
-		default:
-			program.evaluateStatement(itNode, scope)
-		}
-	}
+	resultDataNode.ChildNodes = program.evaluateHTMLNodeChildren(node.Nodes(), scope)
 	return resultDataNode
 }

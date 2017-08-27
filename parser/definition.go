@@ -15,11 +15,7 @@ func (p *Parser) parseDefinition(name token.Token) ast.Node {
 			p.addError(p.expect(t, token.BraceOpen))
 			return nil
 		}
-		node := new(ast.CSSDefinition)
-		if name.Kind != token.Unknown {
-			node.Name = name
-		}
-		node.ChildNodes = p.parseCSS()
+		node := p.parseCSS(name)
 		return node
 	case "properties":
 		if t := p.GetNextToken(); t.Kind != token.BraceOpen {
@@ -60,10 +56,20 @@ func (p *Parser) parseDefinition(name token.Token) ast.Node {
 			}
 
 			// Component
-			node := new(ast.HTMLComponent)
+			node := new(ast.HTMLComponentDefinition)
 			node.Name = name
 			node.Properties = properties
 			node.ChildNodes = childNodes
+
+			// Add component
+			nameAsString := node.Name.String()
+			_, ok := p.htmlComponentDefinitions[nameAsString]
+			if ok {
+				p.addError(fmt.Errorf("Cannot redeclare %s.", nameAsString))
+			} else {
+				p.htmlComponentDefinitions[nameAsString] = node
+			}
+
 			return node
 		}
 

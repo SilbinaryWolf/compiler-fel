@@ -4,7 +4,7 @@ Link :: html {
 	}
 	
 	a(class="link", href=url) {
-
+		children
 	}
 }
 
@@ -21,7 +21,11 @@ html {
 	body {
 		div() {
 			"Test Text"
-			Link(url="www.google.com")
+			Link(url="www.google.com") {
+				span {
+					"Test"
+				}
+			}
 		}
 	}
 }

@@ -15,7 +15,12 @@ func (p *Parser) checkHTMLNode(node *ast.HTMLNode) {
 		p.addErrorLine(fmt.Errorf("%s is a self-closing tag and cannot have child elements.", name), node.Name.Line)
 	}
 
-	if !util.IsValidHTML5TagName(name) {
-		p.addErrorLine(fmt.Errorf("\"%s\" is not a valid HTML5 element.", name), node.Name.Line)
+	//
+	// todo(Jake): Extend this to allow user configured/whitelisted tag names
+	//
+	isValidHTML5TagName := util.IsValidHTML5TagName(name)
+	if !isValidHTML5TagName {
+		p.htmlComponentNodes = append(p.htmlComponentNodes, node)
+		//p.addErrorLine(fmt.Errorf("\"%s\" is not a valid HTML5 element.", name), node.Name.Line)
 	}
 }

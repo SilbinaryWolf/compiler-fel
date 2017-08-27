@@ -9,13 +9,27 @@ import (
 	"github.com/silbinarywolf/compiler-fel/token"
 )
 
+type GlobalDefinitions struct{}
+
 type Parser struct {
 	*scanner.Scanner
 	errors []error
+
+	// Global definitions
+	htmlComponentDefinitions map[string]*ast.HTMLComponentDefinition
+	cssComponentDefinitions  map[string]*ast.CSSDefinition
+
+	// Typecheck / post-parse
+	htmlComponentNodes []*ast.HTMLNode
 }
 
 func New() *Parser {
 	p := new(Parser)
+
+	p.htmlComponentDefinitions = make(map[string]*ast.HTMLComponentDefinition, 100)
+	p.cssComponentDefinitions = make(map[string]*ast.CSSDefinition, 100)
+
+	p.htmlComponentNodes = make([]*ast.HTMLNode, 0, 10)
 	return p
 }
 
@@ -35,6 +49,29 @@ func (p *Parser) Parse(filecontentsAsBytes []byte, filepath string) *ast.File {
 	}
 	resultNode.ChildNodes = p.parseStatements()
 	return resultNode
+}
+
+func (p *Parser) TypecheckAndFinalize() {
+	for _, node := range p.htmlComponentNodes {
+		name := node.Name.String()
+
+		// Attach HTML component definition to HTML node
+		htmlComponentDef, ok := p.htmlComponentDefinitions[name]
+		if !ok {
+			p.addErrorLine(fmt.Errorf("\"%s\" is not a valid html tag or defined component.", name), node.Name.Line)
+			continue
+		}
+		node.HTMLDefinition = htmlComponentDef
+
+		// Attach CSS definition to HTML node
+		cssDefinition, ok := p.cssComponentDefinitions[name]
+		if ok {
+			node.CSSDefinition = cssDefinition
+		}
+	}
+	p.htmlComponentNodes = nil
+
+	//
 }
 
 func (p *Parser) expect(thisToken token.Token, expectedList ...interface{}) error {

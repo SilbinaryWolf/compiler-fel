@@ -17,6 +17,8 @@ const (
 	KindFloat64
 	KindHTMLNode
 	KindHTMLText
+	// todo(Jake): Add CSS nodes to data
+	KindMixedArray
 )
 
 type Type interface {
@@ -71,10 +73,6 @@ type HTMLAttribute struct {
 	Value string
 }
 
-type HTMLText struct {
-	Value string
-}
-
 func (node *HTMLNode) Kind() Kind {
 	return KindHTMLNode
 }
@@ -92,6 +90,10 @@ func (node *HTMLNode) String() string {
 	}
 	buffer.WriteByte('>')
 	return buffer.String()
+}
+
+type HTMLText struct {
+	Value string
 }
 
 func (node *HTMLText) Kind() Kind {
@@ -165,4 +167,27 @@ type CSSProperty struct {
 
 func (property *CSSProperty) String() string {
 	return fmt.Sprintf("%s: %s;", property.Name, property.Value)
+}
+
+type MixedArray struct {
+	Array []Type
+}
+
+func NewMixedArray(array []Type) *MixedArray {
+	result := new(MixedArray)
+	result.Array = array
+	return result
+}
+
+func (array *MixedArray) Kind() Kind {
+	return KindMixedArray
+}
+
+func (array *MixedArray) String() string {
+	panic("No")
+	var buffer bytes.Buffer
+	for _, record := range array.Array {
+		buffer.WriteString(record.String())
+	}
+	return buffer.String()
 }

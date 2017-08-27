@@ -10,16 +10,34 @@ import (
 	"github.com/silbinarywolf/compiler-fel/token"
 )
 
-func (p *Parser) parseCSS() []ast.Node {
+func (p *Parser) parseCSS(name token.Token) *ast.CSSDefinition {
+	isNamedCSSDefinition := name.Kind != token.Unknown
+
+	node := new(ast.CSSDefinition)
+	if isNamedCSSDefinition {
+		node.Name = name
+	}
 	p.SetScanMode(scanner.ModeCSS)
-	resultNodes := p.parseCSSStatements()
+	node.ChildNodes = p.parseCSSStatements()
 	p.SetScanMode(scanner.ModeDefault)
+
+	// Add component
+	if isNamedCSSDefinition {
+		nameAsString := node.Name.String()
+		_, ok := p.cssComponentDefinitions[nameAsString]
+		if ok {
+			p.addError(fmt.Errorf("Cannot redeclare %s.", nameAsString))
+		} else {
+			p.cssComponentDefinitions[nameAsString] = node
+		}
+	}
+
 	//{
 	//	json, _ := json.MarshalIndent(resultNodes, "", "   ")
 	//	fmt.Printf("%s", string(json))
 	//}
 	//panic("Finish parseCSS()")
-	return resultNodes
+	return node
 }
 
 func (p *Parser) parseCSSProperty(tokenList []ast.Node) *ast.CSSProperty {

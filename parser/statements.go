@@ -61,8 +61,8 @@ Loop:
 				if p.PeekNextToken().Kind == token.BraceOpen {
 					p.GetNextToken()
 					node.ChildNodes = p.parseStatements()
-					p.checkHTMLNode(node)
 				}
+				p.checkHTMLNode(node)
 				resultNodes = append(resultNodes, node)
 			// PrintThisVariable \n
 			// ^

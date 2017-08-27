@@ -60,15 +60,17 @@ func (node *HTMLProperties) Nodes() []Node {
 	return nil
 }
 
-type HTMLComponent struct {
+type HTMLComponentDefinition struct {
 	Name       token.Token
 	Properties *HTMLProperties
 	Base
 }
 
 type HTMLNode struct {
-	Name       token.Token
-	Parameters []Parameter
+	Name           token.Token
+	Parameters     []Parameter
+	HTMLDefinition *HTMLComponentDefinition // optional
+	CSSDefinition  *CSSDefinition           // optional
 	Base
 }
 
