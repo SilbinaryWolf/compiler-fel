@@ -16,12 +16,31 @@ func (program *Program) evaluteHTMLComponent(topNode *ast.HTMLNode, scope *Scope
 	{
 		componentScope := NewScope(nil)
 
+		// Get valid parameters
+		if properties := topNode.HTMLDefinition.Properties; properties != nil {
+			if propertySet := properties.Statements; propertySet != nil {
+				for _, decl := range propertySet {
+					name := decl.Name.String()
+					if len(decl.ChildNodes) == 0 {
+						componentScope.Set(name, program.CreateDataType(decl.Type))
+					} else {
+						componentScope.Set(name, program.evaluateExpression(decl.ChildNodes, nil))
+					}
+				}
+			}
+		}
+
 		// Evaluate parameters
 		if parameterSet := topNode.Parameters; parameterSet != nil {
 			for _, parameter := range parameterSet {
 				name := parameter.Name.String()
+				_, ok := componentScope.Get(name)
+				if !ok {
+					panic(fmt.Sprintf("Cannot pass \"%s\" as parameter as it's not a defined property on \"%s\".", name, topNode.Name))
+				}
 				value := program.evaluateExpression(parameter.Nodes(), scope)
 				componentScope.Set(name, value)
+
 			}
 		}
 

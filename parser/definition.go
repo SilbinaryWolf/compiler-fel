@@ -24,11 +24,11 @@ func (p *Parser) parseDefinition(name token.Token) ast.Node {
 		}
 		childNodes := p.parseStatements()
 		propertiesNode := new(ast.HTMLProperties)
-		propertiesNode.Properties = make([]*ast.DeclareStatement, 0, len(childNodes))
+		propertiesNode.Statements = make([]*ast.DeclareStatement, 0, len(childNodes))
 		for _, itNode := range childNodes {
 			switch node := itNode.(type) {
 			case *ast.DeclareStatement:
-				propertiesNode.Properties = append(propertiesNode.Properties, node)
+				propertiesNode.Statements = append(propertiesNode.Statements, node)
 			default:
 				panic(fmt.Sprintf("parseDefinition(): Unhandled node type %T in :: properties block", node))
 			}

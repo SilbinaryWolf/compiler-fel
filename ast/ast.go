@@ -53,7 +53,7 @@ type HTMLDefinition struct {
 }
 
 type HTMLProperties struct {
-	Properties []*DeclareStatement
+	Statements []*DeclareStatement
 }
 
 func (node *HTMLProperties) Nodes() []Node {
