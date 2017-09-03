@@ -1,8 +1,9 @@
-package vm
+/*package vm
 
 import (
 	"encoding/json"
 	"fmt"
+
 	"github.com/silbinarywolf/compiler-fel/data"
 )
 
@@ -18,11 +19,30 @@ const (
 	Push
 	Pop
 	Call
+	StoreInStruct
 
 	start_builtin_call
+	CallAllocStruct
 	CallPushNode
 	end_builtin_call
 )
+
+type StructDefinition struct {
+	name          string
+	properties    []StructDefinitionProperty
+	defaultValues []interface{}
+}
+
+type StructDefinitionProperty struct {
+	Name         string
+	Type         data.Kind
+	DefaultValue string
+}
+
+type StructInstance struct {
+	Properties []interface{}
+	Definition *StructDefinition
+}
 
 type Opcode struct {
 	Code Kind
@@ -36,7 +56,8 @@ type VM struct {
 	StackIndex int
 	Stack      []interface{}
 
-	Return []interface{}
+	Return            []interface{}
+	StructDefinitions map[string]*StructDefinition
 }
 
 func New() *VM {
@@ -44,7 +65,22 @@ func New() *VM {
 	vm.Opcodes = make([]Opcode, 0, 256)
 	vm.Stack = make([]interface{}, 512)
 	vm.Return = make([]interface{}, 256)
+	vm.StructDefinitions = make(map[string]*StructDefinition)
 	return vm
+}
+
+func (vm *VM) NewStructDefinition(name string, properties ...StructDefinitionProperty) *StructDefinition {
+	structDef := new(StructDefinition)
+	structDef.name = name
+	structDef.properties = properties
+
+	structDef.defaultValues = make([]interface{}, len(properties))
+	for i, property := range properties {
+		structDef.defaultValues[i] = property.DefaultValue
+	}
+
+	vm.StructDefinitions[structDef.name] = structDef
+	return structDef
 }
 
 func (vm *VM) AddOpcode(code Kind, data interface{}) {
@@ -57,33 +93,6 @@ func (vm *VM) AddOpcode(code Kind, data interface{}) {
 func (vm *VM) PrintDebug() {
 	json, _ := json.MarshalIndent(vm, "", "   ")
 	fmt.Printf("%s\n", string(json))
-	return
-}
-
-func (vm *VM) pushNode() *data.HTMLNode {
-	argCountInterface := vm.pop()
-	argCount, ok := argCountInterface.(int)
-	if DEBUG && !ok {
-		//vm.PrintDebug()
-		panic(fmt.Sprintf("callPushNode: Expected int type not %T.", argCountInterface))
-	}
-
-	attributes := make([]data.HTMLAttribute, argCount)
-
-	for i := 0; i < argCount; i++ {
-		attributes[i].Name, ok = vm.pop().(string)
-		if DEBUG && !ok {
-			panic(fmt.Sprintf("callPushNode: Expected string type for argument name %d.", i))
-		}
-		attributes[i].Value, ok = vm.pop().(string)
-		if DEBUG && !ok {
-			panic(fmt.Sprintf("callPushNode: Expected string type for argument value %d.", i))
-		}
-	}
-
-	htmlNode := new(data.HTMLNode)
-	htmlNode.Attributes = attributes
-	return htmlNode
 }
 
 func (vm *VM) push(data interface{}) {
@@ -108,6 +117,12 @@ Loop:
 			vm.push(opcode.Data)
 		case Pop:
 			vm.StackIndex--
+		case StoreInStruct:
+			offset, ok := opcode.Data.(int)
+			if DEBUG && !ok {
+				panic("StoreInStruct: Expected int.")
+			}
+
 		case Call:
 			switch function := opcode.Data.(type) {
 			case func():
@@ -115,11 +130,13 @@ Loop:
 			default:
 				panic(fmt.Errorf("Unhandled type for call: %T", opcode.Data))
 			}
+		case CallAllocStruct:
+			vm.allocStruct()
 		case CallPushNode:
-			vm.push(vm.pushNode())
+			vm.pushNode()
 		default:
 			panic("Invalid opcode")
 			break Loop
 		}
 	}
-}
+}*/

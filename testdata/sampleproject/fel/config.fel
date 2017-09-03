@@ -1,16 +1,14 @@
-
-
 // NOTE(Jake): Where to output HTML / PHP / JavaScript, depending on `backendLanguage`
 //             This is a 1-1 mapping, so if you made "Page.fel" it would output in /templates/Page.php
-templateOutputDirectory := "../public"
+template_output_directory := "../public"
 
-cssOutputDirectory := "../css"
+css_output_directory := "../css"
 
-//cssFiles := [
+//css_files := [
 //    "normalize.css": [
 //        Normalize
 //    ],
 //    "main.css": [] // empty array implies put in all CSS that isn't placed elsewhere.
 //]
 
-cssFiles := "main.css"
+css_files := "main.css"

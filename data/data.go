@@ -17,6 +17,7 @@ const (
 	KindFloat64
 	KindHTMLNode
 	KindHTMLText
+	KindStruct
 	// todo(Jake): Add CSS nodes to data
 	KindMixedArray
 )
