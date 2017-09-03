@@ -40,7 +40,6 @@ func (program *Program) evaluteHTMLComponent(topNode *ast.HTMLNode, scope *Scope
 				}
 				value := program.evaluateExpression(parameter.Nodes(), scope)
 				componentScope.Set(name, value)
-
 			}
 		}
 

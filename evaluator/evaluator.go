@@ -109,12 +109,12 @@ func (program *Program) RunProject(projectDirpath string) error {
 	//panic("Finished evaluating config file")
 
 	// Get config variables
-	templateOutputDirectory, err := program.GetConfigString("templateOutputDirectory")
+	templateOutputDirectory, err := program.GetConfigString("template_output_directory")
 	if err != nil {
 		return err
 	}
 	templateOutputDirectory = fmt.Sprintf("%s/%s", projectDirpath, templateOutputDirectory)
-	cssOutputDirectory, err := program.GetConfigString("cssOutputDirectory")
+	cssOutputDirectory, err := program.GetConfigString("css_output_directory")
 	if err != nil {
 		return err
 	}
@@ -127,7 +127,7 @@ func (program *Program) RunProject(projectDirpath string) error {
 			return fmt.Errorf("Error with directory: %v", err)
 		}
 		if os.IsNotExist(err) {
-			return fmt.Errorf("templateOutputDirectory does not exist: %s", templateOutputDirectory)
+			return fmt.Errorf("template_output_directory specified does not exist: %s", templateOutputDirectory)
 		}
 	}
 
