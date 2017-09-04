@@ -104,9 +104,7 @@ Loop:
 				panic(fmt.Sprintf("parseCSSStatements(): Invalid use of := on Line %d", t.Line))
 			}
 
-			node := new(ast.DeclareStatement)
-			node.Name = name
-			node.ChildNodes = p.parseExpression()
+			node := p.NewDeclareStatement(name, token.Token{}, p.parseExpressionNodes())
 			resultNodes = append(resultNodes, node)
 
 			// Clear

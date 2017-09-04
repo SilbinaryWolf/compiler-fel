@@ -7,7 +7,14 @@ import (
 	"github.com/silbinarywolf/compiler-fel/token"
 )
 
-func (p *Parser) parseExpression() []ast.Node {
+func (p *Parser) parseExpression() *ast.Expression {
+	node := new(ast.Expression)
+	node.ChildNodes = p.parseExpressionNodes()
+	p.exprNodes = append(p.exprNodes, node)
+	return node
+}
+
+func (p *Parser) parseExpressionNodes() []ast.Node {
 	parenOpenCount := 0
 	parenCloseCount := 0
 

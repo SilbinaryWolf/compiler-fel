@@ -11,7 +11,7 @@ type Kind int
 type SelectorKind int
 
 const (
-	Unknown Kind = 0 + iota
+	KindUnknown Kind = 0 + iota
 	KindString
 	KindInteger64
 	KindFloat64

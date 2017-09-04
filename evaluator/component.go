@@ -22,7 +22,7 @@ func (program *Program) evaluteHTMLComponent(topNode *ast.HTMLNode, scope *Scope
 				for _, decl := range propertySet {
 					name := decl.Name.String()
 					if len(decl.ChildNodes) == 0 {
-						componentScope.Set(name, program.CreateDataType(decl.Type))
+						componentScope.Set(name, program.CreateDataType(decl.TypeToken))
 					} else {
 						componentScope.Set(name, program.evaluateExpression(decl.ChildNodes, nil))
 					}

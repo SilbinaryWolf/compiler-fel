@@ -1,7 +1,7 @@
 package ast
 
 import (
-	//"github.com/silbinarywolf/compiler-fel/data"
+	"github.com/silbinarywolf/compiler-fel/data"
 	"github.com/silbinarywolf/compiler-fel/token"
 )
 
@@ -40,6 +40,8 @@ type Parameter struct {
 }
 
 type Expression struct {
+	TypeToken token.Token
+	Type      data.Kind
 	Base
 }
 
@@ -76,8 +78,7 @@ type HTMLNode struct {
 
 type DeclareStatement struct {
 	Name token.Token
-	Type token.Token
-	Base
+	Expression
 }
 
 type Token struct {

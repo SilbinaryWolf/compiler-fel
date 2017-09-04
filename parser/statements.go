@@ -7,6 +7,15 @@ import (
 	"github.com/silbinarywolf/compiler-fel/token"
 )
 
+func (p *Parser) NewDeclareStatement(name token.Token, typeToken token.Token, expressionNodes []ast.Node) *ast.DeclareStatement {
+	node := new(ast.DeclareStatement)
+	node.Name = name
+	node.TypeToken = typeToken
+	node.ChildNodes = expressionNodes
+	p.exprNodes = append(p.exprNodes, &node.Expression)
+	return node
+}
+
 func (p *Parser) parseStatements() []ast.Node {
 	resultNodes := make([]ast.Node, 0, 10)
 
@@ -21,9 +30,7 @@ Loop:
 			// myVar := {Expression} \n
 			//
 			case token.DeclareSet:
-				node := new(ast.DeclareStatement)
-				node.Name = name
-				node.ChildNodes = p.parseExpression()
+				node := p.NewDeclareStatement(name, token.Token{}, p.parseExpressionNodes())
 				resultNodes = append(resultNodes, node)
 			// myVar : string \n
 			case token.Colon:
@@ -32,15 +39,13 @@ Loop:
 					p.addError(p.expect(tType, token.Identifier))
 					return nil
 				}
-				node := new(ast.DeclareStatement)
-				node.Name = name
-				node.Type = tType
-				node.ChildNodes = nil
+				var expressionNodes []ast.Node
 				// myVar : string = {Expression} \n
 				if p.PeekNextToken().Kind == token.Equal {
 					p.GetNextToken()
-					node.ChildNodes = p.parseExpression()
+					expressionNodes = p.parseExpressionNodes()
 				}
+				node := p.NewDeclareStatement(name, tType, expressionNodes)
 				resultNodes = append(resultNodes, node)
 			// div {
 			//     ^
@@ -68,8 +73,7 @@ Loop:
 			// ^
 			case token.Newline:
 				p.ScannerState = storeScannerState
-				node := new(ast.Expression)
-				node.ChildNodes = p.parseExpression()
+				node := p.parseExpression()
 				resultNodes = append(resultNodes, node)
 			// Normalize :: css {
 			//			 ^
@@ -82,8 +86,7 @@ Loop:
 			default:
 				if t.IsOperator() {
 					p.ScannerState = storeScannerState
-					node := new(ast.Expression)
-					node.ChildNodes = p.parseExpression()
+					node := p.parseExpression()
 					resultNodes = append(resultNodes, node)
 					continue
 				}
@@ -100,8 +103,7 @@ Loop:
 			}
 			resultNodes = append(resultNodes, node)
 		case token.String:
-			node := new(ast.Expression)
-			node.ChildNodes = p.parseExpression()
+			node := p.parseExpression()
 			resultNodes = append(resultNodes, node)
 		case token.BraceClose:
 			p.GetNextToken()

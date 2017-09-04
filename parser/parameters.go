@@ -20,7 +20,7 @@ Loop:
 			if t.Kind != token.Equal {
 				p.addError(p.expect(t, token.Equal))
 			}
-			node.ChildNodes = p.parseExpression()
+			node.ChildNodes = p.parseExpressionNodes()
 			t = p.GetNextToken()
 			if t.Kind != token.Comma && t.Kind != token.ParenClose {
 				p.addError(p.expect(t, token.Comma, token.ParenClose))
