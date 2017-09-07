@@ -22,6 +22,21 @@ const (
 	KindMixedArray
 )
 
+var kindToString = []string{
+	KindUnknown:    "unknown type",
+	KindString:     "string",
+	KindInteger64:  "integer",
+	KindFloat64:    "float",
+	KindHTMLNode:   "html node",
+	KindHTMLText:   "html text",
+	KindStruct:     "struct",
+	KindMixedArray: "mixed array",
+}
+
+func (kind Kind) String() string {
+	return kindToString[kind]
+}
+
 type Type interface {
 	String() string
 	Kind() Kind

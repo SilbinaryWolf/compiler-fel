@@ -15,23 +15,12 @@ type Parser struct {
 	*scanner.Scanner
 	errors []error
 
-	// Global definitions
-	htmlComponentDefinitions map[string]*ast.HTMLComponentDefinition
-	cssComponentDefinitions  map[string]*ast.CSSDefinition
-
-	// Typecheck / post-parse
-	htmlComponentNodes []*ast.HTMLNode
-	exprNodes          []*ast.Expression
+	//currentHtmlDefinitionStack []*ast.Node
 }
 
 func New() *Parser {
 	p := new(Parser)
-
-	p.htmlComponentDefinitions = make(map[string]*ast.HTMLComponentDefinition, 100)
-	p.cssComponentDefinitions = make(map[string]*ast.CSSDefinition, 100)
-
-	p.htmlComponentNodes = make([]*ast.HTMLNode, 0, 10)
-	p.exprNodes = make([]*ast.Expression, 0, 40)
+	//p.currentHtmlDefinitionStack = make([]*ast.Node, 0, 10)
 	return p
 }
 

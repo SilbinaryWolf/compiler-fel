@@ -169,7 +169,7 @@ func (program *Program) RunProject(projectDirpath string) error {
 		}
 		astFiles = append(astFiles, astFile)
 	}
-	p.TypecheckAndFinalize()
+	p.TypecheckAndFinalize(astFiles)
 	parsingElapsed := time.Since(parsingStart)
 
 	if p.HasErrors() {

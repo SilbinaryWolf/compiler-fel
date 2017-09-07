@@ -12,7 +12,6 @@ func (p *Parser) NewDeclareStatement(name token.Token, typeToken token.Token, ex
 	node.Name = name
 	node.TypeToken = typeToken
 	node.ChildNodes = expressionNodes
-	p.exprNodes = append(p.exprNodes, &node.Expression)
 	return node
 }
 

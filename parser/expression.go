@@ -10,7 +10,6 @@ import (
 func (p *Parser) parseExpression() *ast.Expression {
 	node := new(ast.Expression)
 	node.ChildNodes = p.parseExpressionNodes()
-	p.exprNodes = append(p.exprNodes, node)
 	return node
 }
 
@@ -63,7 +62,7 @@ Loop:
 				panic("Expected operator, not number")
 			}
 			expectOperator = true
-			panic("parseExpression(): todo(jake): Handle number")
+			infixNodes = append(infixNodes, &ast.Token{Token: t})
 		case token.ParenOpen:
 			parenOpenCount++
 		case token.ParenClose:

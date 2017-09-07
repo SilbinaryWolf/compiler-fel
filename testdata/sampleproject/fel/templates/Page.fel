@@ -19,6 +19,8 @@ html {
 
 	}
 	body {
+		other := "test"
+		test := "hey" + "ge" + other
 		div() {
 			"Test Text"
 			Link(url="www.google.com", test="f") {

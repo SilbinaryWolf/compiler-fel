@@ -42,6 +42,7 @@ func (p *Parser) parseDefinition(name token.Token) ast.Node {
 		childNodes := p.parseStatements()
 		if name.Kind != token.Unknown {
 			// Retrieve properties block
+			var cssDef *ast.CSSDefinition
 			var properties *ast.HTMLProperties
 		RetrievePropertyDefinitionLoop:
 			for _, itNode := range childNodes {
@@ -52,6 +53,12 @@ func (p *Parser) parseDefinition(name token.Token) ast.Node {
 						break RetrievePropertyDefinitionLoop
 					}
 					properties = node
+				case *ast.CSSDefinition:
+					if cssDef != nil {
+						p.addError(fmt.Errorf("Cannot declare ':: css' twice in the same HTML component."))
+						break RetrievePropertyDefinitionLoop
+					}
+					cssDef = node
 				}
 			}
 
@@ -59,24 +66,15 @@ func (p *Parser) parseDefinition(name token.Token) ast.Node {
 			node := new(ast.HTMLComponentDefinition)
 			node.Name = name
 			node.Properties = properties
+			node.CSSDefinition = cssDef
 			node.ChildNodes = childNodes
-
-			// Add component
-			nameAsString := node.Name.String()
-			_, ok := p.htmlComponentDefinitions[nameAsString]
-			if ok {
-				p.addError(fmt.Errorf("Cannot redeclare %s.", nameAsString))
-			} else {
-				p.htmlComponentDefinitions[nameAsString] = node
-			}
 
 			return node
 		}
 
 		// TODO(Jake): Disallow ":: properties" block in un-named HTML
 
-		// HTML block
-		node := new(ast.HTMLDefinition)
+		node := new(ast.HTMLBlock)
 		node.ChildNodes = childNodes
 		return node
 	default:

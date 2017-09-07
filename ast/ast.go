@@ -36,7 +36,7 @@ type Block struct {
 
 type Parameter struct {
 	Name token.Token
-	Base
+	Expression
 }
 
 type Expression struct {
@@ -45,12 +45,7 @@ type Expression struct {
 	Base
 }
 
-/*type NamedBlock struct {
-	Name token.Token
-	Block
-}*/
-
-type HTMLDefinition struct {
+type HTMLBlock struct {
 	Base
 }
 
@@ -63,8 +58,9 @@ func (node *HTMLProperties) Nodes() []Node {
 }
 
 type HTMLComponentDefinition struct {
-	Name       token.Token
-	Properties *HTMLProperties
+	Name          token.Token
+	Properties    *HTMLProperties
+	CSSDefinition *CSSDefinition // optional
 	Base
 }
 
@@ -72,7 +68,6 @@ type HTMLNode struct {
 	Name           token.Token
 	Parameters     []Parameter
 	HTMLDefinition *HTMLComponentDefinition // optional
-	CSSDefinition  *CSSDefinition           // optional
 	Base
 }
 
