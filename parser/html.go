@@ -18,9 +18,9 @@ func (p *Parser) checkHTMLNode(node *ast.HTMLNode) {
 	//
 	// todo(Jake): Extend this to allow user configured/whitelisted tag names
 	//
-	isValidHTML5TagName := util.IsValidHTML5TagName(name)
-	if !isValidHTML5TagName {
-		//p.htmlComponentNodes = append(p.htmlComponentNodes, node)
-		//p.addErrorLine(fmt.Errorf("\"%s\" is not a valid HTML5 element.", name), node.Name.Line)
-	}
+	//isValidHTML5TagName := util.IsValidHTML5TagName(name)
+	//if !isValidHTML5TagName {
+	//p.htmlComponentNodes = append(p.htmlComponentNodes, node)
+	//p.addErrorLine(fmt.Errorf("\"%s\" is not a valid HTML5 element.", name), node.Name.Line)
+	//}
 }

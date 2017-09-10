@@ -177,6 +177,10 @@ func (program *Program) RunProject(projectDirpath string) error {
 		return fmt.Errorf("Stopping due to parsing errors.")
 	}
 
+	fmt.Printf("File read time: %s\n", readFileTime)
+	fmt.Printf("Parsing time: %s\n", parsingElapsed)
+	panic("TESTING TYPECHECKER: Finished Typecheck.")
+
 	/*{
 		json, _ := json.MarshalIndent(astFiles, "", "   ")
 		fmt.Printf("%s", string(json))

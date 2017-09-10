@@ -3,9 +3,12 @@ package parser
 import (
 	"fmt"
 	//"io/ioutil"
+	"strings"
+
 	"github.com/silbinarywolf/compiler-fel/ast"
 	"github.com/silbinarywolf/compiler-fel/data"
 	"github.com/silbinarywolf/compiler-fel/token"
+	"github.com/silbinarywolf/compiler-fel/util"
 )
 
 func getDataTypeFromToken(t token.Token) data.Kind {
@@ -28,7 +31,18 @@ func (p *Parser) typecheckExpression(scope *Scope, expression *ast.Expression) {
 
 	typeToken := expression.TypeToken
 	if typeToken.Kind != token.Unknown {
-		panic("todo: Handle explicit type")
+		typeTokenString := typeToken.String()
+		switch typeTokenString {
+		case "string":
+			exprType = data.KindString
+		case "int":
+			exprType = data.KindInteger64
+		case "float":
+			exprType = data.KindFloat64
+		default:
+			p.addErrorLine(fmt.Errorf("Unknown data type %s", typeTokenString), typeToken.Line)
+			panic(fmt.Sprintf("todo: Handle explicit type decl. Unknown type %s", typeTokenString))
+		}
 	}
 
 	for _, itNode := range expression.Nodes() {
@@ -43,12 +57,14 @@ func (p *Parser) typecheckExpression(scope *Scope, expression *ast.Expression) {
 					p.addErrorLine(fmt.Errorf("Cannot mix string \"%s\" with %s", node.String(), exprType.String()), node.Line)
 				}
 			case token.Number:
-				// todo(Jake): Support float
 				if exprType == data.KindUnknown {
 					exprType = data.KindInteger64
+					if strings.ContainsRune(node.Data, '.') {
+						exprType = data.KindFloat64
+					}
 				}
 				if exprType != data.KindInteger64 && exprType != data.KindFloat64 {
-					p.addErrorLine(fmt.Errorf("Cannot mix integer (\"%s\") with %s", node.String(), exprType.String()), node.Line)
+					p.addErrorLine(fmt.Errorf("Cannot mix number (\"%s\") with %s", node.String(), exprType.String()), node.Line)
 				}
 			case token.Identifier:
 				name := node.String()
@@ -78,19 +94,20 @@ func (p *Parser) typecheckExpression(scope *Scope, expression *ast.Expression) {
 }
 
 func (p *Parser) TypecheckAndFinalize(files []*ast.File) {
-	scope := NewScope(nil)
+	globalScope := NewScope(nil)
 
 	// Get all global/top-level identifiers
 	for _, file := range files {
+		scope := globalScope
 		for _, itNode := range file.ChildNodes {
 			switch node := itNode.(type) {
 			case *ast.HTMLNode:
-				// no-cop
+				// no-op
 			case *ast.HTMLComponentDefinition:
 				name := node.Name.String()
 				_, ok := scope.htmlDefinitions[name]
 				if ok {
-					p.addError(fmt.Errorf("Cannot declare \"%s :: HTML\" more than once.", name))
+					p.addError(fmt.Errorf("Cannot declare \"%s :: html\" more than once.", name))
 					continue
 				}
 				scope.htmlDefinitions[name] = node
@@ -101,7 +118,7 @@ func (p *Parser) TypecheckAndFinalize(files []*ast.File) {
 				name := node.Name.String()
 				_, ok := scope.cssDefinitions[name]
 				if ok {
-					p.addError(fmt.Errorf("Cannot declare \"%s :: CSS\" more than once.", name))
+					p.addError(fmt.Errorf("Cannot declare \"%s :: css\" more than once.", name))
 					continue
 				}
 				scope.cssDefinitions[name] = node
@@ -114,8 +131,7 @@ func (p *Parser) TypecheckAndFinalize(files []*ast.File) {
 	// Typecheck
 	for _, file := range files {
 		nodeStack := make([]ast.Node, 0, 50)
-		scopeStack := make([]*Scope, 0, 50)
-		scopeStack = append(scopeStack, scope)
+		scope := NewScope(globalScope)
 
 		nodes := file.Nodes()
 		for i := len(nodes) - 1; i >= 0; i-- {
@@ -128,11 +144,9 @@ func (p *Parser) TypecheckAndFinalize(files []*ast.File) {
 			nodeStack = nodeStack[:len(nodeStack)-1]
 
 			if itNode == nil {
-				scopeStack = scopeStack[:len(scopeStack)-1]
+				scope = scope.parent
 				continue
 			}
-
-			scope := scopeStack[len(scopeStack)-1]
 
 			switch node := itNode.(type) {
 			case *ast.CSSDefinition, *ast.HTMLComponentDefinition:
@@ -142,10 +156,21 @@ func (p *Parser) TypecheckAndFinalize(files []*ast.File) {
 				for _, parameterNode := range node.Parameters {
 					p.typecheckExpression(scope, &parameterNode.Expression)
 				}
+
+				name := node.Name.String()
+				isValidHTML5TagName := util.IsValidHTML5TagName(name)
+				if !isValidHTML5TagName {
+					htmlDefinition, ok := scope.Get(name)
+					if !ok {
+						p.addErrorLine(fmt.Errorf("\"%s\" is not a valid HTML5 element or HTML component", name), node.Name.Line)
+						continue
+					}
+				}
+
 			case *ast.DeclareStatement:
 				p.typecheckExpression(scope, &node.Expression)
 				name := node.Name.String()
-				_, ok := scope.Get(name)
+				_, ok := scope.GetFromThisScope(name)
 				if ok {
 					p.addErrorLine(fmt.Errorf("Cannot redeclare \"%s\".", name), node.Name.Line)
 					continue
@@ -160,7 +185,7 @@ func (p *Parser) TypecheckAndFinalize(files []*ast.File) {
 			}
 
 			// Nest scope
-			scopeStack = append(scopeStack, NewScope(scope))
+			scope = NewScope(scope)
 			nodeStack = append(nodeStack, nil)
 
 			// Add children

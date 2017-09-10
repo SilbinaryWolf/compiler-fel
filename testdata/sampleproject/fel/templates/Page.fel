@@ -1,3 +1,22 @@
+html {
+	head {
+
+	}
+	body {
+		testStr: string = 3
+		test := "hey" + "ge"
+		div() {
+			testStr := "test"
+			"Test Text"
+			Link(url="www.google.com", test="f") {
+				span(class="test") {
+					"Test"
+				}
+			}
+		}
+	}
+}
+
 Link :: html {
 	:: properties {
 		url: string
@@ -11,23 +30,5 @@ Link :: html {
 Link :: css {
 	.link {
 		color: red;
-	}
-}
-
-html {
-	head {
-
-	}
-	body {
-		other := "test"
-		test := "hey" + "ge" + other
-		div() {
-			"Test Text"
-			Link(url="www.google.com", test="f") {
-				span(class="test") {
-					"Test"
-				}
-			}
-		}
 	}
 }
