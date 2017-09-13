@@ -5,6 +5,16 @@ import (
 	"github.com/silbinarywolf/compiler-fel/token"
 )
 
+type TypeKind int
+
+const (
+	TypeUnknown TypeKind = 0 + iota
+	TypeString
+	TypeInteger64
+	TypeFloat64
+	TypeHTMLDefinitionNode
+)
+
 type CSSRuleKind int
 
 const (

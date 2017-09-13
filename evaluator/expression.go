@@ -8,13 +8,30 @@ import (
 	"github.com/silbinarywolf/compiler-fel/token"
 )
 
-func (program *Program) evaluateExpression(expressionNodes []ast.Node, scope *Scope) data.Type {
+func (program *Program) evaluateExpression(expressionNode *ast.Expression, scope *Scope) data.Type {
 	var stack []data.Type
+
+	switch expressionNode.Type {
+	case data.KindUnknown:
+		var t token.Token
+		for _, itNode := range expressionNode.Nodes() {
+			switch node := itNode.(type) {
+			case *ast.Token:
+				t = node.Token
+				break
+			}
+		}
+		panic(fmt.Sprintf("Line %d - evaluateExpression: Expression node has not been type-checked", t.Line))
+	case data.KindString, data.KindHTMLNode:
+		// no-op
+	default:
+		panic(fmt.Sprintf("evaluateExpression: Type \"%s\" not supported.", expressionNode.Type.String()))
+	}
 
 	// todo(Jake): Rewrite string concat to use `var stringBuffer bytes.Buffer` and see if
 	//			   there is a speedup
 
-	for _, itNode := range expressionNodes {
+	for _, itNode := range expressionNode.Nodes() {
 
 		switch node := itNode.(type) {
 		case *ast.Token:
@@ -59,7 +76,7 @@ func (program *Program) evaluateExpression(expressionNodes []ast.Node, scope *Sc
 				panic(fmt.Sprintf("Evaluator::evaluateExpression(): Unhandled *.astToken kind: %s", node.Kind.String()))
 			}
 		default:
-			panic(fmt.Sprintf("Unhandled type: %T", node))
+			panic(fmt.Sprintf("evaluateExpression(): Unhandled type: %T", node))
 		}
 	}
 	if len(stack) == 0 || len(stack) > 1 {

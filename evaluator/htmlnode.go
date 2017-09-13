@@ -25,7 +25,7 @@ func (program *Program) evaluateHTMLNodeChildren(nodes []ast.Node, scope *Scope)
 			subResultDataNode := program.evaluateHTMLNode(node, scope)
 			resultNodes = append(resultNodes, subResultDataNode)
 		case *ast.Expression:
-			valueInterface := program.evaluateExpression(node.ChildNodes, scope)
+			valueInterface := program.evaluateExpression(node, scope)
 			switch value := valueInterface.(type) {
 			case *data.String:
 				subResultDataNode := &data.HTMLText{
@@ -68,7 +68,7 @@ func (program *Program) evaluateHTMLNode(node *ast.HTMLNode, scope *Scope) *data
 	// Evaluate parameters
 	if parameterSet := node.Parameters; parameterSet != nil {
 		for _, parameter := range parameterSet {
-			value := program.evaluateExpression(parameter.Nodes(), scope)
+			value := program.evaluateExpression(&parameter.Expression, scope)
 			attributeNode := data.HTMLAttribute{
 				Name:  parameter.Name.String(),
 				Value: value.String(),

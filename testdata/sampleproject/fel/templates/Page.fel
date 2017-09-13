@@ -3,12 +3,11 @@ html {
 
 	}
 	body {
-		testStr: string = 3
 		test := "hey" + "ge"
 		div() {
 			testStr := "test"
 			"Test Text"
-			Link(url="www.google.com", test="f") {
+			Link(url="www.google.com") {
 				span(class="test") {
 					"Test"
 				}
@@ -17,18 +16,3 @@ html {
 	}
 }
 
-Link :: html {
-	:: properties {
-		url: string
-	}
-	
-	a(class="link", href=url) {
-		children
-	}
-}
-
-Link :: css {
-	.link {
-		color: red;
-	}
-}

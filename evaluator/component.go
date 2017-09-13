@@ -12,6 +12,9 @@ func (program *Program) evaluteHTMLComponent(topNode *ast.HTMLNode, scope *Scope
 	childNodes := program.evaluateHTMLNodeChildren(topNode.Nodes(), scope)
 
 	// Evaluate component
+	name := topNode.Name.String()
+	program.htmlDefinition[name] = topNode.HTMLDefinition
+
 	var resultDataNode *data.HTMLNode
 	{
 		componentScope := NewScope(nil)
@@ -24,7 +27,7 @@ func (program *Program) evaluteHTMLComponent(topNode *ast.HTMLNode, scope *Scope
 					if len(decl.ChildNodes) == 0 {
 						componentScope.Set(name, program.CreateDataType(decl.TypeToken))
 					} else {
-						componentScope.Set(name, program.evaluateExpression(decl.ChildNodes, nil))
+						componentScope.Set(name, program.evaluateExpression(&decl.Expression, nil))
 					}
 				}
 			}
@@ -38,7 +41,7 @@ func (program *Program) evaluteHTMLComponent(topNode *ast.HTMLNode, scope *Scope
 				if !ok {
 					panic(fmt.Sprintf("Cannot pass \"%s\" as parameter as it's not a defined property on \"%s\".", name, topNode.Name))
 				}
-				value := program.evaluateExpression(parameter.Nodes(), scope)
+				value := program.evaluateExpression(&parameter.Expression, scope)
 				componentScope.Set(name, value)
 			}
 		}
@@ -58,9 +61,10 @@ func (program *Program) evaluteHTMLComponent(topNode *ast.HTMLNode, scope *Scope
 					panic("evaluteHTMLComponent(): Cannot return multiple html nodes from html component")
 				}
 				resultDataNode = program.evaluateHTMLNode(node, componentScope)
-			case *ast.HTMLProperties:
+			case *ast.HTMLProperties, *ast.CSSDefinition:
 				// ignore
 			default:
+				program.evaluateStatement(node, componentScope)
 				panic(fmt.Sprintf("evaluteHTMLComponent(): Unhandled type %T", node))
 			}
 		}

@@ -2,10 +2,12 @@ package evaluator
 
 import (
 	"bytes"
+	//"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/silbinarywolf/compiler-fel/ast"
@@ -21,13 +23,15 @@ type TemplateFile struct {
 }
 
 type Program struct {
-	globalScope *Scope
-	debugLevel  int
+	globalScope    *Scope
+	htmlDefinition map[string]*ast.HTMLComponentDefinition
+	debugLevel     int
 }
 
 func New() *Program {
 	p := new(Program)
 	p.globalScope = NewScope(nil)
+	p.htmlDefinition = make(map[string]*ast.HTMLComponentDefinition)
 	return p
 }
 
@@ -60,18 +64,6 @@ func (program *Program) RunProject(projectDirpath string) error {
 		return fmt.Errorf("Cannot find config.fel in root of project directory: %v", configFilepath)
 	}
 
-	templateInputDirectory := projectDirpath + "/templates"
-	// Check if input templates directory exists
-	{
-		_, err := os.Stat(templateInputDirectory)
-		if err != nil {
-			return fmt.Errorf("Error with directory \"templates\" directory in project directory: %v", err)
-		}
-		if os.IsNotExist(err) {
-			return fmt.Errorf("Expected to find \"templates\" directory in: %s", projectDirpath)
-		}
-	}
-
 	// Find and parse config.fel
 	var configAstFile *ast.File
 	var readFileTime time.Duration
@@ -93,6 +85,7 @@ func (program *Program) RunProject(projectDirpath string) error {
 			panic("Unexpected parse error (Parse() returned a nil ast.File node)")
 		}
 		configAstFile = astFile
+		p.TypecheckFile(configAstFile, nil)
 		if p.HasErrors() {
 			p.PrintErrors()
 			return fmt.Errorf("Parse errors in config.fel in root of project directory")
@@ -120,6 +113,23 @@ func (program *Program) RunProject(projectDirpath string) error {
 	}
 	cssOutputDirectory = fmt.Sprintf("%s/%s", projectDirpath, cssOutputDirectory)
 
+	//templateInputDirectory, err := program.GetConfigString("template_input_directory")
+	//if err != nil {
+	//	return err
+	//}
+	//templateInputDirectory = fmt.Sprintf("%s/%s", projectDirpath, templateInputDirectory)
+	templateInputDirectory := projectDirpath + "/templates"
+	// Check if input templates directory exists
+	{
+		_, err := os.Stat(templateInputDirectory)
+		if err != nil {
+			return fmt.Errorf("Error with directory \"templates\" directory in project directory: %v", err)
+		}
+		if os.IsNotExist(err) {
+			return fmt.Errorf("Expected to find \"templates\" directory in: %s", projectDirpath)
+		}
+	}
+
 	// Check if output templates directory exists
 	{
 		_, err := os.Stat(templateOutputDirectory)
@@ -133,11 +143,15 @@ func (program *Program) RunProject(projectDirpath string) error {
 
 	// Get all files in folder recursively with *.fel
 	filepathSet := make([]string, 0, 50)
+	//templateFilepathSet := make([]string, 0, 50)
 	{
 		fileReadStart := time.Now()
-		err := filepath.Walk(templateInputDirectory, func(path string, f os.FileInfo, _ error) error {
+		err := filepath.Walk(projectDirpath, func(path string, f os.FileInfo, _ error) error {
 			if !f.IsDir() && filepath.Ext(f.Name()) == ".fel" {
 				filepathSet = append(filepathSet, path)
+				//if strings.HasPrefix(path, templateInputDirectory) {
+				//	templateFilepathSet = append(templateFilepathSet, path)
+				//}
 			}
 			return nil
 		})
@@ -177,9 +191,9 @@ func (program *Program) RunProject(projectDirpath string) error {
 		return fmt.Errorf("Stopping due to parsing errors.")
 	}
 
-	fmt.Printf("File read time: %s\n", readFileTime)
-	fmt.Printf("Parsing time: %s\n", parsingElapsed)
-	panic("TESTING TYPECHECKER: Finished Typecheck.")
+	//fmt.Printf("File read time: %s\n", readFileTime)
+	//fmt.Printf("Parsing time: %s\n", parsingElapsed)
+	//panic("TESTING TYPECHECKER: Finished Typecheck.")
 
 	/*{
 		json, _ := json.MarshalIndent(astFiles, "", "   ")
@@ -192,10 +206,13 @@ func (program *Program) RunProject(projectDirpath string) error {
 	// Execute template
 	executionStart := time.Now()
 	for _, astFile := range astFiles {
+		if !strings.HasPrefix(astFile.Filepath, templateInputDirectory) {
+			continue
+		}
 		program.globalScope = NewScope(nil)
 
-		scope := program.globalScope
-		htmlNode := program.evaluateTemplate(astFile, scope)
+		globalScope := program.globalScope
+		htmlNode := program.evaluateTemplate(astFile, globalScope)
 
 		if len(htmlNode.ChildNodes) == 0 {
 			return fmt.Errorf("No top level HTMLNode or HTMLText found in %s.", astFile.Filepath)
@@ -204,8 +221,8 @@ func (program *Program) RunProject(projectDirpath string) error {
 			panic(fmt.Sprintf("No html node found in %s.", astFile.Filepath))
 		}
 
-		// Print CSS definitions
-		cssDefinitionList := scope.cssDefinitions
+		// Queue up to-be-printed CSS definitions
+		cssDefinitionList := globalScope.cssDefinitions
 		if len(cssDefinitionList) > 0 {
 			for _, cssDefinition := range cssDefinitionList {
 				outputCSSDefinitionSet = append(outputCSSDefinitionSet, cssDefinition)
@@ -221,6 +238,12 @@ func (program *Program) RunProject(projectDirpath string) error {
 		outputTemplateFileSet = append(outputTemplateFileSet, result)
 	}
 	executionElapsed := time.Since(executionStart)
+
+	//
+	for _, htmlDefinition := range program.htmlDefinition {
+		outputCSSDefinitionSet = append(outputCSSDefinitionSet, htmlDefinition.CSSDefinition)
+
+	}
 
 	// Output
 	var generateTimeElapsed time.Duration

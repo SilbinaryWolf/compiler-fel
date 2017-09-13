@@ -11,7 +11,7 @@ func (program *Program) evaluateDeclareSet(node *ast.DeclareStatement, scope *Sc
 	if _, exists := scope.GetThisScope(name); exists {
 		panic(fmt.Sprintf("Cannot redeclare %v in same scope.", name))
 	}
-	value := program.evaluateExpression(node.ChildNodes, scope)
+	value := program.evaluateExpression(&node.Expression, scope)
 	scope.Set(name, value)
 }
 
