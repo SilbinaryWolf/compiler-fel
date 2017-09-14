@@ -167,7 +167,11 @@ func (program *Program) evaluateCSSRule(cssDefinition *data.CSSDefinition, topNo
 
 func (program *Program) evaluateCSSDefinition(topNode *ast.CSSDefinition, scope *Scope) *data.CSSDefinition {
 	cssDefinition := new(data.CSSDefinition)
-	cssDefinition.Name = topNode.Name.String()
+	if topNode.Name.Kind == token.Unknown {
+		cssDefinition.Name = program.Filepath
+	} else {
+		cssDefinition.Name = topNode.Name.String()
+	}
 	cssDefinition.ChildNodes = make([]*data.CSSRule, 0, 10)
 	program.globalScope.cssDefinitions = append(program.globalScope.cssDefinitions, cssDefinition)
 
@@ -187,9 +191,6 @@ func (program *Program) evaluateCSSDefinition(topNode *ast.CSSDefinition, scope 
 		}
 	}
 
-	if len(cssDefinition.Name) == 0 {
-		panic("evaluateCSSDefinition(): Todo! Cannot have named CSS blocks yet.")
-	}
 	if scope == nil {
 		panic("evaluateCSSDefinition(): Null scope provided.")
 	}

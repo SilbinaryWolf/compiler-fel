@@ -102,25 +102,34 @@ func (p *Parser) TypecheckHTMLDefinition(htmlDefinition *ast.HTMLComponentDefini
 	}
 
 	//
-	scope := NewScope(nil)
+	var globalScopeNoVariables Scope = *parentScope
+	globalScopeNoVariables.identifiers = nil
+	scope := NewScope(&globalScopeNoVariables)
 	scope.Set("children", data.KindHTMLNode)
 
-	for i, _ := range htmlDefinition.Properties.Statements {
-		var propertyNode *ast.DeclareStatement
-		propertyNode = htmlDefinition.Properties.Statements[i]
-		p.typecheckExpression(scope, &propertyNode.Expression)
-		name := propertyNode.Name.String()
-		_, ok := scope.Get(name)
-		if ok {
-			if name == "children" {
-				p.addErrorLine(fmt.Errorf("Cannot use \"children\" as it's a reserved property."), propertyNode.Name.Line)
+	if htmlDefinition.Properties != nil {
+		for i, _ := range htmlDefinition.Properties.Statements {
+			var propertyNode *ast.DeclareStatement = htmlDefinition.Properties.Statements[i]
+			p.typecheckExpression(scope, &propertyNode.Expression)
+			name := propertyNode.Name.String()
+			_, ok := scope.Get(name)
+			if ok {
+				if name == "children" {
+					p.addErrorLine(fmt.Errorf("Cannot use \"children\" as it's a reserved property."), propertyNode.Name.Line)
+					continue
+				}
+				p.addErrorLine(fmt.Errorf("Property \"%s\" declared twice.", name), propertyNode.Name.Line)
 				continue
 			}
-			p.addErrorLine(fmt.Errorf("Property \"%s\" declared twice.", name), propertyNode.Name.Line)
-			continue
+			scope.Set(name, propertyNode.Type)
 		}
-		scope.Set(name, propertyNode.Type)
 	}
+
+	// Check if already inside this definition
+	p.typecheckHtmlDefinitionStack = append(p.typecheckHtmlDefinitionStack, htmlDefinition)
+	defer func() {
+		p.typecheckHtmlDefinitionStack = p.typecheckHtmlDefinitionStack[:len(p.typecheckHtmlDefinitionStack)-1]
+	}()
 	p.TypecheckStatements(htmlDefinition, scope)
 }
 
@@ -132,6 +141,7 @@ func (p *Parser) TypecheckStatements(topNode ast.Node, scope *Scope) {
 		nodeStack = append(nodeStack, node)
 	}
 
+Loop:
 	for len(nodeStack) > 0 {
 		itNode := nodeStack[len(nodeStack)-1]
 		nodeStack = nodeStack[:len(nodeStack)-1]
@@ -157,6 +167,12 @@ func (p *Parser) TypecheckStatements(topNode ast.Node, scope *Scope) {
 				if !ok {
 					p.addErrorLine(fmt.Errorf("\"%s\" is not a valid HTML5 element or HTML component", name), node.Name.Line)
 					continue
+				}
+				for _, itHtmlDefinition := range p.typecheckHtmlDefinitionStack {
+					if htmlComponentDefinition == itHtmlDefinition {
+						p.addErrorLine(fmt.Errorf("Cyclic reference to %s.", htmlComponentDefinition.Name.String()), node.Name.Line)
+						continue Loop
+					}
 				}
 				node.HTMLDefinition = htmlComponentDefinition
 				// Check if parameters exist

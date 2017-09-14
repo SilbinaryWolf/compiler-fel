@@ -5,13 +5,18 @@ import (
 
 	"github.com/silbinarywolf/compiler-fel/ast"
 	"github.com/silbinarywolf/compiler-fel/data"
+	"github.com/silbinarywolf/compiler-fel/token"
 )
 
 func (program *Program) evaluateTemplate(node *ast.File, scope *Scope) *data.HTMLNode {
+	program.Filepath = node.Filepath
+
 	htmlNode := ast.HTMLNode{}
 	htmlNode.ChildNodes = node.Nodes()
 	result := program.evaluateHTMLNode(&htmlNode, scope)
 	result.Name = ""
+
+	program.Filepath = ""
 	return result
 }
 
@@ -48,8 +53,9 @@ func (program *Program) evaluateHTMLNodeChildren(nodes []ast.Node, scope *Scope)
 				resultNodes = append(resultNodes, subResultDataNode)
 			}*/
 		case *ast.CSSDefinition:
-			// NOTE(Jake): Hack to ensure CSSDefinition is at top scope
-			program.evaluateCSSDefinition(node, scope.parent.parent)
+			if node.Name.Kind == token.Unknown {
+				program.anonymousCSSDefinitionsUsed = append(program.anonymousCSSDefinitionsUsed, node)
+			}
 		default:
 			program.evaluateStatement(itNode, scope)
 		}

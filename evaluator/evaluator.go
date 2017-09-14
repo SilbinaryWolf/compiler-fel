@@ -23,15 +23,17 @@ type TemplateFile struct {
 }
 
 type Program struct {
-	globalScope    *Scope
-	htmlDefinition map[string]*ast.HTMLComponentDefinition
-	debugLevel     int
+	Filepath                    string
+	globalScope                 *Scope
+	htmlDefinitionUsed          map[string]*ast.HTMLComponentDefinition
+	anonymousCSSDefinitionsUsed []*ast.CSSDefinition
+	debugLevel                  int
 }
 
 func New() *Program {
 	p := new(Program)
 	p.globalScope = NewScope(nil)
-	p.htmlDefinition = make(map[string]*ast.HTMLComponentDefinition)
+	p.htmlDefinitionUsed = make(map[string]*ast.HTMLComponentDefinition)
 	return p
 }
 
@@ -222,12 +224,15 @@ func (program *Program) RunProject(projectDirpath string) error {
 		}
 
 		// Queue up to-be-printed CSS definitions
-		cssDefinitionList := globalScope.cssDefinitions
-		if len(cssDefinitionList) > 0 {
-			for _, cssDefinition := range cssDefinitionList {
-				outputCSSDefinitionSet = append(outputCSSDefinitionSet, cssDefinition)
-			}
-		}
+		//cssDefinitionList := globalScope.cssDefinitions
+		//if len(cssDefinitionList) > 0 {
+		//	for _, cssDefinition := range cssDefinitionList {
+		//		// Unnamed ":: css {" blocks only
+		//		if cssDefinition.Name.Kind == token.Unknown {
+		//			outputCSSDefinitionSet = append(outputCSSDefinitionSet, cssDefinition)
+		//		}
+		//	}
+		//}
 
 		baseFilename := astFile.Filepath[len(templateInputDirectory) : len(astFile.Filepath)-4]
 		outputFilepath := filepath.Clean(fmt.Sprintf("%s%s.html", templateOutputDirectory, baseFilename))
@@ -239,10 +244,17 @@ func (program *Program) RunProject(projectDirpath string) error {
 	}
 	executionElapsed := time.Since(executionStart)
 
-	//
-	for _, htmlDefinition := range program.htmlDefinition {
-		outputCSSDefinitionSet = append(outputCSSDefinitionSet, htmlDefinition.CSSDefinition)
+	// Output named "MyComponent :: css" blocks
+	for _, htmlDefinition := range program.htmlDefinitionUsed {
+		cssDefinition := htmlDefinition.CSSDefinition
+		dataCSSDefinition := program.evaluateCSSDefinition(cssDefinition, program.globalScope)
+		outputCSSDefinitionSet = append(outputCSSDefinitionSet, dataCSSDefinition)
+	}
 
+	// Output anonymous ":: css" blocks
+	for _, cssDefinition := range program.anonymousCSSDefinitionsUsed {
+		dataCSSDefinition := program.evaluateCSSDefinition(cssDefinition, program.globalScope)
+		outputCSSDefinitionSet = append(outputCSSDefinitionSet, dataCSSDefinition)
 	}
 
 	// Output
@@ -253,7 +265,11 @@ func (program *Program) RunProject(projectDirpath string) error {
 		{
 			var cssOutput bytes.Buffer
 			for _, cssDefinition := range outputCSSDefinitionSet {
-				cssOutput.WriteString(fmt.Sprintf("/* Name: %s */\n", cssDefinition.Name))
+				name := cssDefinition.Name
+				if len(name) == 0 {
+					name = "<anonymous>"
+				}
+				cssOutput.WriteString(fmt.Sprintf("/* Name: %s */\n", name))
 				cssOutput.WriteString(generate.PrettyCSS(cssDefinition))
 			}
 			outputFilepath := filepath.Clean(fmt.Sprintf("%s/%s.css", cssOutputDirectory, "main"))

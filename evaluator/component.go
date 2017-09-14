@@ -13,7 +13,7 @@ func (program *Program) evaluteHTMLComponent(topNode *ast.HTMLNode, scope *Scope
 
 	// Evaluate component
 	name := topNode.Name.String()
-	program.htmlDefinition[name] = topNode.HTMLDefinition
+	program.htmlDefinitionUsed[name] = topNode.HTMLDefinition
 
 	var resultDataNode *data.HTMLNode
 	{
