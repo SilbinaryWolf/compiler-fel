@@ -13,14 +13,14 @@ type GlobalDefinitions struct{}
 
 type Parser struct {
 	*scanner.Scanner
-	errors []error
-
-	typecheckHtmlDefinitionStack []*ast.HTMLComponentDefinition
+	errors                        []error
+	typecheckHtmlNodeDependencies map[string]*ast.HTMLNode
 }
 
 func New() *Parser {
 	p := new(Parser)
-	p.typecheckHtmlDefinitionStack = make([]*ast.HTMLComponentDefinition, 0, 20)
+	//p.typecheckHtmlDefinitionDependencies = make(map[string]*ast.HTMLComponentDefinition)
+	//p.typecheckHtmlDefinitionStack = make([]*ast.HTMLComponentDefinition, 0, 20)
 	return p
 }
 
@@ -130,11 +130,12 @@ func (p *Parser) PrintErrors() {
 		fmt.Printf("Error parsing file: %v\n", p.Filepath)
 		fmt.Printf("Found %d %s in \"%s\"\n", errorCount, errorOrErrors, p.Filepath)
 		for _, err := range errors {
-			fmt.Printf("- %v \n\n", err)
+			fmt.Printf("- %v \n", err)
 		}
 		if p.Scanner.Error != nil {
-			fmt.Printf("- %v \n\n", p.Scanner.Error)
+			fmt.Printf("- %v \n", p.Scanner.Error)
 		}
+		fmt.Printf("\n")
 	}
 }
 

@@ -69,6 +69,7 @@ func (node *HTMLProperties) Nodes() []Node {
 
 type HTMLComponentDefinition struct {
 	Name          token.Token
+	Dependencies  []*HTMLNode
 	Properties    *HTMLProperties
 	CSSDefinition *CSSDefinition // optional
 	Base

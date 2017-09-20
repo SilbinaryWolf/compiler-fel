@@ -3,6 +3,7 @@ package parser
 import (
 	"fmt"
 	//"io/ioutil"
+	//"encoding/json"
 	"strings"
 
 	"github.com/silbinarywolf/compiler-fel/ast"
@@ -125,12 +126,19 @@ func (p *Parser) TypecheckHTMLDefinition(htmlDefinition *ast.HTMLComponentDefini
 		}
 	}
 
-	// Check if already inside this definition
-	p.typecheckHtmlDefinitionStack = append(p.typecheckHtmlDefinitionStack, htmlDefinition)
-	defer func() {
-		p.typecheckHtmlDefinitionStack = p.typecheckHtmlDefinitionStack[:len(p.typecheckHtmlDefinitionStack)-1]
-	}()
+	p.typecheckHtmlNodeDependencies = make(map[string]*ast.HTMLNode)
 	p.TypecheckStatements(htmlDefinition, scope)
+
+	// Put list of dependencies on the AST
+	dependencies := make([]*ast.HTMLNode, 0, len(p.typecheckHtmlNodeDependencies))
+	for _, htmlNode := range p.typecheckHtmlNodeDependencies {
+		dependencies = append(dependencies, htmlNode)
+		if htmlDefinition == htmlNode.HTMLDefinition {
+			p.addError(fmt.Errorf("Cannot reference self in \"%s :: html\".", htmlDefinition.Name.String()))
+		}
+	}
+	htmlDefinition.Dependencies = dependencies
+	p.typecheckHtmlNodeDependencies = nil
 }
 
 func (p *Parser) TypecheckStatements(topNode ast.Node, scope *Scope) {
@@ -141,7 +149,7 @@ func (p *Parser) TypecheckStatements(topNode ast.Node, scope *Scope) {
 		nodeStack = append(nodeStack, node)
 	}
 
-Loop:
+	//Loop:
 	for len(nodeStack) > 0 {
 		itNode := nodeStack[len(nodeStack)-1]
 		nodeStack = nodeStack[:len(nodeStack)-1]
@@ -168,11 +176,16 @@ Loop:
 					p.addErrorLine(fmt.Errorf("\"%s\" is not a valid HTML5 element or HTML component", name), node.Name.Line)
 					continue
 				}
-				for _, itHtmlDefinition := range p.typecheckHtmlDefinitionStack {
-					if htmlComponentDefinition == itHtmlDefinition {
-						p.addErrorLine(fmt.Errorf("Cyclic reference to %s.", htmlComponentDefinition.Name.String()), node.Name.Line)
-						continue Loop
-					}
+				//fmt.Printf("%s -- %d\n", htmlComponentDefinition.Name.String(), len(p.typecheckHtmlDefinitionStack))
+				//for _, itHtmlDefinition := range p.typecheckHtmlDefinitionStack {
+				//	if htmlComponentDefinition == itHtmlDefinition {
+				//		p.addErrorLine(fmt.Errorf("Cannot reference self in \"%s :: html\".", htmlComponentDefinition.Name.String()), node.Name.Line)
+				//		//continue Loop
+				//		return
+				//	}
+				//}
+				if p.typecheckHtmlNodeDependencies != nil {
+					p.typecheckHtmlNodeDependencies[name] = node
 				}
 				node.HTMLDefinition = htmlComponentDefinition
 				// Check if parameters exist
@@ -266,6 +279,31 @@ func (p *Parser) TypecheckAndFinalize(files []*ast.File) {
 	//
 	for _, htmlDefinition := range globalScope.htmlDefinitions {
 		p.TypecheckHTMLDefinition(htmlDefinition, globalScope)
+	}
+
+	// Check for circular dependencies in components to avoid recursion at runtime
+CircularDependencyLoopCheck:
+	for _, htmlDefinition := range globalScope.htmlDefinitions {
+		hasChecked := new(map[string]bool)
+		for _, otherHtmlDefinition := range globalScope.htmlDefinitions {
+			// Don't compare dependencies of self
+			if htmlDefinition == otherHtmlDefinition {
+				continue
+			}
+			for _, outerDepHtmlNode := range otherHtmlDefinition.Dependencies {
+				if htmlDefinition != outerDepHtmlNode.HTMLDefinition {
+					continue
+				}
+				for _, innerDepHtmlNode := range htmlDefinition.Dependencies {
+					if otherHtmlDefinition != innerDepHtmlNode.HTMLDefinition {
+						continue
+					}
+					p.addErrorLine(fmt.Errorf("Cannot use \"%s\" in circular reference.", outerDepHtmlNode.Name.String()), outerDepHtmlNode.Name.Line)
+					p.addErrorLine(fmt.Errorf("Cannot use \"%s\" in circular reference.", innerDepHtmlNode.Name.String()), innerDepHtmlNode.Name.Line)
+					break CircularDependencyLoopCheck
+				}
+			}
+		}
 	}
 
 	// Typecheck
