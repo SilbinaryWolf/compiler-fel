@@ -12,7 +12,7 @@ import (
 func (p *Parser) checkHTMLNode(node *ast.HTMLNode) {
 	name := node.Name.String()
 	if len(node.ChildNodes) > 0 && util.IsSelfClosingTagName(name) {
-		p.addErrorLine(fmt.Errorf("%s is a self-closing tag and cannot have child elements.", name), node.Name.Line)
+		p.addErrorToken(fmt.Errorf("%s is a self-closing tag and cannot have child elements.", name), node.Name)
 	}
 
 	//

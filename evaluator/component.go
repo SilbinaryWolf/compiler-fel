@@ -58,7 +58,7 @@ func (program *Program) evaluteHTMLComponent(topNode *ast.HTMLNode, scope *Scope
 			switch node := itNode.(type) {
 			case *ast.HTMLNode:
 				if resultDataNode != nil {
-					panic("evaluteHTMLComponent(): Cannot return multiple html nodes from html component")
+					panic(fmt.Sprintf("evaluteHTMLComponent(): Cannot return multiple html nodes from \"%s :: html\"", topNode.Name.String()))
 				}
 				resultDataNode = program.evaluateHTMLNode(node, componentScope)
 			case *ast.HTMLProperties, *ast.CSSDefinition:

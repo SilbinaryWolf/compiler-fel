@@ -458,5 +458,6 @@ func (scanner *Scanner) _getNextToken() token.Token {
 	if scanner.Error != nil {
 		t.Kind = token.Illegal
 	}
+	t.Filepath = scanner.Filepath
 	return t
 }

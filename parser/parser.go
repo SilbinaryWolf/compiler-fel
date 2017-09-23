@@ -13,12 +13,13 @@ type GlobalDefinitions struct{}
 
 type Parser struct {
 	*scanner.Scanner
-	errors                        []error
+	errors                        map[string][]error
 	typecheckHtmlNodeDependencies map[string]*ast.HTMLNode
 }
 
 func New() *Parser {
 	p := new(Parser)
+	p.errors = make(map[string][]error)
 	//p.typecheckHtmlDefinitionDependencies = make(map[string]*ast.HTMLComponentDefinition)
 	//p.typecheckHtmlDefinitionStack = make([]*ast.HTMLComponentDefinition, 0, 20)
 	return p
@@ -97,9 +98,9 @@ func (p *Parser) expect(thisToken token.Token, expectedList ...interface{}) erro
 	return result
 }
 
-func (p *Parser) GetErrors() []error {
-	return p.errors
-}
+//func (p *Parser) GetErrors() []error {
+//	return p.errors
+//}
 
 func (p *Parser) HasErrors() bool {
 	return p.Scanner.Error != nil || len(p.errors) > 0
@@ -108,32 +109,52 @@ func (p *Parser) HasErrors() bool {
 func (p *Parser) addError(message error) {
 	// todo(Jake): Expose this function to AST/token/etc data to retrieve line number
 	//message = fmt.Errorf("Line %d - %s", -99, message)
-	p.errors = append(p.errors, message)
+	filepath := p.Filepath
+	_, ok := p.errors[filepath]
+	if !ok {
+		p.errors[filepath] = make([]error, 0, 10)
+	}
+	p.errors[filepath] = append(p.errors[filepath], message)
 }
 
-func (p *Parser) addErrorLine(message error, line int) {
-	message = fmt.Errorf("Line %d | %s", line, message)
-	p.errors = append(p.errors, message)
+func (p *Parser) addErrorToken(message error, token token.Token) {
+	filepath := token.Filepath
+	_, ok := p.errors[filepath]
+	if !ok {
+		p.errors[filepath] = make([]error, 0, 10)
+	}
+	message = fmt.Errorf("Line %d | %s", token.Line, message)
+	p.errors[filepath] = append(p.errors[filepath], message)
 }
 
 func (p *Parser) PrintErrors() {
-	errors := p.GetErrors()
-	errorCount := len(errors)
+	errorCount := 0
+	for _, errorList := range p.errors {
+		errorCount += len(errorList)
+	}
 	if p.Scanner.Error != nil {
 		errorCount += 1
 	}
 	if errorCount > 0 {
 		errorOrErrors := "errors"
-		if len(errors) == 1 {
+		if errorCount == 1 {
 			errorOrErrors = "error"
 		}
-		fmt.Printf("Error parsing file: %v\n", p.Filepath)
-		fmt.Printf("Found %d %s in \"%s\"\n", errorCount, errorOrErrors, p.Filepath)
-		for _, err := range errors {
-			fmt.Printf("- %v \n", err)
+		fmt.Printf("Found %d %s...\n", errorCount, errorOrErrors)
+		isFirst := true
+		for filepath, errorList := range p.errors {
+			fmt.Printf("File: %s\n", filepath)
+			for _, err := range errorList {
+				fmt.Printf("- %v \n", err)
+			}
+			if !isFirst {
+				fmt.Printf("\n")
+			}
+			isFirst = false
 		}
 		if p.Scanner.Error != nil {
-			fmt.Printf("- %v \n", p.Scanner.Error)
+			fmt.Printf("Error parsing file: %s\n", p.Scanner.Filepath)
+			fmt.Printf("- %s \n", p.Scanner.Error)
 		}
 		fmt.Printf("\n")
 	}

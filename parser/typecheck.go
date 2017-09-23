@@ -41,7 +41,7 @@ func (p *Parser) typecheckExpression(scope *Scope, expression *ast.Expression) {
 		case "float", "float64":
 			exprType = data.KindFloat64
 		default:
-			p.addErrorLine(fmt.Errorf("Unknown data type %s", typeTokenString), typeToken.Line)
+			p.addErrorToken(fmt.Errorf("Unknown data type %s", typeTokenString), typeToken)
 			panic(fmt.Sprintf("typecheckExpression: TODO: Handle explicit type decl. Unknown type \"%s\"", typeTokenString))
 		}
 	}
@@ -55,7 +55,7 @@ func (p *Parser) typecheckExpression(scope *Scope, expression *ast.Expression) {
 					exprType = data.KindString
 				}
 				if exprType != data.KindString {
-					p.addErrorLine(fmt.Errorf("Cannot mix string \"%s\" with %s", node.String(), exprType.String()), node.Line)
+					p.addErrorToken(fmt.Errorf("Cannot mix string \"%s\" with %s", node.String(), exprType.String()), node.Token)
 				}
 			case token.Number:
 				if exprType == data.KindUnknown {
@@ -65,7 +65,7 @@ func (p *Parser) typecheckExpression(scope *Scope, expression *ast.Expression) {
 					}
 				}
 				if exprType != data.KindInteger64 && exprType != data.KindFloat64 {
-					p.addErrorLine(fmt.Errorf("Cannot mix number (\"%s\") with %s", node.String(), exprType.String()), node.Line)
+					p.addErrorToken(fmt.Errorf("Cannot mix number (\"%s\") with %s", node.String(), exprType.String()), node.Token)
 				}
 			case token.Identifier:
 				name := node.String()
@@ -73,17 +73,17 @@ func (p *Parser) typecheckExpression(scope *Scope, expression *ast.Expression) {
 				if !ok {
 					_, ok := scope.GetHTMLDefinition(name)
 					if ok {
-						p.addErrorLine(fmt.Errorf("Undeclared identifier \"%s\". Did you mean \"%s()\" or \"%s{ }\" to reference the \"%s :: html\" component?", name, name, name), node.Line)
+						p.addErrorToken(fmt.Errorf("Undeclared identifier \"%s\". Did you mean \"%s()\" or \"%s{ }\" to reference the \"%s :: html\" component?", name, name, name), node.Token)
 						continue
 					}
-					p.addErrorLine(fmt.Errorf("Undeclared identifier \"%s\".", name), node.Line)
+					p.addErrorToken(fmt.Errorf("Undeclared identifier \"%s\".", name), node.Token)
 					continue
 				}
 				if exprType == data.KindUnknown {
 					exprType = variableType
 				}
 				if exprType != variableType {
-					p.addErrorLine(fmt.Errorf("Identifier \"%s\" must be a %s not %s.", name, exprType.String(), variableType.String()), node.Line)
+					p.addErrorToken(fmt.Errorf("Identifier \"%s\" must be a %s not %s.", name, exprType.String(), variableType.String()), node.Token)
 				}
 			default:
 				if node.IsOperator() {
@@ -108,16 +108,19 @@ func (p *Parser) TypecheckHTMLDefinition(htmlDefinition *ast.HTMLComponentDefini
 	}
 
 	// Check for HTML nodes
-	hasHTMLNode := false
+	htmlNodeCount := 0
 	for _, itNode := range htmlDefinition.ChildNodes {
 		_, ok := itNode.(*ast.HTMLNode)
-		if ok {
-			hasHTMLNode = true
-			break
+		if !ok {
+			continue
 		}
+		htmlNodeCount++
 	}
-	if !hasHTMLNode {
-		p.addErrorLine(fmt.Errorf("\"%s :: html\" must contain HTML nodes at the top-level.", htmlDefinition.Name.String()), htmlDefinition.Name.Line)
+	if htmlNodeCount == 0 {
+		p.addErrorToken(fmt.Errorf("\"%s :: html\" must contain one HTML node at the top-level.", htmlDefinition.Name.String()), htmlDefinition.Name)
+	}
+	if htmlNodeCount > 1 {
+		p.addErrorToken(fmt.Errorf("\"%s :: html\" cannot have multiple HTML nodes at the top-level.", htmlDefinition.Name.String()), htmlDefinition.Name)
 	}
 
 	//
@@ -134,10 +137,10 @@ func (p *Parser) TypecheckHTMLDefinition(htmlDefinition *ast.HTMLComponentDefini
 			_, ok := scope.Get(name)
 			if ok {
 				if name == "children" {
-					p.addErrorLine(fmt.Errorf("Cannot use \"children\" as it's a reserved property."), propertyNode.Name.Line)
+					p.addErrorToken(fmt.Errorf("Cannot use \"children\" as it's a reserved property."), propertyNode.Name)
 					continue
 				}
-				p.addErrorLine(fmt.Errorf("Property \"%s\" declared twice.", name), propertyNode.Name.Line)
+				p.addErrorToken(fmt.Errorf("Property \"%s\" declared twice.", name), propertyNode.Name)
 				continue
 			}
 			scope.Set(name, propertyNode.Type)
@@ -185,7 +188,7 @@ func (p *Parser) TypecheckStatements(topNode ast.Node, scope *Scope) {
 			if !isValidHTML5TagName {
 				htmlComponentDefinition, ok := scope.GetHTMLDefinition(name)
 				if !ok {
-					p.addErrorLine(fmt.Errorf("\"%s\" is not a valid HTML5 element or HTML component", name), node.Name.Line)
+					p.addErrorToken(fmt.Errorf("\"%s\" is not a valid element or component name.", name), node.Name)
 					continue
 				}
 				//fmt.Printf("%s -- %d\n", htmlComponentDefinition.Name.String(), len(p.typecheckHtmlDefinitionStack))
@@ -208,12 +211,12 @@ func (p *Parser) TypecheckStatements(topNode ast.Node, scope *Scope) {
 					for _, componentParamNode := range node.HTMLDefinition.Properties.Statements {
 						if paramName == componentParamNode.Name.String() {
 							if componentParamNode.Type != parameterNode.Type {
-								p.addErrorLine(fmt.Errorf("\"%s\" must be of type %s, not %s", paramName, componentParamNode.Type.String(), parameterNode.Type.String()), parameterNode.Name.Line)
+								p.addErrorToken(fmt.Errorf("\"%s\" must be of type %s, not %s", paramName, componentParamNode.Type.String(), parameterNode.Type.String()), parameterNode.Name)
 							}
 							continue ParameterCheckLoop
 						}
 					}
-					p.addErrorLine(fmt.Errorf("\"%s\" is not a property on \"%s :: html\"", paramName, name), parameterNode.Name.Line)
+					p.addErrorToken(fmt.Errorf("\"%s\" is not a property on \"%s :: html\"", paramName, name), parameterNode.Name)
 					continue
 				}
 			}
@@ -223,7 +226,7 @@ func (p *Parser) TypecheckStatements(topNode ast.Node, scope *Scope) {
 			name := node.Name.String()
 			_, ok := scope.GetFromThisScope(name)
 			if ok {
-				p.addErrorLine(fmt.Errorf("Cannot redeclare \"%s\".", name), node.Name.Line)
+				p.addErrorToken(fmt.Errorf("Cannot redeclare \"%s\".", name), node.Name)
 				continue
 			}
 			scope.Set(name, node.Expression.Type)
@@ -329,7 +332,7 @@ func (p *Parser) TypecheckAndFinalize(files []*ast.File) {
 		if !ok {
 			continue
 		}
-		p.addErrorLine(fmt.Errorf("Cannot use \"%s\". Cyclic references are not allowed.", name), node.Name.Line)
+		p.addErrorToken(fmt.Errorf("Cannot use \"%s\". Cyclic references are not allowed.", name), node.Name)
 	}
 
 	// Typecheck
