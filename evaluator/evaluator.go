@@ -42,6 +42,9 @@ func (program *Program) CreateDataType(t token.Token) data.Type {
 	switch typename {
 	case "string":
 		return new(data.String)
+	case "html_node":
+		var empty *data.HTMLNode
+		return empty
 	default:
 		panic(fmt.Sprintf("Unknown type name: %s", typename))
 	}
@@ -183,11 +186,14 @@ func (program *Program) RunProject(projectDirpath string) error {
 		if astFile == nil {
 			panic("Unexpected parse error (Parse() returned a nil ast.File node)")
 		}
+		if p.Scanner.HasErrors() {
+			p.PrintErrors()
+			return fmt.Errorf("Stopping due to scanning errors.")
+		}
 		astFiles = append(astFiles, astFile)
 	}
 	p.TypecheckAndFinalize(astFiles)
 	parsingElapsed := time.Since(parsingStart)
-
 	if p.HasErrors() {
 		p.PrintErrors()
 		return fmt.Errorf("Stopping due to parsing errors.")

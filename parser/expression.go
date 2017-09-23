@@ -78,7 +78,14 @@ Loop:
 				infixNodes = append(infixNodes, topOperatorNode)
 				operatorNodes = operatorNodes[:len(operatorNodes)-1]
 			}
-		case token.EOF:
+		case token.DoubleColon:
+			p.GetNextToken()
+			node := p.parseDefinition(token.Token{})
+			if node == nil {
+				panic("parseExpressionNodes: parseDefinition returned nil")
+			}
+			infixNodes = append(infixNodes, node)
+		case token.EOF, token.Illegal:
 			break Loop
 		default:
 			if t.IsOperator() {

@@ -40,6 +40,29 @@ func (p *Parser) parseDefinition(name token.Token) ast.Node {
 			return nil
 		}
 		childNodes := p.parseStatements()
+
+		// Check HTML nodes
+		htmlNodeCount := 0
+		for _, itNode := range childNodes {
+			_, ok := itNode.(*ast.HTMLNode)
+			if !ok {
+				continue
+			}
+			htmlNodeCount++
+		}
+		if htmlNodeCount == 0 || htmlNodeCount > 1 {
+			var nameString string
+			if name.Kind != token.Unknown {
+				nameString = name.String() + " "
+			}
+			if htmlNodeCount == 0 {
+				p.addErrorToken(fmt.Errorf("\"%s:: html\" must contain one HTML node at the top-level.", nameString), name)
+			}
+			if htmlNodeCount > 1 {
+				p.addErrorToken(fmt.Errorf("\"%s:: html\" cannot have multiple HTML nodes at the top-level.", nameString), name)
+			}
+		}
+
 		if name.Kind != token.Unknown {
 			// Retrieve properties block
 			var cssDef *ast.CSSDefinition
@@ -73,8 +96,8 @@ func (p *Parser) parseDefinition(name token.Token) ast.Node {
 		}
 
 		// TODO(Jake): Disallow ":: properties" block in un-named HTML
-
 		node := new(ast.HTMLBlock)
+		node.HTMLKeyword = keywordToken
 		node.ChildNodes = childNodes
 		return node
 	default:

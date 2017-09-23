@@ -56,6 +56,7 @@ type Expression struct {
 }
 
 type HTMLBlock struct {
+	HTMLKeyword token.Token // NOTE(Jake): Used to determine line number/etc
 	Base
 }
 

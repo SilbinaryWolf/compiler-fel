@@ -75,6 +75,9 @@ func (program *Program) evaluateExpression(expressionNode *ast.Expression, scope
 				}
 				panic(fmt.Sprintf("Evaluator::evaluateExpression(): Unhandled *.astToken kind: %s", node.Kind.String()))
 			}
+		case *ast.HTMLBlock:
+			value := program.evaluateHTMLBlock(node, scope)
+			stack = append(stack, value)
 		default:
 			panic(fmt.Sprintf("evaluateExpression(): Unhandled type: %T", node))
 		}

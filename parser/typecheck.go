@@ -12,20 +12,26 @@ import (
 	"github.com/silbinarywolf/compiler-fel/util"
 )
 
-func getDataTypeFromToken(t token.Token) data.Kind {
-	switch t.Kind {
-	case token.Identifier:
-		typename := t.String()
-		switch typename {
-		case "string":
-			return data.KindString
-		default:
-			panic(fmt.Sprintf("Unknown type name: %s", typename))
-		}
-	default:
-		panic(fmt.Sprintf("Cannot use token kind %s in type declaration", t.Kind.String()))
-	}
-}
+// func getDataTypeFromTokaen(t token.Token) data.Kind {
+// 	switch t.Kind {
+// 	case token.Identifier:
+// 		typename := t.String()
+// 		switch typename {
+// 		case "string":
+// 			return data.KindString
+// 		case "int", "int64":
+// 			return data.KindInteger64
+// 		case "float", "float64":
+// 			return data.KindFloat64
+// 		case "html_node":
+// 			return data.KindHTMLNode
+// 		default:
+// 			panic(fmt.Sprintf("Unknown type name: %s", typename))
+// 		}
+// 	default:
+// 		panic(fmt.Sprintf("Cannot use token kind %s in type declaration", t.Kind.String()))
+// 	}
+// }
 
 func (p *Parser) typecheckExpression(scope *Scope, expression *ast.Expression) {
 	var exprType data.Kind
@@ -40,6 +46,8 @@ func (p *Parser) typecheckExpression(scope *Scope, expression *ast.Expression) {
 			exprType = data.KindInteger64
 		case "float", "float64":
 			exprType = data.KindFloat64
+		case "html_node":
+			exprType = data.KindHTMLNode
 		default:
 			p.addErrorToken(fmt.Errorf("Unknown data type %s", typeTokenString), typeToken)
 			panic(fmt.Sprintf("typecheckExpression: TODO: Handle explicit type decl. Unknown type \"%s\"", typeTokenString))
@@ -91,6 +99,15 @@ func (p *Parser) typecheckExpression(scope *Scope, expression *ast.Expression) {
 				}
 				panic(fmt.Sprintf("typecheckExpression: Unhandled token kind: \"%s\" with value: %s", node.Kind.String(), node.String()))
 			}
+		case *ast.HTMLBlock:
+			variableType := data.KindHTMLNode
+			if exprType == data.KindUnknown {
+				exprType = variableType
+			}
+			if exprType != variableType {
+				p.addErrorToken(fmt.Errorf("\":: html\" must be a %s not %s.", exprType.String(), variableType.String()), node.HTMLKeyword)
+			}
+			p.TypecheckHTMLBlock(node, scope)
 		default:
 			panic(fmt.Sprintf("typecheckExpression: Unhandled type %T", node))
 		}
@@ -99,28 +116,17 @@ func (p *Parser) typecheckExpression(scope *Scope, expression *ast.Expression) {
 	expression.Type = exprType
 }
 
+func (p *Parser) TypecheckHTMLBlock(htmlBlock *ast.HTMLBlock, scope *Scope) {
+	scope = NewScope(scope)
+	p.TypecheckStatements(htmlBlock, scope)
+}
+
 func (p *Parser) TypecheckHTMLDefinition(htmlDefinition *ast.HTMLComponentDefinition, parentScope *Scope) {
 	// Attach CSSDefinition if found
 	name := htmlDefinition.Name.String()
 	cssDefinition, ok := parentScope.GetCSSDefinition(name)
 	if ok {
 		htmlDefinition.CSSDefinition = cssDefinition
-	}
-
-	// Check for HTML nodes
-	htmlNodeCount := 0
-	for _, itNode := range htmlDefinition.ChildNodes {
-		_, ok := itNode.(*ast.HTMLNode)
-		if !ok {
-			continue
-		}
-		htmlNodeCount++
-	}
-	if htmlNodeCount == 0 {
-		p.addErrorToken(fmt.Errorf("\"%s :: html\" must contain one HTML node at the top-level.", htmlDefinition.Name.String()), htmlDefinition.Name)
-	}
-	if htmlNodeCount > 1 {
-		p.addErrorToken(fmt.Errorf("\"%s :: html\" cannot have multiple HTML nodes at the top-level.", htmlDefinition.Name.String()), htmlDefinition.Name)
 	}
 
 	//
@@ -264,8 +270,8 @@ func (p *Parser) TypecheckAndFinalize(files []*ast.File) {
 		scope := globalScope
 		for _, itNode := range file.ChildNodes {
 			switch node := itNode.(type) {
-			case *ast.HTMLNode, *ast.DeclareStatement:
-				// no-op
+			case *ast.HTMLNode, *ast.DeclareStatement, *ast.Expression:
+				// no-op, these are checked in TypecheckFile()
 			case *ast.HTMLComponentDefinition:
 				name := node.Name.String()
 				_, ok := scope.htmlDefinitions[name]

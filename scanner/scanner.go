@@ -172,6 +172,14 @@ func eatAllWhitespaceAndComments(scanner *Scanner) {
 	}
 }
 
+func (scanner *Scanner) HasErrors() bool {
+	return scanner.Error != nil
+}
+
+func (scanner *Scanner) setError(message error) {
+	scanner.Error = fmt.Errorf("Line %d - %v", scanner.lineNumber, message)
+}
+
 func (scanner *Scanner) nextRune() rune {
 	index := scanner.index
 	if index < 0 || index >= len(scanner.filecontents) {
@@ -179,16 +187,16 @@ func (scanner *Scanner) nextRune() rune {
 	}
 	r, size := rune(scanner.filecontents[index]), 1
 	if r == 0 {
-		scanner.Error = fmt.Errorf("Illegal character NUL on Line %d", scanner.lineNumber)
+		scanner.setError(fmt.Errorf("Illegal character NUL."))
 		return END_OF_FILE
 	}
 	if r >= utf8.RuneSelf {
 		r, size = utf8.DecodeRune(scanner.filecontents[index:])
 		if r == utf8.RuneError && size == 1 {
-			scanner.Error = fmt.Errorf("Illegal UTF-8 encoding on Line %d", scanner.lineNumber)
+			scanner.setError(fmt.Errorf("Illegal UTF-8 encoding."))
 			return END_OF_FILE
 		} else if r == BYTE_ORDER_MARK && scanner.index > 0 {
-			scanner.Error = fmt.Errorf("Illegal byte order mark on Line %d", scanner.lineNumber)
+			scanner.setError(fmt.Errorf("Illegal byte order mark."))
 			return END_OF_FILE
 		}
 	}
@@ -282,15 +290,15 @@ func (scanner *Scanner) _getNextToken() token.Token {
 		}
 	case '"', '\'':
 		if scanner.scanmode == ModeDefault && C == '\'' {
-			panic("Cannot use ' for strings outside of CSS.")
+			scanner.setError(fmt.Errorf("Cannot use ' character for strings outside of \":: css\" definitions."))
 		}
 
 		// Handle HereDoc (triple quote """)
-		{
+		if scanner.scanmode == ModeDefault && C == '"' {
 			lastIndex := scanner.index
 			C2 := scanner.nextRune()
 			C3 := scanner.nextRune()
-			if C == '"' && C2 == '"' && C3 == '"' {
+			if C2 == '"' && C3 == '"' {
 				t.Kind = token.String
 				t.Start = scanner.index
 				for {
@@ -321,10 +329,9 @@ func (scanner *Scanner) _getNextToken() token.Token {
 				break
 			}
 			if subC == END_OF_FILE {
-				panic("Expected end of string but instead got end of file.")
+				scanner.setError(fmt.Errorf("Expected end of string but instead got end of file."))
 			}
 		}
-		//panic(string(scanner.filecontents[t.Start:t.End]))
 	case ':':
 		t.Kind = token.Colon
 		switch lastIndex := scanner.index; scanner.nextRune() {

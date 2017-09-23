@@ -41,6 +41,10 @@ func (program *Program) evaluateHTMLNodeChildren(nodes []ast.Node, scope *Scope)
 				for _, subValue := range value.Array {
 					resultNodes = append(resultNodes, subValue)
 				}
+			case *data.HTMLNode:
+				if value != nil {
+					resultNodes = append(resultNodes, value)
+				}
 			default:
 				panic(fmt.Sprintf("Unhandled value result in HTMLNode: %T", value))
 			}
@@ -61,6 +65,11 @@ func (program *Program) evaluateHTMLNodeChildren(nodes []ast.Node, scope *Scope)
 		}
 	}
 	return resultNodes
+}
+
+func (program *Program) evaluateHTMLBlock(node *ast.HTMLBlock, scope *Scope) *data.HTMLNode {
+	nodes := program.evaluateHTMLNodeChildren(node.Nodes(), scope)
+	return nodes[0].(*data.HTMLNode)
 }
 
 func (program *Program) evaluateHTMLNode(node *ast.HTMLNode, scope *Scope) *data.HTMLNode {

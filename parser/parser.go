@@ -141,6 +141,11 @@ func (p *Parser) PrintErrors() {
 			errorOrErrors = "error"
 		}
 		fmt.Printf("Found %d %s...\n", errorCount, errorOrErrors)
+		if p.Scanner.Error != nil {
+			fmt.Printf("File: %s\n", p.Scanner.Filepath)
+			fmt.Printf("- %s \n", p.Scanner.Error)
+		}
+
 		isFirst := true
 		for filepath, errorList := range p.errors {
 			fmt.Printf("File: %s\n", filepath)
@@ -151,10 +156,6 @@ func (p *Parser) PrintErrors() {
 				fmt.Printf("\n")
 			}
 			isFirst = false
-		}
-		if p.Scanner.Error != nil {
-			fmt.Printf("Error parsing file: %s\n", p.Scanner.Filepath)
-			fmt.Printf("- %s \n", p.Scanner.Error)
 		}
 		fmt.Printf("\n")
 	}
