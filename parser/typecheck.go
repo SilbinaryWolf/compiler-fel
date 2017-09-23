@@ -71,6 +71,11 @@ func (p *Parser) typecheckExpression(scope *Scope, expression *ast.Expression) {
 				name := node.String()
 				variableType, ok := scope.Get(name)
 				if !ok {
+					_, ok := scope.GetHTMLDefinition(name)
+					if ok {
+						p.addErrorLine(fmt.Errorf("Undeclared identifier \"%s\". Did you mean \"%s()\" or \"%s{ }\" to reference the \"%s :: html\" component?", name, name, name), node.Line)
+						continue
+					}
 					p.addErrorLine(fmt.Errorf("Undeclared identifier \"%s\".", name), node.Line)
 					continue
 				}
@@ -102,6 +107,19 @@ func (p *Parser) TypecheckHTMLDefinition(htmlDefinition *ast.HTMLComponentDefini
 		htmlDefinition.CSSDefinition = cssDefinition
 	}
 
+	// Check for HTML nodes
+	hasHTMLNode := false
+	for _, itNode := range htmlDefinition.ChildNodes {
+		_, ok := itNode.(*ast.HTMLNode)
+		if ok {
+			hasHTMLNode = true
+			break
+		}
+	}
+	if !hasHTMLNode {
+		p.addErrorLine(fmt.Errorf("\"%s :: html\" must contain HTML nodes at the top-level.", htmlDefinition.Name.String()), htmlDefinition.Name.Line)
+	}
+
 	//
 	var globalScopeNoVariables Scope = *parentScope
 	globalScopeNoVariables.identifiers = nil
@@ -126,18 +144,12 @@ func (p *Parser) TypecheckHTMLDefinition(htmlDefinition *ast.HTMLComponentDefini
 		}
 	}
 
+	if p.typecheckHtmlNodeDependencies != nil {
+		panic("typecheckHtmlNodeDependencies must be nil before being re-assigned")
+	}
 	p.typecheckHtmlNodeDependencies = make(map[string]*ast.HTMLNode)
 	p.TypecheckStatements(htmlDefinition, scope)
-
-	// Put list of dependencies on the AST
-	dependencies := make([]*ast.HTMLNode, 0, len(p.typecheckHtmlNodeDependencies))
-	for _, htmlNode := range p.typecheckHtmlNodeDependencies {
-		dependencies = append(dependencies, htmlNode)
-		if htmlDefinition == htmlNode.HTMLDefinition {
-			p.addError(fmt.Errorf("Cannot reference self in \"%s :: html\".", htmlDefinition.Name.String()))
-		}
-	}
-	htmlDefinition.Dependencies = dependencies
+	htmlDefinition.Dependencies = p.typecheckHtmlNodeDependencies
 	p.typecheckHtmlNodeDependencies = nil
 }
 
@@ -281,29 +293,43 @@ func (p *Parser) TypecheckAndFinalize(files []*ast.File) {
 		p.TypecheckHTMLDefinition(htmlDefinition, globalScope)
 	}
 
-	// Check for circular dependencies in components to avoid recursion at runtime
-CircularDependencyLoopCheck:
+	// Get nested dependencies
 	for _, htmlDefinition := range globalScope.htmlDefinitions {
-		hasChecked := new(map[string]bool)
-		for _, otherHtmlDefinition := range globalScope.htmlDefinitions {
-			// Don't compare dependencies of self
-			if htmlDefinition == otherHtmlDefinition {
-				continue
-			}
-			for _, outerDepHtmlNode := range otherHtmlDefinition.Dependencies {
-				if htmlDefinition != outerDepHtmlNode.HTMLDefinition {
+		nodeStack := make([]*ast.HTMLNode, 0, 50)
+		for _, subNode := range htmlDefinition.Dependencies {
+			nodeStack = append(nodeStack, subNode)
+		}
+		for len(nodeStack) > 0 {
+			node := nodeStack[len(nodeStack)-1]
+			nodeStack = nodeStack[:len(nodeStack)-1]
+
+			// Add child dependencies
+			for _, subNode := range node.HTMLDefinition.Dependencies {
+				name := subNode.Name.String()
+				_, ok := htmlDefinition.Dependencies[name]
+				if ok {
 					continue
 				}
-				for _, innerDepHtmlNode := range htmlDefinition.Dependencies {
-					if otherHtmlDefinition != innerDepHtmlNode.HTMLDefinition {
-						continue
-					}
-					p.addErrorLine(fmt.Errorf("Cannot use \"%s\" in circular reference.", outerDepHtmlNode.Name.String()), outerDepHtmlNode.Name.Line)
-					p.addErrorLine(fmt.Errorf("Cannot use \"%s\" in circular reference.", innerDepHtmlNode.Name.String()), innerDepHtmlNode.Name.Line)
-					break CircularDependencyLoopCheck
-				}
+				htmlDefinition.Dependencies[name] = subNode
+				nodeStack = append(nodeStack, subNode)
 			}
 		}
+
+		// Print deps
+		// fmt.Printf("\n\nDependencies of %s\n", htmlDefinition.Name.String())
+		// for name, _ := range htmlDefinition.Dependencies {
+		// 	fmt.Printf("- %s\n", name)
+		// }
+	}
+
+	// Lookup if component depends on itself
+	for _, htmlDefinition := range globalScope.htmlDefinitions {
+		name := htmlDefinition.Name.String()
+		node, ok := htmlDefinition.Dependencies[name]
+		if !ok {
+			continue
+		}
+		p.addErrorLine(fmt.Errorf("Cannot use \"%s\". Cyclic references are not allowed.", name), node.Name.Line)
 	}
 
 	// Typecheck

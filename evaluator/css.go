@@ -166,8 +166,11 @@ func (program *Program) evaluateCSSRule(cssDefinition *data.CSSDefinition, topNo
 }
 
 func (program *Program) evaluateCSSDefinition(topNode *ast.CSSDefinition, scope *Scope) *data.CSSDefinition {
+	if topNode == nil {
+		panic("evaluateCSSDefinition: Cannot pass nil CSSDefinition")
+	}
 	cssDefinition := new(data.CSSDefinition)
-	if topNode.Name.Kind == token.Unknown {
+	if topNode == nil || topNode.Name.Kind == token.Unknown {
 		cssDefinition.Name = program.Filepath
 	} else {
 		cssDefinition.Name = topNode.Name.String()

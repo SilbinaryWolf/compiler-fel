@@ -247,6 +247,9 @@ func (program *Program) RunProject(projectDirpath string) error {
 	// Output named "MyComponent :: css" blocks
 	for _, htmlDefinition := range program.htmlDefinitionUsed {
 		cssDefinition := htmlDefinition.CSSDefinition
+		if cssDefinition == nil {
+			continue
+		}
 		dataCSSDefinition := program.evaluateCSSDefinition(cssDefinition, program.globalScope)
 		outputCSSDefinitionSet = append(outputCSSDefinitionSet, dataCSSDefinition)
 	}
