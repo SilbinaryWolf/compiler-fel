@@ -7,27 +7,26 @@ import (
 	"github.com/silbinarywolf/compiler-fel/util"
 )
 
-func PrettyHTML(node *data.HTMLNode) string {
+func PrettyHTML(nodes []data.Type) string {
 	gen := new(Generator)
 
-	if len(node.Name) > 0 {
-		gen.getHTMLNode(node)
-	} else {
-		for _, itNode := range node.ChildNodes {
-			switch childNode := itNode.(type) {
-			case *data.HTMLNode:
-				gen.getHTMLNode(childNode)
-			default:
-				panic(fmt.Sprintf("PrettyHTML(): Unhandled type: %T", itNode))
-			}
+	for _, itNode := range nodes {
+		switch childNode := itNode.(type) {
+		case *data.HTMLNode:
+			gen.WriteHTMLNode(childNode)
+		case *data.HTMLText:
+			gen.WriteString(childNode.String())
+		default:
+			panic(fmt.Sprintf("PrettyHTML(): Unhandled type: %T", itNode))
 		}
 	}
+
 	gen.WriteByte('\n')
 
 	return gen.String()
 }
 
-func (gen *Generator) getHTMLNode(node *data.HTMLNode) {
+func (gen *Generator) WriteHTMLNode(node *data.HTMLNode) {
 	isSelfClosing := util.IsSelfClosingTagName(node.Name)
 
 	gen.WriteByte('<')
@@ -53,11 +52,11 @@ func (gen *Generator) getHTMLNode(node *data.HTMLNode) {
 	} else {
 		for _, itNode := range node.ChildNodes {
 			gen.WriteLine()
-			switch subNode := itNode.(type) {
+			switch childNode := itNode.(type) {
 			case *data.HTMLNode:
-				gen.getHTMLNode(subNode)
+				gen.WriteHTMLNode(childNode)
 			case *data.HTMLText:
-				gen.WriteString(subNode.String())
+				gen.WriteString(childNode.String())
 			default:
 				panic(fmt.Sprintf("getHTMLNode(): Unhandled type: %T", itNode))
 			}

@@ -8,14 +8,9 @@ import (
 	"github.com/silbinarywolf/compiler-fel/token"
 )
 
-func (program *Program) evaluateTemplate(node *ast.File, scope *Scope) *data.HTMLNode {
+func (program *Program) evaluateTemplate(node *ast.File, scope *Scope) []data.Type {
 	program.Filepath = node.Filepath
-
-	htmlNode := ast.HTMLNode{}
-	htmlNode.ChildNodes = node.Nodes()
-	result := program.evaluateHTMLNode(&htmlNode, scope)
-	result.Name = ""
-
+	result := program.evaluateHTMLNodeChildren(node.Nodes(), scope)
 	program.Filepath = ""
 	return result
 }
@@ -83,6 +78,7 @@ func (program *Program) evaluateHTMLNode(node *ast.HTMLNode, scope *Scope) *data
 
 	resultDataNode := new(data.HTMLNode)
 	resultDataNode.Name = node.Name.String()
+	resultDataNode.HTMLDefinitionName = node.Name.String()
 
 	// Evaluate parameters
 	if parameterSet := node.Parameters; parameterSet != nil {

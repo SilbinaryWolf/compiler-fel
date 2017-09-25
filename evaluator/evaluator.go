@@ -132,6 +132,9 @@ func (program *Program) RunProject(projectDirpath string) error {
 		fileReadStart := time.Now()
 		err := filepath.Walk(projectDirpath, func(path string, f os.FileInfo, _ error) error {
 			if !f.IsDir() && filepath.Ext(f.Name()) == ".fel" {
+				// Replace Windows-slash with forward slash.
+				// NOTE: This ensures consistent comparison of filepath strings and fixes a bug.
+				path = strings.Replace(path, "\\", "/", -1)
 				filepathSet = append(filepathSet, path)
 			}
 			return nil
@@ -198,21 +201,15 @@ func (program *Program) RunProject(projectDirpath string) error {
 			continue
 		}
 		program.globalScope = NewScope(nil)
-
-		globalScope := program.globalScope
-		htmlNode := program.evaluateTemplate(astFile, globalScope)
-
-		if len(htmlNode.ChildNodes) == 0 {
-			return fmt.Errorf("No top level HTMLNode or HTMLText found in %s.", astFile.Filepath)
-		}
-		if htmlNode == nil {
-			panic(fmt.Sprintf("No html node found in %s.", astFile.Filepath))
+		nodes := program.evaluateTemplate(astFile, program.globalScope)
+		if len(nodes) == 0 {
+			return fmt.Errorf("File %s\n- No top-level HTMLNode or HTMLText found.\n\nStopping due to errors.", astFile.Filepath)
 		}
 		baseFilename := astFile.Filepath[len(templateInputDirectory) : len(astFile.Filepath)-4]
 		outputFilepath := filepath.Clean(fmt.Sprintf("%s%s.html", templateOutputDirectory, baseFilename))
 		result := TemplateFile{
 			Filepath: outputFilepath,
-			Content:  generate.PrettyHTML(htmlNode),
+			Content:  generate.PrettyHTML(nodes),
 		}
 		outputTemplateFileSet = append(outputTemplateFileSet, result)
 	}
