@@ -19,6 +19,9 @@ func (program *Program) optimizeAndReturnUsedCSS() []*data.CSSDefinition {
 		if cssDefinition == nil {
 			continue
 		}
+
+		htmlDefinitionName := htmlNodeSet.HTMLDefinition.Name.String()
+
 		dataCSSDefinition := program.evaluateCSSDefinition(cssDefinition, program.globalScope)
 		for ruleIndex := 0; ruleIndex < len(dataCSSDefinition.ChildNodes); ruleIndex++ {
 			cssRule := dataCSSDefinition.ChildNodes[ruleIndex]
@@ -26,7 +29,7 @@ func (program *Program) optimizeAndReturnUsedCSS() []*data.CSSDefinition {
 			for selectorIndex := 0; selectorIndex < len(cssRule.Selectors); selectorIndex++ {
 				cssSelector := cssRule.Selectors[selectorIndex]
 				for _, htmlNode := range htmlNodeSet.items {
-					if htmlNode.HasMatchRecursive(cssSelector) {
+					if htmlNode.HasMatchRecursive(cssSelector, htmlDefinitionName) {
 						// If found a match, stop looking for matches with this
 						// selector
 						continue SelectorLoop
@@ -37,7 +40,7 @@ func (program *Program) optimizeAndReturnUsedCSS() []*data.CSSDefinition {
 				}
 			}
 			if len(cssRule.Selectors) == 0 {
-				dataCSSDefinition.ChildNodes = dataCSSDefinition.dataCSSDefinition[:ruleIndex]
+				dataCSSDefinition.ChildNodes = dataCSSDefinition.ChildNodes[:ruleIndex]
 				ruleIndex--
 			}
 		}

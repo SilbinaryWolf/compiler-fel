@@ -10,6 +10,9 @@ type HTMLNode struct {
 	Name       string
 	Attributes []HTMLAttribute
 	ChildNodes []Type
+
+	// NOTE: Used for context where the htmlnode was processed
+	HTMLDefinitionName string
 }
 
 type HTMLAttribute struct {
@@ -56,7 +59,7 @@ func (node *HTMLNode) HasSelectorPartMatch(ident *CSSSelectorIdentifier) bool {
 	return false
 }
 
-func (topNode *HTMLNode) HasMatchRecursive(selectorParts CSSSelector) bool {
+func (topNode *HTMLNode) HasMatchRecursive(selectorParts CSSSelector, htmlDefinitionName string) bool {
 	nodeStack := make([]*HTMLNode, 0, 50)
 	nodeStack = append(nodeStack, topNode)
 
@@ -66,6 +69,11 @@ func (topNode *HTMLNode) HasMatchRecursive(selectorParts CSSSelector) bool {
 	for len(nodeStack) > 0 {
 		node := nodeStack[len(nodeStack)-1]
 		nodeStack = nodeStack[:len(nodeStack)-1]
+
+		// Skip nodes that weren't created by the specified HTMLComponentDefinition
+		if htmlDefinitionName != node.HTMLDefinitionName {
+			continue
+		}
 
 		switch lastSelectorPart := itLastSelectorPart.(type) {
 		case *CSSSelectorIdentifier:

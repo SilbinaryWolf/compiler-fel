@@ -60,6 +60,7 @@ func (program *Program) evaluteHTMLComponent(topNode *ast.HTMLNode, scope *Scope
 					panic(fmt.Sprintf("evaluteHTMLComponent(): Cannot return multiple html nodes from \"%s :: html\"", topNode.Name.String()))
 				}
 				resultDataNode = program.evaluateHTMLNode(node, componentScope)
+				resultDataNode.HTMLDefinitionName = topNode.Name.String()
 			case *ast.HTMLProperties, *ast.CSSDefinition:
 				// ignore
 			default:

@@ -69,7 +69,11 @@ func (program *Program) evaluateHTMLNodeChildren(nodes []ast.Node, scope *Scope)
 
 func (program *Program) evaluateHTMLBlock(node *ast.HTMLBlock, scope *Scope) *data.HTMLNode {
 	nodes := program.evaluateHTMLNodeChildren(node.Nodes(), scope)
-	return nodes[0].(*data.HTMLNode)
+	resultNode, ok := nodes[0].(*data.HTMLNode)
+	if !ok {
+		panic("evaluateHTMLBlock: Failed to type-assert to data.HTMLNode")
+	}
+	return resultNode
 }
 
 func (program *Program) evaluateHTMLNode(node *ast.HTMLNode, scope *Scope) *data.HTMLNode {
