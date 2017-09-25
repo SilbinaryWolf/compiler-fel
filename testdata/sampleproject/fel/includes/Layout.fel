@@ -25,9 +25,6 @@ Layout :: html {
 		}
 		body(class="no-js "+body_class) {
 			Header()
-			div(class="class-to-optimize-out") {
-				
-			}
 			children
 		}
 	}

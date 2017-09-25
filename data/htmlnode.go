@@ -64,14 +64,16 @@ func (topNode *HTMLNode) HasMatchRecursive(selectorParts CSSSelector, htmlDefini
 	nodeStack = append(nodeStack, topNode)
 
 	itLastSelectorPart := selectorParts[len(selectorParts)-1]
-	fmt.Printf("Selector - %s - Lastbit - %s\n", selectorParts, itLastSelectorPart)
+	//fmt.Printf("Selector - %s - Lastbit - %s\n", selectorParts, itLastSelectorPart)
 
 	for len(nodeStack) > 0 {
 		node := nodeStack[len(nodeStack)-1]
 		nodeStack = nodeStack[:len(nodeStack)-1]
 
 		// Skip nodes that weren't created by the specified HTMLComponentDefinition
-		if htmlDefinitionName != node.HTMLDefinitionName {
+		if len(node.HTMLDefinitionName) > 0 &&
+			len(htmlDefinitionName) > 0 &&
+			htmlDefinitionName != node.HTMLDefinitionName {
 			continue
 		}
 
@@ -95,6 +97,7 @@ func (topNode *HTMLNode) HasMatchRecursive(selectorParts CSSSelector, htmlDefini
 					// If no matches, stop
 					break
 				}
+				panic(fmt.Sprintf("todo(Jake): Handle multiple selector - %s", selectorParts.String()))
 			}
 		default:
 			panic(fmt.Sprintf("HTMLNode::HasMatchRecursive(): Unhandled type %T", lastSelectorPart))

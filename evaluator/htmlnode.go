@@ -78,7 +78,6 @@ func (program *Program) evaluateHTMLNode(node *ast.HTMLNode, scope *Scope) *data
 
 	resultDataNode := new(data.HTMLNode)
 	resultDataNode.Name = node.Name.String()
-	resultDataNode.HTMLDefinitionName = node.Name.String()
 
 	// Evaluate parameters
 	if parameterSet := node.Parameters; parameterSet != nil {
