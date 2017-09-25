@@ -1,0 +1,16 @@
+Link :: css {
+	.link {
+		color: inherit;
+	}
+}
+
+Link :: html {
+	:: struct {
+		url: string
+		other: string
+	}
+
+	a(class="link", href=url) {
+		children
+	}
+}

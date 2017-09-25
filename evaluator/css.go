@@ -10,6 +10,42 @@ import (
 	"github.com/silbinarywolf/compiler-fel/token"
 )
 
+func (program *Program) optimizeAndReturnUsedCSS() []*data.CSSDefinition {
+	outputCSSDefinitionSet := make([]*data.CSSDefinition, 0, 3)
+
+	// Output named "MyComponent :: css" blocks
+	for _, htmlNodeSet := range program.htmlDefinitionUsed {
+		cssDefinition := htmlNodeSet.HTMLDefinition.CSSDefinition
+		if cssDefinition == nil {
+			continue
+		}
+		dataCSSDefinition := program.evaluateCSSDefinition(cssDefinition, program.globalScope)
+		for ruleIndex := 0; ruleIndex < len(dataCSSDefinition.ChildNodes); ruleIndex++ {
+			cssRule := dataCSSDefinition.ChildNodes[ruleIndex]
+		SelectorLoop:
+			for selectorIndex := 0; selectorIndex < len(cssRule.Selectors); selectorIndex++ {
+				cssSelector := cssRule.Selectors[selectorIndex]
+				for _, htmlNode := range htmlNodeSet.items {
+					if htmlNode.HasMatchRecursive(cssSelector) {
+						// If found a match, stop looking for matches with this
+						// selector
+						continue SelectorLoop
+					}
+					// TODO(Jake): Ensure this is correct way to remove from slice
+					cssRule.Selectors = cssRule.Selectors[:selectorIndex]
+					selectorIndex--
+				}
+			}
+			if len(cssRule.Selectors) == 0 {
+				dataCSSDefinition.ChildNodes = dataCSSDefinition.dataCSSDefinition[:ruleIndex]
+				ruleIndex--
+			}
+		}
+		outputCSSDefinitionSet = append(outputCSSDefinitionSet, dataCSSDefinition)
+	}
+	return outputCSSDefinitionSet
+}
+
 func (program *Program) evaluateSelector(nodes []ast.Node) data.CSSSelector {
 	selectorList := make(data.CSSSelector, 0, len(nodes))
 	for _, itSelectorPartNode := range nodes {

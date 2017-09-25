@@ -1,0 +1,31 @@
+Layout :: css {
+	html, body {
+		padding: 0
+	}
+
+	.class-to-optimize-out {
+		height: 0
+	}
+}
+
+Layout :: html {
+	:: struct {
+		body_class := ""
+	}
+
+	html {
+		head {
+			meta(charset="utf-8")
+			meta(http-equiv="X-UA-Compatible", content="IE=edge")
+			meta(name="viewport", content="width=device-width, height=device-height, initial-scale=1.0, user-scalable=0, minimum-scale=1.0, maximum-scale=1.0")
+			title {
+				"My website"
+			}
+			link(rel="stylesheet", type="text/css", href="../css/main.css")
+		}
+		body(class="no-js "+body_class) {
+			Header()
+			children
+		}
+	}
+}

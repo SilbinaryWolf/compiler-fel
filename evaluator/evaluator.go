@@ -17,26 +17,6 @@ import (
 	"github.com/silbinarywolf/compiler-fel/token"
 )
 
-type TemplateFile struct {
-	Filepath string
-	Content  string
-}
-
-type Program struct {
-	Filepath                    string
-	globalScope                 *Scope
-	htmlDefinitionUsed          map[string]*ast.HTMLComponentDefinition
-	anonymousCSSDefinitionsUsed []*ast.CSSDefinition
-	debugLevel                  int
-}
-
-func New() *Program {
-	p := new(Program)
-	p.globalScope = NewScope(nil)
-	p.htmlDefinitionUsed = make(map[string]*ast.HTMLComponentDefinition)
-	return p
-}
-
 func (program *Program) CreateDataType(t token.Token) data.Type {
 	typename := t.String()
 	switch typename {
@@ -148,15 +128,11 @@ func (program *Program) RunProject(projectDirpath string) error {
 
 	// Get all files in folder recursively with *.fel
 	filepathSet := make([]string, 0, 50)
-	//templateFilepathSet := make([]string, 0, 50)
 	{
 		fileReadStart := time.Now()
 		err := filepath.Walk(projectDirpath, func(path string, f os.FileInfo, _ error) error {
 			if !f.IsDir() && filepath.Ext(f.Name()) == ".fel" {
 				filepathSet = append(filepathSet, path)
-				//if strings.HasPrefix(path, templateInputDirectory) {
-				//	templateFilepathSet = append(templateFilepathSet, path)
-				//}
 			}
 			return nil
 		})
@@ -208,8 +184,12 @@ func (program *Program) RunProject(projectDirpath string) error {
 		fmt.Printf("%s", string(json))
 	}*/
 
+	type TemplateFile struct {
+		Filepath string
+		Content  string
+	}
+
 	outputTemplateFileSet := make([]TemplateFile, 0, len(astFiles))
-	outputCSSDefinitionSet := make([]*data.CSSDefinition, 0, 3)
 
 	// Execute template
 	executionStart := time.Now()
@@ -228,18 +208,6 @@ func (program *Program) RunProject(projectDirpath string) error {
 		if htmlNode == nil {
 			panic(fmt.Sprintf("No html node found in %s.", astFile.Filepath))
 		}
-
-		// Queue up to-be-printed CSS definitions
-		//cssDefinitionList := globalScope.cssDefinitions
-		//if len(cssDefinitionList) > 0 {
-		//	for _, cssDefinition := range cssDefinitionList {
-		//		// Unnamed ":: css {" blocks only
-		//		if cssDefinition.Name.Kind == token.Unknown {
-		//			outputCSSDefinitionSet = append(outputCSSDefinitionSet, cssDefinition)
-		//		}
-		//	}
-		//}
-
 		baseFilename := astFile.Filepath[len(templateInputDirectory) : len(astFile.Filepath)-4]
 		outputFilepath := filepath.Clean(fmt.Sprintf("%s%s.html", templateOutputDirectory, baseFilename))
 		result := TemplateFile{
@@ -251,14 +219,7 @@ func (program *Program) RunProject(projectDirpath string) error {
 	executionElapsed := time.Since(executionStart)
 
 	// Output named "MyComponent :: css" blocks
-	for _, htmlDefinition := range program.htmlDefinitionUsed {
-		cssDefinition := htmlDefinition.CSSDefinition
-		if cssDefinition == nil {
-			continue
-		}
-		dataCSSDefinition := program.evaluateCSSDefinition(cssDefinition, program.globalScope)
-		outputCSSDefinitionSet = append(outputCSSDefinitionSet, dataCSSDefinition)
-	}
+	outputCSSDefinitionSet := program.optimizeAndReturnUsedCSS()
 
 	// Output anonymous ":: css" blocks
 	for _, cssDefinition := range program.anonymousCSSDefinitionsUsed {

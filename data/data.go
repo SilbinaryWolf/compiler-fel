@@ -78,36 +78,6 @@ func (f *Float64) String() string {
 	return strconv.FormatFloat(f.Value, 'f', 6, 64)
 }
 
-type HTMLNode struct {
-	Name       string
-	Attributes []HTMLAttribute
-	ChildNodes []Type
-}
-
-type HTMLAttribute struct {
-	Name  string
-	Value string
-}
-
-func (node *HTMLNode) Kind() Kind {
-	return KindHTMLNode
-}
-
-func (node *HTMLNode) String() string {
-	var buffer bytes.Buffer
-	buffer.WriteByte('<')
-	buffer.WriteString(node.Name)
-	buffer.WriteByte(' ')
-	for _, attribute := range node.Attributes {
-		buffer.WriteString(attribute.Name)
-		buffer.WriteString("=\"")
-		buffer.WriteString(attribute.Value)
-		buffer.WriteString("\" ")
-	}
-	buffer.WriteByte('>')
-	return buffer.String()
-}
-
 type HTMLText struct {
 	Value string
 }
@@ -200,7 +170,7 @@ func (array *MixedArray) Kind() Kind {
 }
 
 func (array *MixedArray) String() string {
-	panic("No")
+	panic("(array *MixedArray) String(): Not implemented")
 	var buffer bytes.Buffer
 	for _, record := range array.Array {
 		buffer.WriteString(record.String())
