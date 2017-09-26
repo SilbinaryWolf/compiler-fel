@@ -58,23 +58,30 @@ func (program *Program) evaluateSelector(nodes []ast.Node) data.CSSSelector {
 			switch selectorPartNode.Kind {
 			case token.Identifier, token.AtKeyword, token.Number:
 				name := selectorPartNode.String()
-				selectorList = append(selectorList, &data.CSSSelectorIdentifier{
+				selectorList = append(selectorList, data.CSSSelectorPart{
+					Kind: data.SelectorKindIdentifier,
 					Name: name,
 				})
 			case token.Colon:
-				selectorList = append(selectorList, &data.CSSSelectorOperator{
-					Operator: ":",
+				selectorList = append(selectorList, data.CSSSelectorPart{
+					Kind: data.SelectorKindColon,
 				})
 			case token.DoubleColon:
-				selectorList = append(selectorList, &data.CSSSelectorOperator{
-					Operator: "::",
+				selectorList = append(selectorList, data.CSSSelectorPart{
+					Kind: data.SelectorKindDoubleColon,
+				})
+			case token.Whitespace:
+				selectorList = append(selectorList, data.CSSSelectorPart{
+					Kind: data.SelectorKindAncestor,
 				})
 			default:
 				if selectorPartNode.IsOperator() {
-					selectorList = append(selectorList, &data.CSSSelectorOperator{
-						Operator: selectorPartNode.String(),
-					})
-					continue
+					panic("todo(Jake): Fixme")
+					// 	selectorPartString := selectorPartNode.String()
+					// 	selectorList = append(selectorList, data.CSSSelectorOperator{
+					// 		Operator: selectorPartString,
+					// 	})
+					// 	continue
 				}
 				panic(fmt.Sprintf("evaluateSelector(): Unhandled selector sub-node kind: %s", selectorPartNode.Kind.String()))
 			}
@@ -87,7 +94,8 @@ func (program *Program) evaluateSelector(nodes []ast.Node) data.CSSSelector {
 			//value = value[:len(value)-1]
 		case *ast.CSSAttributeSelector:
 			if selectorPartNode.Operator.Kind != 0 {
-				value := &data.CSSSelectorAttribute{
+				value := data.CSSSelectorPart{
+					Kind:     data.SelectorKindAttribute,
 					Name:     selectorPartNode.Name.String(),
 					Operator: selectorPartNode.Operator.String(),
 					Value:    selectorPartNode.Value.String(),

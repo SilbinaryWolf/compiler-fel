@@ -28,32 +28,33 @@ func (gen *Generator) WriteCSSRuleNode(node *data.CSSRule) {
 		}
 
 		lastSelectorWasOperator := false
-		for i, itNode := range selectorNodes {
-			switch node := itNode.(type) {
-			case *data.CSSSelectorIdentifier:
+		for i, node := range selectorNodes {
+			switch node.Kind {
+			case data.SelectorKindIdentifier:
 				if i != 0 && lastSelectorWasOperator == false {
 					gen.WriteByte(' ')
 				}
 				gen.WriteString(node.String())
-			case *data.CSSSelectorAttribute:
+			case data.SelectorKindAttribute:
 				if i != 0 && lastSelectorWasOperator == false {
 					gen.WriteByte(' ')
 				}
 				gen.WriteString(node.String())
-			case *data.CSSSelectorOperator:
-				gen.WriteString(node.String())
-				lastSelectorWasOperator = true
-				continue
 			// todo(Jake): Fix this, this is used for paren'd component values. ie ([controls])
-			case data.CSSSelector:
-				if i != 0 && lastSelectorWasOperator == false {
-					gen.WriteByte(' ')
-				}
-				gen.WriteByte('(')
-				gen.WriteString(node.String())
-				gen.WriteByte(')')
-				//panic(fmt.Sprintf("getCSSRuleNode(): Unhandled node type: %T, value: %s", node, node.String()))
+			/*case data.CSSSelector:
+			if i != 0 && lastSelectorWasOperator == false {
+				gen.WriteByte(' ')
+			}
+			gen.WriteByte('(')
+			gen.WriteString(node.String())
+			gen.WriteByte(')')
+			//panic(fmt.Sprintf("getCSSRuleNode(): Unhandled node type: %T, value: %s", node, node.String()))*/
 			default:
+				if node.Kind.IsOperator() {
+					gen.WriteString(node.String())
+					lastSelectorWasOperator = true
+					continue
+				}
 				panic(fmt.Sprintf("getCSSRuleNode(): Unhandled node type: %T", node))
 			}
 			lastSelectorWasOperator = false

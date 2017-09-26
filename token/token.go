@@ -7,7 +7,7 @@ const (
 	Illegal
 	EOF
 	Newline      // \r, \n
-	Whitespace   // \t
+	Whitespace   // ' ', \t
 	ParenOpen    // (
 	ParenClose   // )
 	BraceOpen    // {

@@ -2,13 +2,11 @@ package data
 
 import (
 	"bytes"
-	"fmt"
+	//"fmt"
 	"strconv"
 )
 
 type Kind int
-
-type SelectorKind int
 
 const (
 	KindUnknown Kind = 0 + iota
@@ -76,83 +74,6 @@ func (s *Float64) Kind() Kind {
 
 func (f *Float64) String() string {
 	return strconv.FormatFloat(f.Value, 'f', 6, 64)
-}
-
-type HTMLText struct {
-	Value string
-}
-
-func (node *HTMLText) Kind() Kind {
-	return KindHTMLText
-}
-
-func (node *HTMLText) String() string {
-	return node.Value
-}
-
-type CSSDefinition struct {
-	Name       string
-	ChildNodes []*CSSRule
-}
-
-type CSSRule struct {
-	Selectors  []CSSSelector
-	Properties []CSSProperty
-	Rules      []*CSSRule
-}
-
-type CSSSelector []CSSSelectorNode
-
-type CSSSelectorNode interface {
-	String() string
-}
-
-//type CSSSelector struct {
-//	ChildNodes []CSSSelectorNode
-//}
-
-func (nodes CSSSelector) String() string {
-	result := ""
-	for _, node := range nodes {
-		result += node.String() + " "
-	}
-	result = result[:len(result)-1]
-	return result
-}
-
-type CSSSelectorIdentifier struct {
-	Name string
-}
-
-func (node *CSSSelectorIdentifier) String() string {
-	return node.Name
-}
-
-type CSSSelectorOperator struct {
-	Operator string
-}
-
-func (node *CSSSelectorOperator) String() string {
-	return node.Operator
-}
-
-type CSSSelectorAttribute struct {
-	Name     string
-	Operator string
-	Value    string
-}
-
-func (node *CSSSelectorAttribute) String() string {
-	return fmt.Sprintf("[%s%s%s]", node.Name, node.Operator, node.Value)
-}
-
-type CSSProperty struct {
-	Name  string
-	Value string
-}
-
-func (property *CSSProperty) String() string {
-	return fmt.Sprintf("%s: %s;", property.Name, property.Value)
 }
 
 type MixedArray struct {

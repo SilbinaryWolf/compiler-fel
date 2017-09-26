@@ -111,18 +111,25 @@ func (scanner *Scanner) eatEndOfLine() bool {
 	return false
 }
 
-func eatAllWhitespaceAndComments(scanner *Scanner) {
-	commentBlockDepth := 0
-
+func (scanner *Scanner) eatAllWhitespace() {
 	for {
-		//if eatNewline && eatEndOfLine(scanner) {
-		//	continue
-		//}
 		lastIndex := scanner.index
 		C := scanner.nextRune()
 		if isWhitespace(C) {
 			continue
 		}
+		// If no matches, rewind and break
+		scanner.index = lastIndex
+		break
+	}
+}
+
+func (scanner *Scanner) eatAllComments() {
+	commentBlockDepth := 0
+
+	for {
+		lastIndex := scanner.index
+		C := scanner.nextRune()
 		C2 := scanner.nextRune()
 		if C == '/' && C2 == '/' {
 			for {
@@ -144,7 +151,7 @@ func eatAllWhitespaceAndComments(scanner *Scanner) {
 				}
 				C := scanner.nextRune()
 				if C == 0 {
-					panic(fmt.Sprintf("eatAllWhitespaceAndComments(): Null character. Should not happen. Line %d", scanner.GetLine()))
+					scanner.setError(fmt.Errorf("NUL character found in comment block."))
 					break
 				}
 				lastIndex := scanner.index
@@ -240,7 +247,10 @@ func (scanner *Scanner) _getNextToken() token.Token {
 		}
 	}()
 
-	eatAllWhitespaceAndComments(scanner)
+	if scanner.scanmode != ModeCSS {
+		scanner.eatAllWhitespace()
+	}
+	scanner.eatAllComments()
 
 	t.Start = scanner.index
 	C := scanner.nextRune()
@@ -290,6 +300,8 @@ func (scanner *Scanner) _getNextToken() token.Token {
 		}
 	case '"', '\'':
 		if scanner.scanmode == ModeDefault && C == '\'' {
+			// NOTE(Jake): Enforce that ' cannot be used anywhere eventually. Ideally a 'felfmt' tool would fix
+			//			   those types of strings for you.
 			scanner.setError(fmt.Errorf("Cannot use ' character for strings outside of \":: css\" definitions."))
 		}
 
@@ -345,7 +357,7 @@ func (scanner *Scanner) _getNextToken() token.Token {
 	// Operators
 	case '+':
 		t.Kind = token.Add
-	// todo(Jake): Handle subtract again (identifiers have - so needs extra work)
+	// todo(Jake): Handle subtract again (identifiers have '-' so needs extra work)
 	//case '-':
 	///./.;'>">">'	t.Kind = token.Subtract
 	case '/':
@@ -388,7 +400,18 @@ func (scanner *Scanner) _getNextToken() token.Token {
 		}
 	// Other
 	default:
-		if isEndOfLine(C) {
+		if scanner.scanmode == ModeCSS && isWhitespace(C) {
+			t.Kind = token.Whitespace
+			for {
+				lastIndex := scanner.index
+				C := scanner.nextRune()
+				if isWhitespace(C) {
+					continue
+				}
+				scanner.index = lastIndex
+				break
+			}
+		} else if isEndOfLine(C) {
 			t.Kind = token.Newline
 			// Consume \n after \r for Windows line-endings
 			if C == '\r' {

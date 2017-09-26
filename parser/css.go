@@ -113,6 +113,11 @@ Loop:
 
 			// Clear
 			tokenList = make([]ast.Node, 0, 30)
+		case token.Whitespace:
+			if len(tokenList) == 0 {
+				continue Loop
+			}
+			tokenList = append(tokenList, &ast.Token{Token: t})
 		case token.Comma:
 			tokenList = append(tokenList, &ast.Token{Token: t})
 

@@ -6,6 +6,18 @@ import (
 	"strings"
 )
 
+type HTMLText struct {
+	Value string
+}
+
+func (node *HTMLText) Kind() Kind {
+	return KindHTMLText
+}
+
+func (node *HTMLText) String() string {
+	return node.Value
+}
+
 type HTMLNode struct {
 	Name       string
 	Attributes []HTMLAttribute
@@ -39,22 +51,27 @@ func (node *HTMLNode) String() string {
 	return buffer.String()
 }
 
-func (node *HTMLNode) HasSelectorPartMatch(ident *CSSSelectorIdentifier) bool {
-	selectorString := ident.String()
-	switch selectorString[0] {
-	case '.':
-		selectorString = selectorString[1:]
-		for _, attribute := range node.Attributes {
-			if attribute.Name != "class" {
-				continue
+func (node *HTMLNode) HasSelectorPartMatch(selectorPart *CSSSelectorPart) bool {
+	switch selectorPart.Kind {
+	case SelectorKindIdentifier:
+		selectorString := selectorPart.String()
+		switch selectorString[0] {
+		case '.':
+			selectorString = selectorString[1:]
+			for _, attribute := range node.Attributes {
+				if attribute.Name != "class" {
+					continue
+				}
+				className := attribute.Value
+				return strings.Contains(className, selectorString)
 			}
-			className := attribute.Value
-			return strings.Contains(className, selectorString)
+		case '#':
+			panic("todo(Jake): Handle #")
+		default:
+			return node.Name == selectorString
 		}
-	case '#':
-		panic("todo(Jake): Handle #")
 	default:
-		return node.Name == selectorString
+		panic(fmt.Sprintf("HasSelectorPartMatch: Unhandled selector part kind: %d", selectorPart.Kind))
 	}
 	return false
 }
@@ -63,7 +80,7 @@ func (topNode *HTMLNode) HasMatchRecursive(selectorParts CSSSelector, htmlDefini
 	nodeStack := make([]*HTMLNode, 0, 50)
 	nodeStack = append(nodeStack, topNode)
 
-	itLastSelectorPart := selectorParts[len(selectorParts)-1]
+	lastSelectorPart := &selectorParts[len(selectorParts)-1]
 	//fmt.Printf("Selector - %s - Lastbit - %s\n", selectorParts, itLastSelectorPart)
 
 	for len(nodeStack) > 0 {
@@ -77,21 +94,16 @@ func (topNode *HTMLNode) HasMatchRecursive(selectorParts CSSSelector, htmlDefini
 			continue
 		}
 
-		switch lastSelectorPart := itLastSelectorPart.(type) {
-		case *CSSSelectorIdentifier:
+		switch lastSelectorPart.Kind {
+		case SelectorKindIdentifier:
 			if node.HasSelectorPartMatch(lastSelectorPart) {
 				if len(selectorParts) == 1 {
 					return true
 				}
 				for i := len(selectorParts) - 2; i >= 0; i++ {
-					itSelectorPart := selectorParts[i]
-					switch selectorPart := itSelectorPart.(type) {
-					case *CSSSelectorIdentifier:
-						if node.HasSelectorPartMatch(selectorPart) {
-							continue
-						}
-					default:
-						panic(fmt.Sprintf("HTMLNode::HasMatchRecursive::innerLoop(): Unhandled type %T", itSelectorPart))
+					selectorPart := &selectorParts[i]
+					if node.HasSelectorPartMatch(selectorPart) {
+						continue
 					}
 
 					// If no matches, stop
