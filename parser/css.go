@@ -10,6 +10,10 @@ import (
 	"github.com/silbinarywolf/compiler-fel/token"
 )
 
+func GetNewTokenList() []ast.Node {
+	return make([]ast.Node, 0, 30)
+}
+
 func (p *Parser) parseCSS(name token.Token) *ast.CSSDefinition {
 	isNamedCSSDefinition := name.Kind != token.Unknown
 
@@ -30,42 +34,49 @@ func (p *Parser) parseCSS(name token.Token) *ast.CSSDefinition {
 }
 
 func (p *Parser) parseCSSProperty(tokenList []ast.Node) *ast.CSSProperty {
+	i := 0
+
 	// Get property name
 	var name token.Token
-	nameNode := tokenList[0]
-	switch tokenNode := nameNode.(type) {
-	case *ast.Token:
-		if tokenNode.Kind != token.Identifier {
-			panic(fmt.Sprintf("parseCSSStatements(): Expected property name to be identifier, not %s on Line %d", tokenNode.Kind.String(), tokenNode.Line))
+	for i < len(tokenList) {
+		itNode := tokenList[i]
+		i++
+
+		tokenNode, ok := itNode.(*ast.Token)
+		if !ok {
+			panic(fmt.Sprintf("parseCSSStatements(): Expected property to be identifier type, not %T", itNode))
 			return nil
+		}
+		if tokenNode.Kind == token.Whitespace {
+			continue
 		}
 		name = tokenNode.Token
-	default:
-		panic(fmt.Sprintf("parseCSSStatements(): Expected property to be identifier type, not %T"))
+		break
 	}
 
-	if len(tokenList) < 3 {
-		panic(fmt.Sprintf("parseCSSStatements(): Unexpected token count on property statement on Line %d", name.Line))
-		return nil
-	}
+	// Check for declare op
+	for i < len(tokenList) {
+		itNode := tokenList[i]
+		i++
 
-	// Get declare op
-	declareOpNode := tokenList[1]
-	switch tokenNode := declareOpNode.(type) {
-	case *ast.Token:
-		if tokenNode.Kind != token.Colon {
-			panic(fmt.Sprintf("parseCSSStatements(): Expected : after property name, not %s", tokenNode.Kind.String()))
+		tokenNode, ok := itNode.(*ast.Token)
+		if !ok {
+			panic(fmt.Sprintf("parseCSSStatements(): Expected *ast.Token not %T.", itNode))
 			return nil
 		}
-	default:
-		panic(fmt.Sprintf("parseCSSStatements(): Expected property to begin with identifier type, not %T"))
-	}
-	if len(tokenList) < 3 {
-		panic(fmt.Sprintf("parseCSSStatements(): Expected property statement on Line %d"))
-		return nil
+		if tokenNode.Kind == token.Whitespace {
+			continue
+		}
+		if tokenNode.Kind != token.Colon {
+			panic(fmt.Sprintf("parseCSSStatements(): Expected : after property name, not \"%s\" (Data: %s) on Line %d.", tokenNode.Kind.String(), tokenNode.Data, tokenNode.Line))
+			return nil
+		}
+		// Found it!
+		break
 	}
 
-	valueNodes := tokenList[2:len(tokenList)]
+	// Get remaining value nodes
+	valueNodes := tokenList[i:len(tokenList)]
 
 	cssPropertyNode := new(ast.CSSProperty)
 	cssPropertyNode.Name = name
@@ -97,8 +108,9 @@ Loop:
 			resultNodes = append(resultNodes, node)
 
 			// Clear
-			tokenList = make([]ast.Node, 0, 30)
-		case token.AtKeyword, token.Identifier, token.Colon, token.DoubleColon, token.Number:
+			tokenList = GetNewTokenList()
+		case token.AtKeyword, token.Identifier, token.Colon, token.DoubleColon, token.Number,
+			token.GreaterThan:
 			tokenList = append(tokenList, &ast.Token{Token: t})
 		case token.Semicolon, token.Newline:
 			if len(tokenList) == 0 {
@@ -112,7 +124,7 @@ Loop:
 			resultNodes = append(resultNodes, cssPropertyNode)
 
 			// Clear
-			tokenList = make([]ast.Node, 0, 30)
+			tokenList = GetNewTokenList()
 		case token.Whitespace:
 			if len(tokenList) == 0 {
 				continue Loop
@@ -125,7 +137,7 @@ Loop:
 			// getting a list of selectors.
 			for {
 				t := p.PeekNextToken()
-				if t.Kind != token.Newline {
+				if t.Kind != token.Newline && t.Kind != token.Whitespace {
 					break
 				}
 				p.GetNextToken()
@@ -135,6 +147,18 @@ Loop:
 				panic(fmt.Sprintf("parseCSSStatements(): Got {, expected identifiers preceding for CSS rule on Line %d", t.Line))
 			}
 
+			// Remove trailing whitespace tokens
+			for i := len(tokenList) - 1; i >= 0; i-- {
+				itNode := tokenList[i]
+				node, ok := itNode.(*ast.Token)
+				if !ok || node.Kind != token.Whitespace {
+					// If not whitespace, consider the trimming complete
+					break
+				}
+				// Cut off last element
+				tokenList = tokenList[:i]
+			}
+
 			// Put selectors into a single array
 			selectorList := make([]ast.CSSSelector, 0, 10)
 			selector := ast.CSSSelector{}
@@ -142,6 +166,12 @@ Loop:
 				switch node := itNode.(type) {
 				case *ast.Token:
 					if node.Kind == token.Comma {
+						// Split into new selector
+						// ie. .selector-1,
+						//	   .selector-2 {
+						//
+						//	   }
+						//
 						if len(selector.ChildNodes) > 0 {
 							selectorList = append(selectorList, selector)
 							selector = ast.CSSSelector{}
@@ -187,7 +217,7 @@ Loop:
 			resultNodes = append(resultNodes, rule)
 
 			// Clear
-			tokenList = make([]ast.Node, 0, 30)
+			tokenList = GetNewTokenList()
 		case token.BracketOpen:
 			node := new(ast.CSSAttributeSelector)
 			node.Name = p.GetNextToken()

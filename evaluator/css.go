@@ -74,6 +74,10 @@ func (program *Program) evaluateSelector(nodes []ast.Node) data.CSSSelector {
 				selectorList = append(selectorList, data.CSSSelectorPart{
 					Kind: data.SelectorKindAncestor,
 				})
+			case token.GreaterThan:
+				selectorList = append(selectorList, data.CSSSelectorPart{
+					Kind: data.SelectorKindChild,
+				})
 			default:
 				if selectorPartNode.IsOperator() {
 					panic("todo(Jake): Fixme")
@@ -86,8 +90,11 @@ func (program *Program) evaluateSelector(nodes []ast.Node) data.CSSSelector {
 				panic(fmt.Sprintf("evaluateSelector(): Unhandled selector sub-node kind: %s", selectorPartNode.Kind.String()))
 			}
 		case *ast.CSSSelector:
-			subSelectorList := program.evaluateSelector(selectorPartNode.Nodes())
-			selectorList = append(selectorList, subSelectorList)
+			// todo(Jake)
+			panic(fmt.Sprintf("todo(Jake): Fix this, %v", selectorPartNode.Nodes()))
+			//subSelectorList := program.evaluateSelector(selectorPartNode.Nodes())
+			//selectorList = append(selectorList, subSelectorList)
+
 			//for _, token := range selectorPartNode.ChildNodes {
 			//	value += token.String() + " "
 			//}
@@ -103,7 +110,8 @@ func (program *Program) evaluateSelector(nodes []ast.Node) data.CSSSelector {
 				selectorList = append(selectorList, value)
 				break
 			}
-			value := &data.CSSSelectorAttribute{
+			value := data.CSSSelectorPart{
+				Kind: data.SelectorKindAttribute,
 				Name: selectorPartNode.Name.String(),
 			}
 			selectorList = append(selectorList, value)

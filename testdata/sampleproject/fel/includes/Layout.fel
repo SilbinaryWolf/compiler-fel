@@ -1,5 +1,6 @@
 Layout :: css {
-	html, body {
+	html, 
+	body {
 		padding: 0
 	}
 

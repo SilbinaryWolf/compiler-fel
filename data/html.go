@@ -24,6 +24,7 @@ type HTMLNode struct {
 	ChildNodes []Type
 
 	// NOTE: Used for context where the htmlnode was processed
+	// todo(Jake): Make new type, HTMLComponentNode.
 	HTMLDefinitionName string
 }
 
@@ -77,15 +78,23 @@ func (node *HTMLNode) HasSelectorPartMatch(selectorPart *CSSSelectorPart) bool {
 }
 
 func (topNode *HTMLNode) HasMatchRecursive(selectorParts CSSSelector, htmlDefinitionName string) bool {
-	nodeStack := make([]*HTMLNode, 0, 50)
-	nodeStack = append(nodeStack, topNode)
+	nodeIterationStack := make([]*HTMLNode, 0, 50)
+	nodeIterationStack = append(nodeIterationStack, topNode)
+
+	// This is for matching parents of the node being iterated on.
+	nodeScopeStack := make([]*HTMLNode, 0, 20)
 
 	lastSelectorPart := &selectorParts[len(selectorParts)-1]
 	//fmt.Printf("Selector - %s - Lastbit - %s\n", selectorParts, itLastSelectorPart)
 
-	for len(nodeStack) > 0 {
-		node := nodeStack[len(nodeStack)-1]
-		nodeStack = nodeStack[:len(nodeStack)-1]
+	for len(nodeIterationStack) > 0 {
+		node := nodeIterationStack[len(nodeIterationStack)-1]
+		nodeIterationStack = nodeIterationStack[:len(nodeIterationStack)-1]
+
+		if node == nil {
+			nodeScopeStack = nodeScopeStack[:len(nodeScopeStack)-1]
+			continue
+		}
 
 		// Skip nodes that weren't created by the specified HTMLComponentDefinition
 		if len(node.HTMLDefinitionName) > 0 &&
@@ -94,16 +103,60 @@ func (topNode *HTMLNode) HasMatchRecursive(selectorParts CSSSelector, htmlDefini
 			continue
 		}
 
+		// Add scope
+		nodeScopeStack = append(nodeScopeStack, node)
+		nodeIterationStack = append(nodeIterationStack, nil)
+
 		switch lastSelectorPart.Kind {
 		case SelectorKindIdentifier:
 			if node.HasSelectorPartMatch(lastSelectorPart) {
 				if len(selectorParts) == 1 {
 					return true
 				}
-				for i := len(selectorParts) - 2; i >= 0; i++ {
-					selectorPart := &selectorParts[i]
-					if node.HasSelectorPartMatch(selectorPart) {
-						continue
+			SelectorPartMatchingLoop:
+				for p := len(selectorParts) - 2; p >= 0; p-- {
+					if len(nodeScopeStack) == 0 {
+						return true
+					}
+					currentNode := nodeScopeStack[len(nodeScopeStack)-1]
+					selectorPart := &selectorParts[p]
+
+					switch selectorPart.Kind {
+					case SelectorKindIdentifier:
+						if currentNode.HasSelectorPartMatch(selectorPart) {
+							continue
+						}
+					case SelectorKindAncestor:
+						p--
+						if p < 0 {
+							break
+						}
+						selectorPart = &selectorParts[p]
+						if selectorPart.Kind != SelectorKindIdentifier {
+							panic(fmt.Sprintf("Expected SelectorKindIdentifier, not \"%s\"", selectorPart.Kind))
+						}
+						// {
+						// 	fmt.Printf("Stack:\n-----\n")
+						// 	fmt.Printf("- %s\n", node.Name)
+						// 	for i := len(nodeScopeStack) - 1; i >= 0; i-- {
+						// 		node := nodeScopeStack[i]
+						// 		fmt.Printf("- %s\n", node.Name)
+						// 	}
+						// }
+						for i := len(nodeScopeStack) - 1; i >= 0; i-- {
+							node := nodeScopeStack[i]
+							if !node.HasSelectorPartMatch(selectorPart) {
+								continue
+							}
+							// Has matched!
+							if p == 0 {
+								return true
+							}
+							nodeScopeStack = nodeScopeStack[:i]
+							continue SelectorPartMatchingLoop
+						}
+					default:
+						panic(fmt.Sprintf("HTMLNode::HasMatchRecursive():inner: Unhandled type \"%s\"", selectorPart.Kind.String()))
 					}
 
 					// If no matches, stop
@@ -112,7 +165,7 @@ func (topNode *HTMLNode) HasMatchRecursive(selectorParts CSSSelector, htmlDefini
 				panic(fmt.Sprintf("todo(Jake): Handle multiple selector - %s", selectorParts.String()))
 			}
 		default:
-			panic(fmt.Sprintf("HTMLNode::HasMatchRecursive(): Unhandled type %T", lastSelectorPart))
+			panic(fmt.Sprintf("HTMLNode::HasMatchRecursive(): Unhandled type \"%s\" in selector \"%s\"", lastSelectorPart.Kind.String(), selectorParts.String()))
 		}
 		// fmt.Printf("Tag - %s", node.Name)
 		// for _, attribute := range node.Attributes {
@@ -130,7 +183,7 @@ func (topNode *HTMLNode) HasMatchRecursive(selectorParts CSSSelector, htmlDefini
 			if !ok {
 				continue
 			}
-			nodeStack = append(nodeStack, node)
+			nodeIterationStack = append(nodeIterationStack, node)
 		}
 	}
 	return false

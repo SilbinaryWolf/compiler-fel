@@ -69,11 +69,15 @@ func (kind CSSSelectorPartKind) IsOperator() bool {
 	return kind > css_selector_operator_begin && kind < css_selector_operator_end
 }
 
+func (kind CSSSelectorPartKind) String() string {
+	return selectorKindToString[kind]
+}
+
 func (node *CSSSelectorPart) String() string {
 	if node.Kind == SelectorKindIdentifier {
 		return node.Name
 	}
-	return selectorKindToString[node.Kind]
+	return node.Kind.String()
 }
 
 type CSSProperty struct {
