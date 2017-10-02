@@ -213,7 +213,6 @@ func (program *Program) RunProject(projectDirpath string) error {
 		}
 		outputTemplateFileSet = append(outputTemplateFileSet, result)
 	}
-	executionElapsed := time.Since(executionStart)
 
 	// Output named "MyComponent :: css" blocks
 	outputCSSDefinitionSet := program.optimizeAndReturnUsedCSS()
@@ -223,6 +222,8 @@ func (program *Program) RunProject(projectDirpath string) error {
 		dataCSSDefinition := program.evaluateCSSDefinition(cssDefinition, program.globalScope)
 		outputCSSDefinitionSet = append(outputCSSDefinitionSet, dataCSSDefinition)
 	}
+
+	executionElapsed := time.Since(executionStart)
 
 	// Output
 	var generateTimeElapsed time.Duration

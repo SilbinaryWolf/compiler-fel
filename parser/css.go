@@ -14,6 +14,30 @@ func GetNewTokenList() []ast.Node {
 	return make([]ast.Node, 0, 30)
 }
 
+func removeTrailingWhitespaceTokens(tokenList []ast.Node) []ast.Node {
+	for i := len(tokenList) - 1; i >= 0; i-- {
+		itNode := tokenList[i]
+		node, ok := itNode.(*ast.Token)
+		if !ok || node.Kind != token.Whitespace {
+			// If not whitespace, consider the trimming complete
+			break
+		}
+		// Cut off last element
+		tokenList = tokenList[:i]
+	}
+	return tokenList
+}
+
+func (p *Parser) eatWhitespace() {
+	for {
+		t := p.PeekNextToken()
+		if t.Kind != token.Whitespace {
+			return
+		}
+		p.GetNextToken()
+	}
+}
+
 func (p *Parser) parseCSS(name token.Token) *ast.CSSDefinition {
 	isNamedCSSDefinition := name.Kind != token.Unknown
 
@@ -109,9 +133,13 @@ Loop:
 
 			// Clear
 			tokenList = GetNewTokenList()
-		case token.AtKeyword, token.Identifier, token.Colon, token.DoubleColon, token.Number,
-			token.GreaterThan:
+		case token.AtKeyword, token.Identifier, token.Colon, token.DoubleColon, token.Number:
 			tokenList = append(tokenList, &ast.Token{Token: t})
+		// >
+		case token.GreaterThan:
+			tokenList = removeTrailingWhitespaceTokens(tokenList)
+			tokenList = append(tokenList, &ast.Token{Token: t})
+			p.eatWhitespace()
 		case token.Semicolon, token.Newline:
 			if len(tokenList) == 0 {
 				continue Loop
@@ -148,16 +176,7 @@ Loop:
 			}
 
 			// Remove trailing whitespace tokens
-			for i := len(tokenList) - 1; i >= 0; i-- {
-				itNode := tokenList[i]
-				node, ok := itNode.(*ast.Token)
-				if !ok || node.Kind != token.Whitespace {
-					// If not whitespace, consider the trimming complete
-					break
-				}
-				// Cut off last element
-				tokenList = tokenList[:i]
-			}
+			tokenList = removeTrailingWhitespaceTokens(tokenList)
 
 			// Put selectors into a single array
 			selectorList := make([]ast.CSSSelector, 0, 10)

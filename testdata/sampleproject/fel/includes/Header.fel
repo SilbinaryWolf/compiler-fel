@@ -4,7 +4,26 @@ Header :: css {
 		height: 60px
 	}
 
+	.header.header {
+		height: 1px;
+	}
+
+	// test nested child selector
 	.header .top {
+		height: 1px;
+	}
+
+	// Test child selecotr
+	.header > .top {
+		height: 1px;
+	}
+
+	// test complicated selector
+	.wow .header > .top {
+		height: 1px;
+	}
+
+	.bop .top {
 		height: 1px;
 	}
 
