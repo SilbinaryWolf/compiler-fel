@@ -31,9 +31,9 @@ func (gen *Generator) WriteCSSRuleNode(node *data.CSSRule) {
 		for i, node := range selectorNodes {
 			switch node.Kind {
 			case data.SelectorKindIdentifier:
-				if i != 0 && lastSelectorWasOperator == false {
-					gen.WriteByte(' ')
-				}
+				//if i != 0 && lastSelectorWasOperator == false {
+				//	gen.WriteByte(' ')
+				//}
 				gen.WriteString(node.String())
 			case data.SelectorKindAttribute:
 				if i != 0 && lastSelectorWasOperator == false {

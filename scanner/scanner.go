@@ -230,7 +230,7 @@ func (scanner *Scanner) scanIdentifier() {
 		lastIndex := scanner.index
 		C := scanner.nextRune()
 		if scanner.index < len(scanner.filecontents) &&
-			(isAlpha(C) || isNumber(C) || C == '-' || C == '_' || C == '.') {
+			(isAlpha(C) || isNumber(C) || C == '-' || C == '_' || (scanner.scanmode == ModeDefault && C == '.')) {
 			continue
 		}
 		scanner.index = lastIndex

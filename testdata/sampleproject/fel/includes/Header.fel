@@ -19,13 +19,15 @@ Header :: css {
 	}
 
 	// test complicated selector
-	.wow .header > .top {
+	.header.header > .top {
 		height: 1px;
 	}
 
 	.bop .top {
 		height: 1px;
 	}
+
+	// TEST
 
 	// .header > .top {
 	// 	height: 1px;
@@ -35,7 +37,6 @@ Header :: css {
 Header :: html {
 	header(class="header") {
 		div(class="top") {
-
 		}
 	}
 }

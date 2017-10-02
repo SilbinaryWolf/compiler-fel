@@ -23,6 +23,8 @@ func (program *Program) optimizeAndReturnUsedCSS() []*data.CSSDefinition {
 		htmlDefinitionName := htmlNodeSet.HTMLDefinition.Name.String()
 
 		dataCSSDefinition := program.evaluateCSSDefinition(cssDefinition, program.globalScope)
+		outputCSSDefinitionSet = append(outputCSSDefinitionSet, dataCSSDefinition)
+
 		for ruleIndex := 0; ruleIndex < len(dataCSSDefinition.ChildNodes); ruleIndex++ {
 			cssRule := dataCSSDefinition.ChildNodes[ruleIndex]
 		SelectorLoop:
@@ -44,7 +46,6 @@ func (program *Program) optimizeAndReturnUsedCSS() []*data.CSSDefinition {
 				ruleIndex--
 			}
 		}
-		outputCSSDefinitionSet = append(outputCSSDefinitionSet, dataCSSDefinition)
 	}
 	return outputCSSDefinitionSet
 }
