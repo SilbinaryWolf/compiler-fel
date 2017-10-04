@@ -96,6 +96,21 @@ func (node *HTMLNode) HasSelectorPartMatch(selectorPart *CSSSelectorPart) bool {
 			return ID == selectorString
 		}
 		return false
+	case SelectorKindAttribute:
+		attributeName := selectorPart.Name
+		attributeValue := selectorPart.Value
+		for _, attribute := range node.Attributes {
+			if attribute.Name != attributeName {
+				continue
+			}
+			switch selectorPart.Operator {
+			case "=":
+				return attributeValue == attribute.Value
+			default:
+				panic(fmt.Sprintf("HasSelectorPartMatch: Unhandled attribute operator: %s", selectorPart.Operator))
+			}
+			return false
+		}
 	case SelectorKindTag:
 		return node.Name == selectorString
 	default:
@@ -112,7 +127,8 @@ func (topNode *HTMLNode) HasMatchRecursive(selectorParts CSSSelector, htmlDefini
 	nodeScopeStack := make([]*HTMLNode, 0, 20)
 
 	lastSelectorPart := &selectorParts[len(selectorParts)-1]
-	if !lastSelectorPart.Kind.IsIdentifier() {
+	if lastSelectorPart.Kind != SelectorKindAttribute &&
+		!lastSelectorPart.Kind.IsIdentifier() {
 		panic(fmt.Sprintf("HTMLNode::HasMatchRecursive(): Unhandled type \"%s\" in selector \"%s\"", lastSelectorPart.Kind.String(), selectorParts.String()))
 	}
 	fmt.Printf("Search for selector - \"%s\"\n\n", lastSelectorPart.String())
@@ -158,12 +174,6 @@ NodeLoop:
 
 				//
 				selectorPart := &selectorParts[p]
-				if selectorPart.Kind.IsIdentifier() {
-					if !currentNode.HasSelectorPartMatch(selectorPart) {
-						continue NodeLoop
-					}
-					continue SelectorPartMatchingLoop
-				}
 				switch selectorPart.Kind {
 				case SelectorKindAncestor:
 					p--
@@ -224,6 +234,13 @@ NodeLoop:
 					//}
 					continue SelectorPartMatchingLoop
 				default:
+					if selectorPart.Kind == SelectorKindAttribute ||
+						selectorPart.Kind.IsIdentifier() {
+						if !currentNode.HasSelectorPartMatch(selectorPart) {
+							continue NodeLoop
+						}
+						continue SelectorPartMatchingLoop
+					}
 					panic(fmt.Sprintf("HTMLNode::HasMatchRecursive():inner: Unhandled type \"%s\"", selectorPart.Kind.String()))
 				}
 				continue NodeLoop
