@@ -9,9 +9,16 @@ import (
 type CSSSelectorPartKind int
 
 const (
-	SelectorKindUnknown    CSSSelectorPartKind = 0 + iota
-	SelectorKindIdentifier                     // .a-class, button
-	SelectorKindAttribute                      // [type="text"]
+	SelectorKindUnknown   CSSSelectorPartKind = 0 + iota
+	SelectorKindAttribute                     // [type="text"]
+
+	css_selector_identifier_begin
+	SelectorKindClass     // .a-class
+	SelectorKindTag       // button
+	SelectorKindID        // #main
+	SelectorKindAtKeyword // @media
+	SelectorKindNumber    // 3.3
+	css_selector_identifier_end
 
 	css_selector_operator_begin
 	SelectorKindColon       // :
@@ -23,9 +30,13 @@ const (
 )
 
 var selectorKindToString = []string{
-	SelectorKindUnknown:    "unknown part",
-	SelectorKindIdentifier: "identifier",
-	SelectorKindAttribute:  "attribute",
+	SelectorKindUnknown:   "unknown part",
+	SelectorKindAttribute: "attribute",
+
+	//SelectorKindIdentifier: "identifier",
+	SelectorKindClass: "class",
+	SelectorKindID:    "id",
+	SelectorKindTag:   "tag",
 
 	SelectorKindColon:       ":",
 	SelectorKindDoubleColon: "::",
@@ -69,12 +80,16 @@ func (kind CSSSelectorPartKind) IsOperator() bool {
 	return kind > css_selector_operator_begin && kind < css_selector_operator_end
 }
 
+func (kind CSSSelectorPartKind) IsIdentifier() bool {
+	return kind > css_selector_identifier_begin && kind < css_selector_identifier_end
+}
+
 func (kind CSSSelectorPartKind) String() string {
 	return selectorKindToString[kind]
 }
 
 func (node *CSSSelectorPart) String() string {
-	if node.Kind == SelectorKindIdentifier {
+	if node.Kind.IsIdentifier() {
 		return node.Name
 	}
 	return node.Kind.String()

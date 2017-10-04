@@ -120,23 +120,28 @@ Loop:
 			if len(tokenList) != 1 {
 				panic(fmt.Sprintf("parseCSSStatements(): Invalid use of := on Line %d", t.Line))
 			}
-			var name token.Token
-			switch tok := tokenList[0].(type) {
-			case *ast.Token:
-				name = tok.Token
-			default:
+			tok, ok := tokenList[0].(*ast.Token)
+			if !ok {
 				panic(fmt.Sprintf("parseCSSStatements(): Invalid use of := on Line %d", t.Line))
 			}
+			var name token.Token = tok.Token
+			//switch tok := tokenList[0].(type) {
+			//case *ast.Token:
+			//	name = tok.Token
+			//default:
+			//	panic(fmt.Sprintf("parseCSSStatements(): Invalid use of := on Line %d", t.Line))
+			//}
 
 			node := p.NewDeclareStatement(name, token.Token{}, p.parseExpressionNodes())
 			resultNodes = append(resultNodes, node)
 
 			// Clear
 			tokenList = GetNewTokenList()
-		case token.AtKeyword, token.Identifier, token.Colon, token.DoubleColon, token.Number:
+		case token.AtKeyword, token.Identifier, token.Number:
+			// NOTE: We do -NOT- want to eat whitespace surrounding `token.Identifier`
+			//       as that is used to detect / determine descendent selectors. (ie. ".top-class .descendent")
 			tokenList = append(tokenList, &ast.Token{Token: t})
-		// >
-		case token.GreaterThan:
+		case token.GreaterThan, token.Colon, token.DoubleColon:
 			tokenList = removeTrailingWhitespaceTokens(tokenList)
 			tokenList = append(tokenList, &ast.Token{Token: t})
 			p.eatWhitespace()

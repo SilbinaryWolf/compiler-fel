@@ -37,12 +37,12 @@ func (program *Program) optimizeAndReturnUsedCSS() []*data.CSSDefinition {
 						continue SelectorLoop
 					}
 					// TODO(Jake): Ensure this is correct way to remove from slice
-					cssRule.Selectors = cssRule.Selectors[:selectorIndex]
+					cssRule.Selectors = append(cssRule.Selectors[:selectorIndex], cssRule.Selectors[selectorIndex+1:]...)
 					selectorIndex--
 				}
 			}
 			if len(cssRule.Selectors) == 0 {
-				dataCSSDefinition.ChildNodes = dataCSSDefinition.ChildNodes[:ruleIndex]
+				dataCSSDefinition.ChildNodes = append(dataCSSDefinition.ChildNodes[:ruleIndex], dataCSSDefinition.ChildNodes[ruleIndex+1:]...)
 				ruleIndex--
 			}
 		}
@@ -57,11 +57,32 @@ func (program *Program) evaluateSelector(nodes []ast.Node) data.CSSSelector {
 		switch selectorPartNode := itSelectorPartNode.(type) {
 		case *ast.Token:
 			switch selectorPartNode.Kind {
-			case token.Identifier, token.AtKeyword, token.Number:
+			case token.Identifier:
 				name := selectorPartNode.String()
+
+				var selectorKind data.CSSSelectorPartKind
+				switch name[0] {
+				case '.':
+					selectorKind = data.SelectorKindClass
+				case '#':
+					selectorKind = data.SelectorKindID
+				default:
+					selectorKind = data.SelectorKindTag
+				}
+
 				selectorList = append(selectorList, data.CSSSelectorPart{
-					Kind: data.SelectorKindIdentifier,
+					Kind: selectorKind,
 					Name: name,
+				})
+			case token.AtKeyword:
+				selectorList = append(selectorList, data.CSSSelectorPart{
+					Kind: data.SelectorKindAtKeyword,
+					Name: selectorPartNode.String(),
+				})
+			case token.Number:
+				selectorList = append(selectorList, data.CSSSelectorPart{
+					Kind: data.SelectorKindNumber,
+					Name: selectorPartNode.String(),
 				})
 			case token.Colon:
 				selectorList = append(selectorList, data.CSSSelectorPart{
@@ -81,7 +102,7 @@ func (program *Program) evaluateSelector(nodes []ast.Node) data.CSSSelector {
 				})
 			default:
 				if selectorPartNode.IsOperator() {
-					panic("todo(Jake): Fixme")
+					panic("todo(Jake): Fixme (or add support for operator in above `switch`)")
 					// 	selectorPartString := selectorPartNode.String()
 					// 	selectorList = append(selectorList, data.CSSSelectorOperator{
 					// 		Operator: selectorPartString,

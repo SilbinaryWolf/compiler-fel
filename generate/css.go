@@ -30,11 +30,6 @@ func (gen *Generator) WriteCSSRuleNode(node *data.CSSRule) {
 		lastSelectorWasOperator := false
 		for i, node := range selectorNodes {
 			switch node.Kind {
-			case data.SelectorKindIdentifier:
-				//if i != 0 && lastSelectorWasOperator == false {
-				//	gen.WriteByte(' ')
-				//}
-				gen.WriteString(node.String())
 			case data.SelectorKindAttribute:
 				if i != 0 && lastSelectorWasOperator == false {
 					gen.WriteByte(' ')
@@ -53,6 +48,10 @@ func (gen *Generator) WriteCSSRuleNode(node *data.CSSRule) {
 				if node.Kind.IsOperator() {
 					gen.WriteString(node.String())
 					lastSelectorWasOperator = true
+					continue
+				}
+				if node.Kind.IsIdentifier() {
+					gen.WriteString(node.String())
 					continue
 				}
 				panic(fmt.Sprintf("getCSSRuleNode(): Unhandled node type: %T", node))

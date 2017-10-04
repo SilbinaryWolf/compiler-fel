@@ -72,26 +72,34 @@ func (node *HTMLNode) String() string {
 }
 
 func (node *HTMLNode) HasSelectorPartMatch(selectorPart *CSSSelectorPart) bool {
+	selectorString := selectorPart.String()
 	switch selectorPart.Kind {
-	case SelectorKindIdentifier:
-		selectorString := selectorPart.String()
-		switch selectorString[0] {
-		case '.':
-			selectorString = selectorString[1:]
-			for _, attribute := range node.Attributes {
-				if attribute.Name != "class" {
-					continue
-				}
-				className := attribute.Value
-				return strings.Contains(className, selectorString)
+	case SelectorKindClass:
+		selectorString = selectorString[1:]
+		for _, attribute := range node.Attributes {
+			if attribute.Name != "class" {
+				continue
 			}
-		case '#':
-			panic("todo(Jake): Handle #")
-		default:
-			return node.Name == selectorString
+			className := attribute.Value
+			// NOTE(Jake): This technically has a bug, should split
+			//			   into words and then check if equal
+			return strings.Contains(className, selectorString)
 		}
+		return false
+	case SelectorKindID:
+		selectorString = selectorString[1:]
+		for _, attribute := range node.Attributes {
+			if attribute.Name != "id" {
+				continue
+			}
+			ID := attribute.Value
+			return ID == selectorString
+		}
+		return false
+	case SelectorKindTag:
+		return node.Name == selectorString
 	default:
-		panic(fmt.Sprintf("HasSelectorPartMatch: Unhandled selector part kind: %d", selectorPart.Kind))
+		panic(fmt.Sprintf("HasSelectorPartMatch: Unhandled selector part kind: %s", selectorPart.Kind.String()))
 	}
 	return false
 }
@@ -104,6 +112,10 @@ func (topNode *HTMLNode) HasMatchRecursive(selectorParts CSSSelector, htmlDefini
 	nodeScopeStack := make([]*HTMLNode, 0, 20)
 
 	lastSelectorPart := &selectorParts[len(selectorParts)-1]
+	if !lastSelectorPart.Kind.IsIdentifier() {
+		panic(fmt.Sprintf("HTMLNode::HasMatchRecursive(): Unhandled type \"%s\" in selector \"%s\"", lastSelectorPart.Kind.String(), selectorParts.String()))
+	}
+	fmt.Printf("Search for selector - \"%s\"\n\n", lastSelectorPart.String())
 	//fmt.Printf("Selector - %s - Lastbit - %s\n", selectorParts, itLastSelectorPart)
 
 NodeLoop:
@@ -127,101 +139,99 @@ NodeLoop:
 		nodeScopeStack = append(nodeScopeStack, node)
 		nodeIterationStack = append(nodeIterationStack, nil)
 
-		switch lastSelectorPart.Kind {
-		case SelectorKindIdentifier:
-			if node.HasSelectorPartMatch(lastSelectorPart) {
-				if len(selectorParts) == 1 {
-					return true
+		//
+		if node.HasSelectorPartMatch(lastSelectorPart) {
+			if len(selectorParts) == 1 {
+				return true
+			}
+
+			// NOTE(Jake): We only want to modify this slice within the context
+			//			   of selector matching, not across all nodes we're checking.
+			innerNodeScopeStack := nodeScopeStack
+		SelectorPartMatchingLoop:
+			for p := len(selectorParts) - 2; p >= 0; p-- {
+				if len(innerNodeScopeStack) == 0 {
+					break
 				}
+				currentNode := innerNodeScopeStack[len(innerNodeScopeStack)-1]
+				innerNodeScopeStack = innerNodeScopeStack[:len(innerNodeScopeStack)-1]
 
-				// NOTE(Jake): We only want to modify this slice within the context
-				//			   of selector matching, not across all nodes we're checking.
-				innerNodeScopeStack := nodeScopeStack
-
-			SelectorPartMatchingLoop:
-				for p := len(selectorParts) - 2; p >= 0; p-- {
-					if len(innerNodeScopeStack) == 0 {
-						break
+				//
+				selectorPart := &selectorParts[p]
+				if selectorPart.Kind.IsIdentifier() {
+					if !currentNode.HasSelectorPartMatch(selectorPart) {
+						continue NodeLoop
 					}
-					currentNode := innerNodeScopeStack[len(innerNodeScopeStack)-1]
-					innerNodeScopeStack = innerNodeScopeStack[:len(innerNodeScopeStack)-1]
-
-					switch selectorPart := &selectorParts[p]; selectorPart.Kind {
-					case SelectorKindIdentifier:
-						if !currentNode.HasSelectorPartMatch(selectorPart) {
-							continue NodeLoop
-						}
-						continue SelectorPartMatchingLoop
-					case SelectorKindAncestor:
-						p--
-						if p < 0 {
-							panic("Missing identifier before [descendant whitespace].")
-							continue NodeLoop
-						}
-						selectorPart = &selectorParts[p]
-						if selectorPart.Kind != SelectorKindIdentifier {
-							panic(fmt.Sprintf("Expected SelectorKindIdentifier, not \"%s\"", selectorPart.Kind))
-						}
-						fmt.Printf("- Does descendent selector part -- %s\n", selectorPart.String())
-						//{
-						//	fmt.Printf("...match stack:\n-----\n")
-						//	for i := len(innerNodeScopeStack) - 1; i >= 0; i-- {
-						//		node := innerNodeScopeStack[i]
-						//		fmt.Printf("- %s\n", node.String())
-						//	}
-						//}
-						for i := len(innerNodeScopeStack) - 1; i >= 0; i-- {
-							node := innerNodeScopeStack[i]
-							fmt.Printf("...match %s\n", node.String())
-							if !node.HasSelectorPartMatch(selectorPart) {
-								innerNodeScopeStack = innerNodeScopeStack[:i]
-								continue
-							}
-							// Has matched!
-							//if p == 0 {
-							//	return true
-							//}
-
-							continue SelectorPartMatchingLoop
-						}
-					case SelectorKindChild:
-						// Get previous selector part
-						p--
-						if p < 0 {
-							panic("Missing identifier before >.")
-							continue NodeLoop
-						}
-						selectorPart = &selectorParts[p]
-						if selectorPart.Kind != SelectorKindIdentifier {
-							panic(fmt.Sprintf("Expected SelectorKindIdentifier, not \"%s\"", selectorPart.Kind))
-						}
-						if len(innerNodeScopeStack) == 0 {
-							panic("??? This should not happen maybe?")
-							continue NodeLoop
-						}
-						node := innerNodeScopeStack[len(innerNodeScopeStack)-1]
-						//innerNodeScopeStack = innerNodeScopeStack[:len(innerNodeScopeStack)-1]
-						fmt.Printf("- Does node: %s, match part: %s \n", node.String(), selectorPart.String())
+					continue SelectorPartMatchingLoop
+				}
+				switch selectorPart.Kind {
+				case SelectorKindAncestor:
+					p--
+					if p < 0 {
+						panic("Missing identifier before [descendant whitespace].")
+						continue NodeLoop
+					}
+					selectorPart = &selectorParts[p]
+					if !selectorPart.Kind.IsIdentifier() {
+						panic(fmt.Sprintf("Expected selector identifier, not \"%s\"", selectorPart.Kind))
+					}
+					fmt.Printf("- Does descendent selector part -- %s\n", selectorPart.String())
+					//{
+					//	fmt.Printf("...match stack:\n-----\n")
+					//	for i := len(innerNodeScopeStack) - 1; i >= 0; i-- {
+					//		node := innerNodeScopeStack[i]
+					//		fmt.Printf("- %s\n", node.String())
+					//	}
+					//}
+					for i := len(innerNodeScopeStack) - 1; i >= 0; i-- {
+						node := innerNodeScopeStack[i]
+						fmt.Printf("...match %s\n", node.String())
 						if !node.HasSelectorPartMatch(selectorPart) {
-							continue NodeLoop
+							innerNodeScopeStack = innerNodeScopeStack[:i]
+							continue
 						}
 						// Has matched!
 						//if p == 0 {
 						//	return true
 						//}
-						continue SelectorPartMatchingLoop
-					default:
-						panic(fmt.Sprintf("HTMLNode::HasMatchRecursive():inner: Unhandled type \"%s\"", selectorPart.Kind.String()))
-					}
-					continue NodeLoop
-				}
 
-				// If got to end of loop, success!
-				return true
-				//panic(fmt.Sprintf("todo(Jake): Handle multiple selector - %s", selectorParts.String()))
+						continue SelectorPartMatchingLoop
+					}
+				case SelectorKindChild:
+					// Get previous selector part
+					p--
+					if p < 0 {
+						panic("Missing identifier before >.")
+						continue NodeLoop
+					}
+					selectorPart = &selectorParts[p]
+					if !selectorPart.Kind.IsIdentifier() {
+						panic(fmt.Sprintf("Expected selector identifier, not \"%s\"", selectorPart.Kind))
+					}
+					if len(innerNodeScopeStack) == 0 {
+						panic("??? This should not happen maybe?")
+						continue NodeLoop
+					}
+					node := innerNodeScopeStack[len(innerNodeScopeStack)-1]
+					//innerNodeScopeStack = innerNodeScopeStack[:len(innerNodeScopeStack)-1]
+					fmt.Printf("- Does node: %s, match part: %s \n", node.String(), selectorPart.String())
+					if !node.HasSelectorPartMatch(selectorPart) {
+						continue NodeLoop
+					}
+					// Has matched!
+					//if p == 0 {
+					//	return true
+					//}
+					continue SelectorPartMatchingLoop
+				default:
+					panic(fmt.Sprintf("HTMLNode::HasMatchRecursive():inner: Unhandled type \"%s\"", selectorPart.Kind.String()))
+				}
+				continue NodeLoop
 			}
-		default:
-			panic(fmt.Sprintf("HTMLNode::HasMatchRecursive(): Unhandled type \"%s\" in selector \"%s\"", lastSelectorPart.Kind.String(), selectorParts.String()))
+
+			// If got to end of loop, success!
+			return true
+			//panic(fmt.Sprintf("todo(Jake): Handle multiple selector - %s", selectorParts.String()))
 		}
 		// fmt.Printf("Tag - %s", node.Name)
 		// for _, attribute := range node.Attributes {
