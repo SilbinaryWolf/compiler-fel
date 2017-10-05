@@ -36,6 +36,19 @@ Header :: css {
 
 	}
 
+	// Adjacent selector
+	.top + .bottom {
+		height: 1px
+	}
+
+	.top ~ .bottom {
+		height: 1px
+	}
+
+	//[data-test~="test"] {
+	//
+	//} 
+
 	// TEST
 
 	// .header > .top {
@@ -46,6 +59,9 @@ Header :: css {
 Header :: html {
 	header(class="header") {
 		div(class="top", data-test="test") {
+		}
+		div(class="bottom") {
+
 		}
 	}
 }

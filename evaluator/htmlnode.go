@@ -10,12 +10,12 @@ import (
 
 func (program *Program) evaluateTemplate(node *ast.File, scope *Scope) []data.Type {
 	program.Filepath = node.Filepath
-	result := program.evaluateHTMLNodeChildren(node.Nodes(), scope)
+	result := program.evaluateHTMLNodeChildren(node.Nodes(), nil, scope)
 	program.Filepath = ""
 	return result
 }
 
-func (program *Program) evaluateHTMLNodeChildren(nodes []ast.Node, scope *Scope) []data.Type {
+func (program *Program) evaluateHTMLNodeChildren(nodes []ast.Node, parentNode *data.HTMLNode, scope *Scope) []data.Type {
 	resultNodes := make([]data.Type, 0, 5)
 
 	scope = NewScope(scope)
@@ -38,6 +38,7 @@ func (program *Program) evaluateHTMLNodeChildren(nodes []ast.Node, scope *Scope)
 				}
 			case *data.HTMLNode:
 				if value != nil {
+					value.Parent = parentNode
 					resultNodes = append(resultNodes, value)
 				}
 			default:
@@ -63,7 +64,7 @@ func (program *Program) evaluateHTMLNodeChildren(nodes []ast.Node, scope *Scope)
 }
 
 func (program *Program) evaluateHTMLBlock(node *ast.HTMLBlock, scope *Scope) *data.HTMLNode {
-	nodes := program.evaluateHTMLNodeChildren(node.Nodes(), scope)
+	nodes := program.evaluateHTMLNodeChildren(node.Nodes(), nil, scope)
 	resultNode, ok := nodes[0].(*data.HTMLNode)
 	if !ok {
 		panic("evaluateHTMLBlock: Failed to type-assert to data.HTMLNode")
@@ -91,6 +92,6 @@ func (program *Program) evaluateHTMLNode(node *ast.HTMLNode, scope *Scope) *data
 		}
 	}
 
-	resultDataNode.ChildNodes = program.evaluateHTMLNodeChildren(node.Nodes(), scope)
+	resultDataNode.ChildNodes = program.evaluateHTMLNodeChildren(node.Nodes(), resultDataNode, scope)
 	return resultDataNode
 }

@@ -283,6 +283,8 @@ func (scanner *Scanner) _getNextToken() token.Token {
 		t.Kind = token.Comma
 	case ';':
 		t.Kind = token.Semicolon
+	case '~':
+		t.Kind = token.Tilde
 	case '$':
 		t.Kind = token.InteropVariable
 		t.Start++

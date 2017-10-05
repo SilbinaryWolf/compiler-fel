@@ -25,6 +25,8 @@ const (
 	SelectorKindDoubleColon // ::
 	SelectorKindChild       // >
 	SelectorKindAncestor    // ' '
+	SelectorKindSibling     // ~
+	SelectorKindAdjacent    // +
 	//SelectorKindAncestorExplicit    // >>
 	css_selector_operator_end
 )
@@ -34,14 +36,18 @@ var selectorKindToString = []string{
 	SelectorKindAttribute: "attribute",
 
 	//SelectorKindIdentifier: "identifier",
-	SelectorKindClass: "class",
-	SelectorKindID:    "id",
-	SelectorKindTag:   "tag",
+	SelectorKindClass:     "class",
+	SelectorKindTag:       "tag",
+	SelectorKindID:        "id",
+	SelectorKindAtKeyword: "at-keyword",
+	SelectorKindNumber:    "number",
 
 	SelectorKindColon:       ":",
 	SelectorKindDoubleColon: "::",
 	SelectorKindChild:       ">",
 	SelectorKindAncestor:    " ",
+	SelectorKindSibling:     "~",
+	SelectorKindAdjacent:    "+",
 	//SelectorKindAncestorExplicit:           ">>",
 }
 

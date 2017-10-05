@@ -27,8 +27,7 @@ type HTMLNode struct {
 	// todo(Jake): Make new type, HTMLComponentNode.
 	HTMLDefinitionName string
 
-	//parentIndex int
-	//parentNode *HTMLNode
+	Parent *HTMLNode
 }
 
 type HTMLAttribute struct {
@@ -123,6 +122,8 @@ func (topNode *HTMLNode) HasMatchRecursive(selectorParts CSSSelector, htmlDefini
 	nodeIterationStack := make([]*HTMLNode, 0, 50)
 	nodeIterationStack = append(nodeIterationStack, topNode)
 
+	//nodePreviousStack := make([]*HTMLNode, 0, 20)
+
 	// This is for matching parents of the node being iterated on.
 	nodeScopeStack := make([]*HTMLNode, 0, 20)
 
@@ -201,10 +202,6 @@ NodeLoop:
 							continue
 						}
 						// Has matched!
-						//if p == 0 {
-						//	return true
-						//}
-
 						continue SelectorPartMatchingLoop
 					}
 				case SelectorKindChild:
@@ -229,10 +226,11 @@ NodeLoop:
 						continue NodeLoop
 					}
 					// Has matched!
-					//if p == 0 {
-					//	return true
-					//}
 					continue SelectorPartMatchingLoop
+				case SelectorKindAdjacent:
+					panic("todo(Jake): Adjacent selector matching")
+				case SelectorKindSibling:
+					panic("todo(Jake): Sibling selector matching")
 				default:
 					if selectorPart.Kind == SelectorKindAttribute ||
 						selectorPart.Kind.IsIdentifier() {

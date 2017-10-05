@@ -141,7 +141,7 @@ Loop:
 			// NOTE: We do -NOT- want to eat whitespace surrounding `token.Identifier`
 			//       as that is used to detect / determine descendent selectors. (ie. ".top-class .descendent")
 			tokenList = append(tokenList, &ast.Token{Token: t})
-		case token.GreaterThan, token.Colon, token.DoubleColon:
+		case token.Add, token.Tilde, token.GreaterThan, token.Colon, token.DoubleColon:
 			tokenList = removeTrailingWhitespaceTokens(tokenList)
 			tokenList = append(tokenList, &ast.Token{Token: t})
 			p.eatWhitespace()

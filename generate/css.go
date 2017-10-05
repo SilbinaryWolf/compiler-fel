@@ -27,14 +27,22 @@ func (gen *Generator) WriteCSSRuleNode(node *data.CSSRule) {
 			gen.WriteLine()
 		}
 
-		lastSelectorWasOperator := false
-		for i, node := range selectorNodes {
+		//lastSelectorWasOperator := false
+		for _, node := range selectorNodes {
 			switch node.Kind {
 			case data.SelectorKindAttribute:
-				if i != 0 && lastSelectorWasOperator == false {
-					gen.WriteByte(' ')
+				//if i != 0 && lastSelectorWasOperator == false {
+				//	gen.WriteByte(' ')
+				//}
+				gen.WriteByte('[')
+				gen.WriteString(node.Name)
+				if node.Operator != "" {
+					gen.WriteString(node.Operator)
+					gen.WriteByte('"')
+					gen.WriteString(node.Value)
+					gen.WriteByte('"')
 				}
-				gen.WriteString(node.String())
+				gen.WriteByte(']')
 			// todo(Jake): Fix this, this is used for paren'd component values. ie ([controls])
 			/*case data.CSSSelector:
 			if i != 0 && lastSelectorWasOperator == false {
@@ -45,18 +53,13 @@ func (gen *Generator) WriteCSSRuleNode(node *data.CSSRule) {
 			gen.WriteByte(')')
 			//panic(fmt.Sprintf("getCSSRuleNode(): Unhandled node type: %T, value: %s", node, node.String()))*/
 			default:
-				if node.Kind.IsOperator() {
-					gen.WriteString(node.String())
-					lastSelectorWasOperator = true
-					continue
-				}
-				if node.Kind.IsIdentifier() {
+				if node.Kind.IsOperator() ||
+					node.Kind.IsIdentifier() {
 					gen.WriteString(node.String())
 					continue
 				}
 				panic(fmt.Sprintf("getCSSRuleNode(): Unhandled node type: %T", node))
 			}
-			lastSelectorWasOperator = false
 		}
 	}
 	gen.WriteByte(' ')
@@ -84,8 +87,6 @@ func (gen *Generator) WriteCSSRuleNode(node *data.CSSRule) {
 	gen.WriteLine()
 	gen.WriteByte('}')
 	gen.WriteLine()
-
-	//panic("getCSSRuleNode(): Finish")
 }
 
 /*func (gen *Generator) getHTMLNode(node *data.HTMLNode) {

@@ -20,6 +20,7 @@ const (
 	DoubleColon  // ::
 	Semicolon    // ;
 	Dot          // .
+	Tilde        // ~
 	Hash         // #
 	At           // @
 
@@ -108,6 +109,7 @@ var kindToString = []string{
 	Not:            "!",
 	Dot:            ".",
 	Hash:           "#",
+	Tilde:          "~",
 	At:             "@",
 	Ternary:        "?",
 

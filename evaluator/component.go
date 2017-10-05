@@ -9,7 +9,7 @@ import (
 
 func (program *Program) evaluteHTMLComponent(topNode *ast.HTMLNode, scope *Scope) *data.HTMLNode {
 	// Get children nodes
-	childNodes := program.evaluateHTMLNodeChildren(topNode.Nodes(), scope)
+	childNodes := program.evaluateHTMLNodeChildren(topNode.Nodes(), nil, scope)
 
 	var resultDataNode *data.HTMLNode
 	componentScope := NewScope(nil)

@@ -100,6 +100,14 @@ func (program *Program) evaluateSelector(nodes []ast.Node) data.CSSSelector {
 				selectorList = append(selectorList, data.CSSSelectorPart{
 					Kind: data.SelectorKindChild,
 				})
+			case token.Add:
+				selectorList = append(selectorList, data.CSSSelectorPart{
+					Kind: data.SelectorKindAdjacent,
+				})
+			case token.Tilde:
+				selectorList = append(selectorList, data.CSSSelectorPart{
+					Kind: data.SelectorKindSibling,
+				})
 			default:
 				if selectorPartNode.IsOperator() {
 					panic("todo(Jake): Fixme (or add support for operator in above `switch`)")
