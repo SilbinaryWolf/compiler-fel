@@ -28,6 +28,7 @@ func PrettyHTML(nodes []data.Type) string {
 
 func (gen *Generator) WriteHTMLNode(node *data.HTMLNode) {
 	isSelfClosing := util.IsSelfClosingTagName(node.Name)
+	childNodes := node.Nodes()
 
 	gen.WriteByte('<')
 	gen.WriteString(node.Name)
@@ -43,14 +44,14 @@ func (gen *Generator) WriteHTMLNode(node *data.HTMLNode) {
 	}
 	gen.WriteByte('>')
 
-	if !isSelfClosing && len(node.ChildNodes) > 0 {
+	if !isSelfClosing && len(childNodes) > 0 {
 		gen.indent++
 	}
 
-	if len(node.ChildNodes) == 0 && !isSelfClosing {
+	if len(childNodes) == 0 && !isSelfClosing {
 		gen.WriteLine()
 	} else {
-		for _, itNode := range node.ChildNodes {
+		for _, itNode := range childNodes {
 			gen.WriteLine()
 			switch childNode := itNode.(type) {
 			case *data.HTMLNode:
@@ -64,7 +65,7 @@ func (gen *Generator) WriteHTMLNode(node *data.HTMLNode) {
 	}
 
 	if !isSelfClosing {
-		if len(node.ChildNodes) > 0 {
+		if len(childNodes) > 0 {
 			gen.indent--
 			gen.WriteLine()
 		}

@@ -21,13 +21,59 @@ func (node *HTMLText) String() string {
 type HTMLNode struct {
 	Name       string
 	Attributes []HTMLAttribute
-	ChildNodes []Type
+	childNodes []Type
 
 	// NOTE: Used for context where the htmlnode was processed
 	// todo(Jake): Make new type, HTMLComponentNode.
 	HTMLDefinitionName string
 
-	Parent *HTMLNode
+	parentNode   *HTMLNode
+	previousNode *HTMLNode
+	nextNode     *HTMLNode
+}
+
+func (node *HTMLNode) SetNodes(nodes []Type) {
+	var previousNode *HTMLNode
+
+	nodesLength := len(nodes)
+	for i := 0; i < nodesLength; i++ {
+		node, ok := nodes[i].(*HTMLNode)
+		if !ok {
+			// Skip HTMLText, etc.
+			continue
+		}
+		node.previousNode = previousNode
+		node.parentNode = node
+
+		// Get and set next node
+		for j := i + 1; j < nodesLength; j++ {
+			nextNode, ok := nodes[j].(*HTMLNode)
+			if !ok {
+				// Skip HTMLText, etc.
+				continue
+			}
+			node.nextNode = nextNode
+		}
+
+		// Track
+		previousNode = node
+	}
+}
+
+func (node *HTMLNode) Nodes() []Type {
+	return node.childNodes
+}
+
+func (node *HTMLNode) Parent() *HTMLNode {
+	return node.parentNode
+}
+
+func (node *HTMLNode) Previous() *HTMLNode {
+	return node.previousNode
+}
+
+func (node *HTMLNode) Next() *HTMLNode {
+	return node.nextNode
 }
 
 type HTMLAttribute struct {
@@ -258,7 +304,7 @@ NodeLoop:
 		// fmt.Printf("\n")
 
 		// Add children
-		childNodes := node.ChildNodes
+		childNodes := node.Nodes()
 		for i := len(childNodes) - 1; i >= 0; i-- {
 			node, ok := childNodes[i].(*HTMLNode)
 			if !ok {

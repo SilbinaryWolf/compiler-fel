@@ -38,7 +38,6 @@ func (program *Program) evaluateHTMLNodeChildren(nodes []ast.Node, parentNode *d
 				}
 			case *data.HTMLNode:
 				if value != nil {
-					value.Parent = parentNode
 					resultNodes = append(resultNodes, value)
 				}
 			default:
@@ -92,6 +91,7 @@ func (program *Program) evaluateHTMLNode(node *ast.HTMLNode, scope *Scope) *data
 		}
 	}
 
-	resultDataNode.ChildNodes = program.evaluateHTMLNodeChildren(node.Nodes(), resultDataNode, scope)
+	childNodes := program.evaluateHTMLNodeChildren(node.Nodes(), resultDataNode, scope)
+	resultDataNode.SetNodes(childNodes)
 	return resultDataNode
 }
