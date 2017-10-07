@@ -60,6 +60,9 @@ Header :: html {
 	header(class="header") {
 		div(class="top", data-test="test") {
 		}
+		div(class="middle") {
+
+		}
 		div(class="bottom") {
 
 		}
