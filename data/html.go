@@ -201,13 +201,13 @@ NodeLoop:
 
 		//
 		if node.HasSelectorPartMatch(lastSelectorPart) {
-			if len(selectorParts) == 1 {
-				return true
-			}
+			//if len(selectorParts) == 1 {
+			//	return true
+			//}
 
 			currentNode := node
 		SelectorPartMatchingLoop:
-			for p := len(selectorParts) - 2; p >= 0; p-- {
+			for p := len(selectorParts) - 1; p >= 0; p-- {
 				//
 				if selectorPart := &selectorParts[p]; selectorPart.Kind == SelectorKindAttribute ||
 					selectorPart.Kind.IsIdentifier() {
