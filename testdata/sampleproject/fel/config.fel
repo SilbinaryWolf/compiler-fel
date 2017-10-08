@@ -5,11 +5,13 @@ template_output_directory := "../public"
 
 css_output_directory := "../css"
 
-//css_files := [
+//css_files := {
 //    "normalize.css": [
-//        Normalize
+//        "Normalize",
 //    ],
-//    "main.css": [] // empty array implies put in all CSS that isn't placed elsewhere.
-//]
+//    "main.css": [
+//		  "*",
+//	  ], // empty array implies put in all CSS that isn't placed elsewhere.
+//}
 
 css_files := "main.css"

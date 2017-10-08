@@ -100,6 +100,7 @@ func (p *Parser) parseCSSProperty(tokenList []ast.Node) *ast.CSSProperty {
 	}
 
 	// Get remaining value nodes
+	tokenList = removeTrailingWhitespaceTokens(tokenList)
 	valueNodes := tokenList[i:len(tokenList)]
 
 	cssPropertyNode := new(ast.CSSProperty)
@@ -149,7 +150,6 @@ Loop:
 			if len(tokenList) == 0 {
 				continue Loop
 			}
-
 			cssPropertyNode := p.parseCSSProperty(tokenList)
 			if cssPropertyNode == nil {
 				break Loop

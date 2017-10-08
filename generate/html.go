@@ -16,6 +16,8 @@ func PrettyHTML(nodes []data.Type) string {
 			gen.WriteHTMLNode(childNode)
 		case *data.HTMLText:
 			gen.WriteString(childNode.String())
+		case *data.HTMLComponentNode:
+			gen.WriteHTMLComponentNode(childNode)
 		default:
 			panic(fmt.Sprintf("PrettyHTML(): Unhandled type: %T", itNode))
 		}
@@ -24,6 +26,32 @@ func PrettyHTML(nodes []data.Type) string {
 	gen.WriteByte('\n')
 
 	return gen.String()
+}
+
+func (gen *Generator) WriteHTMLComponentNode(node *data.HTMLComponentNode) {
+	componentName := node.Name
+	gen.WriteString(fmt.Sprintf("<!-- FEL Begin: %s -->", componentName))
+	gen.WriteLine()
+
+	childNodes := node.Nodes()
+	for i, itNode := range childNodes {
+		if i > 0 {
+			gen.WriteLine()
+		}
+		switch childNode := itNode.(type) {
+		case *data.HTMLNode:
+			gen.WriteHTMLNode(childNode)
+		case *data.HTMLText:
+			gen.WriteString(childNode.String())
+		case *data.HTMLComponentNode:
+			gen.WriteHTMLComponentNode(childNode)
+		default:
+			panic(fmt.Sprintf("WriteHTMLComponentNode(): Unhandled type: %T", itNode))
+		}
+	}
+
+	gen.WriteLine()
+	gen.WriteString(fmt.Sprintf("<!-- FEL End: %s -->", componentName))
 }
 
 func (gen *Generator) WriteHTMLNode(node *data.HTMLNode) {
@@ -58,6 +86,8 @@ func (gen *Generator) WriteHTMLNode(node *data.HTMLNode) {
 				gen.WriteHTMLNode(childNode)
 			case *data.HTMLText:
 				gen.WriteString(childNode.String())
+			case *data.HTMLComponentNode:
+				gen.WriteHTMLComponentNode(childNode)
 			default:
 				panic(fmt.Sprintf("getHTMLNode(): Unhandled type: %T", itNode))
 			}

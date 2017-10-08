@@ -101,6 +101,8 @@ Loop:
 				break Loop
 			}
 			resultNodes = append(resultNodes, node)
+		case token.BraceOpen:
+			panic("todo(Jake): Handle map data structure { \"thing\": [] }")
 		case token.String:
 			node := p.parseExpression()
 			resultNodes = append(resultNodes, node)

@@ -58,9 +58,10 @@ func (p *Parser) parseDefinition(name token.Token) ast.Node {
 			if htmlNodeCount == 0 {
 				p.addErrorToken(fmt.Errorf("\"%s:: html\" must contain one HTML node at the top-level.", nameString), name)
 			}
-			if htmlNodeCount > 1 {
-				p.addErrorToken(fmt.Errorf("\"%s:: html\" cannot have multiple HTML nodes at the top-level.", nameString), name)
-			}
+			// NOTE: No longer applicable.
+			//if htmlNodeCount > 1 {
+			//	p.addErrorToken(fmt.Errorf("\"%s:: html\" cannot have multiple HTML nodes at the top-level.", nameString), name)
+			//}
 		}
 
 		if name.Kind != token.Unknown {

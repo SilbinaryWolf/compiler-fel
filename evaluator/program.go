@@ -15,7 +15,7 @@ type Program struct {
 
 type HTMLNodeSet struct {
 	HTMLDefinition *ast.HTMLComponentDefinition
-	items          []*data.HTMLNode
+	items          []*data.HTMLComponentNode
 }
 
 func New() *Program {
@@ -25,12 +25,12 @@ func New() *Program {
 	return program
 }
 
-func (program *Program) AddHTMLDefinitionUsed(name string, htmlDefinition *ast.HTMLComponentDefinition, node *data.HTMLNode) {
+func (program *Program) AddHTMLDefinitionUsed(name string, htmlDefinition *ast.HTMLComponentDefinition, node *data.HTMLComponentNode) {
 	nodeSet, ok := program.htmlDefinitionUsed[name]
 	if !ok {
 		nodeSet = new(HTMLNodeSet)
 		nodeSet.HTMLDefinition = htmlDefinition
-		nodeSet.items = make([]*data.HTMLNode, 0, 5)
+		nodeSet.items = make([]*data.HTMLComponentNode, 0, 5)
 		program.htmlDefinitionUsed[name] = nodeSet
 	}
 	nodeSet.items = append(nodeSet.items, node)

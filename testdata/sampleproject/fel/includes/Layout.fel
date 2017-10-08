@@ -14,7 +14,7 @@ Layout :: html {
 		body_class := ""
 	}
 
-	html {
+	html(lang="en-AU") {
 		head {
 			meta(charset="utf-8")
 			meta(http-equiv="X-UA-Compatible", content="IE=edge")

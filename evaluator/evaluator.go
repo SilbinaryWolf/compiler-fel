@@ -217,12 +217,6 @@ func (program *Program) RunProject(projectDirpath string) error {
 	// Output named "MyComponent :: css" blocks
 	outputCSSDefinitionSet := program.optimizeAndReturnUsedCSS()
 
-	// Output anonymous ":: css" blocks
-	for _, cssDefinition := range program.anonymousCSSDefinitionsUsed {
-		dataCSSDefinition := program.evaluateCSSDefinition(cssDefinition, program.globalScope)
-		outputCSSDefinitionSet = append(outputCSSDefinitionSet, dataCSSDefinition)
-	}
-
 	executionElapsed := time.Since(executionStart)
 
 	// Output

@@ -27,6 +27,13 @@ func (program *Program) optimizeAndReturnUsedCSS() []*data.CSSDefinition {
 
 		for ruleIndex := 0; ruleIndex < len(dataCSSDefinition.ChildNodes); ruleIndex++ {
 			cssRule := dataCSSDefinition.ChildNodes[ruleIndex]
+
+			// If no properties on rule, remove it completely.
+			if len(cssRule.Properties) == 0 {
+				dataCSSDefinition.ChildNodes = append(dataCSSDefinition.ChildNodes[:ruleIndex], dataCSSDefinition.ChildNodes[ruleIndex+1:]...)
+				ruleIndex--
+			}
+
 		SelectorLoop:
 			for selectorIndex := 0; selectorIndex < len(cssRule.Selectors); selectorIndex++ {
 				cssSelector := cssRule.Selectors[selectorIndex]
@@ -47,10 +54,46 @@ func (program *Program) optimizeAndReturnUsedCSS() []*data.CSSDefinition {
 			}
 		}
 	}
+
+	// Output anonymous ":: css" blocks
+	for _, cssDefinition := range program.anonymousCSSDefinitionsUsed {
+		dataCSSDefinition := program.evaluateCSSDefinition(cssDefinition, program.globalScope)
+		outputCSSDefinitionSet = append(outputCSSDefinitionSet, dataCSSDefinition)
+
+		/*for ruleIndex := 0; ruleIndex < len(dataCSSDefinition.ChildNodes); ruleIndex++ {
+			cssRule := dataCSSDefinition.ChildNodes[ruleIndex]
+
+			// If no properties on rule, remove it completely.
+			if len(cssRule.Properties) == 0 {
+				dataCSSDefinition.ChildNodes = append(dataCSSDefinition.ChildNodes[:ruleIndex], dataCSSDefinition.ChildNodes[ruleIndex+1:]...)
+				ruleIndex--
+			}
+
+		SelectorLoopAnon:
+			for selectorIndex := 0; selectorIndex < len(cssRule.Selectors); selectorIndex++ {
+				cssSelector := cssRule.Selectors[selectorIndex]
+				for _, htmlNode := range htmlNodeSet.items {
+					if htmlNode.HasMatchRecursive(cssSelector, htmlDefinitionName) {
+						// If found a match, stop looking for matches with this
+						// selector
+						continue SelectorLoopAnon
+					}
+					// TODO(Jake): Ensure this is correct way to remove from slice
+					cssRule.Selectors = append(cssRule.Selectors[:selectorIndex], cssRule.Selectors[selectorIndex+1:]...)
+					selectorIndex--
+				}
+			}
+			if len(cssRule.Selectors) == 0 {
+				dataCSSDefinition.ChildNodes = append(dataCSSDefinition.ChildNodes[:ruleIndex], dataCSSDefinition.ChildNodes[ruleIndex+1:]...)
+				ruleIndex--
+			}
+		}*/
+	}
+
 	return outputCSSDefinitionSet
 }
 
-func (program *Program) evaluateSelector(nodes []ast.Node) data.CSSSelector {
+func (program *Program) evaluateSelector(cssDefinition *data.CSSDefinition, nodes []ast.Node) data.CSSSelector {
 	selectorList := make(data.CSSSelector, 0, len(nodes))
 	for _, itSelectorPartNode := range nodes {
 		//var value string
@@ -64,6 +107,10 @@ func (program *Program) evaluateSelector(nodes []ast.Node) data.CSSSelector {
 				switch name[0] {
 				case '.':
 					selectorKind = data.SelectorKindClass
+					// Prefix component namespace
+					//if len(cssDefinition.Name) > 0 {
+					//	name = "." + cssDefinition.Name + "__" + name[1:]
+					//}
 				case '#':
 					selectorKind = data.SelectorKindID
 				default:
@@ -145,8 +192,6 @@ func (program *Program) evaluateSelector(nodes []ast.Node) data.CSSSelector {
 				Name: selectorPartNode.Name.String(),
 			}
 			selectorList = append(selectorList, value)
-			//value = fmt.Sprintf("[%s]", selectorPartNode.Name)
-			//panic("evaluateSelector(): Handle attribute selector")
 		default:
 			panic(fmt.Sprintf("evaluateSelector(): Unhandled selector node type: %T", selectorPartNode))
 		}
@@ -170,7 +215,7 @@ func (program *Program) evaluateCSSRule(cssDefinition *data.CSSDefinition, topNo
 				for _, selectorListNode := range topNode.Selectors {
 					selectorList := make(data.CSSSelector, 0, len(parentSelectorListNode))
 					selectorList = append(selectorList, parentSelectorListNode...)
-					selectorList = append(selectorList, program.evaluateSelector(selectorListNode.Nodes())...)
+					selectorList = append(selectorList, program.evaluateSelector(cssDefinition, selectorListNode.Nodes())...)
 					ruleNode.Selectors = append(ruleNode.Selectors, selectorList)
 				}
 			}
@@ -178,7 +223,7 @@ func (program *Program) evaluateCSSRule(cssDefinition *data.CSSDefinition, topNo
 			// Setup rule node
 			mediaRuleNode := new(data.CSSRule)
 			for _, selectorListNode := range topNode.Selectors {
-				selectorList := program.evaluateSelector(selectorListNode.Nodes())
+				selectorList := program.evaluateSelector(cssDefinition, selectorListNode.Nodes())
 				mediaRuleNode.Selectors = append(mediaRuleNode.Selectors, selectorList)
 			}
 
@@ -197,7 +242,7 @@ func (program *Program) evaluateCSSRule(cssDefinition *data.CSSDefinition, topNo
 		}
 	} else {
 		for _, selectorListNode := range topNode.Selectors {
-			selectorList := program.evaluateSelector(selectorListNode.Nodes())
+			selectorList := program.evaluateSelector(cssDefinition, selectorListNode.Nodes())
 			ruleNode.Selectors = append(ruleNode.Selectors, selectorList)
 		}
 	}
@@ -255,9 +300,7 @@ func (program *Program) evaluateCSSDefinition(topNode *ast.CSSDefinition, scope 
 		panic("evaluateCSSDefinition: Cannot pass nil CSSDefinition")
 	}
 	cssDefinition := new(data.CSSDefinition)
-	if topNode == nil || topNode.Name.Kind == token.Unknown {
-		cssDefinition.Name = program.Filepath
-	} else {
+	if topNode != nil && topNode.Name.Kind != token.Unknown {
 		cssDefinition.Name = topNode.Name.String()
 	}
 	cssDefinition.ChildNodes = make([]*data.CSSRule, 0, 10)
@@ -277,6 +320,12 @@ func (program *Program) evaluateCSSDefinition(topNode *ast.CSSDefinition, scope 
 			}
 			panic(fmt.Sprintf("evaluateCSSDefinition(): Unhandled type: %T", node))
 		}
+	}
+
+	// If was unnamed, give it the filename here (to avoid it namespaces classes with the filename)
+	// NOTE: We do this so the CSS definition outputs the file the CSS rules belong to
+	if len(cssDefinition.Name) == 0 {
+		cssDefinition.Name = program.Filepath
 	}
 
 	if scope == nil {

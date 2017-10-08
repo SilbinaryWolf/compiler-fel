@@ -6,6 +6,23 @@ import (
 	"strings"
 )
 
+type HTMLComponentNode struct {
+	Name       string
+	ChildNodes []Type
+}
+
+func (node *HTMLComponentNode) Kind() Kind {
+	return KindHTMLComponentNode
+}
+
+func (node *HTMLComponentNode) String() string {
+	return fmt.Sprintf("(%s :: html)", node.Name)
+}
+
+func (node *HTMLComponentNode) Nodes() []Type {
+	return node.ChildNodes
+}
+
 type HTMLText struct {
 	Value string
 }
@@ -25,7 +42,7 @@ type HTMLNode struct {
 
 	// NOTE: Used for context where the htmlnode was processed
 	// todo(Jake): Make new type, HTMLComponentNode.
-	HTMLDefinitionName string
+	//HTMLDefinitionName string
 
 	parentNode   *HTMLNode
 	previousNode *HTMLNode
@@ -87,22 +104,6 @@ type HTMLAttribute struct {
 func (node *HTMLNode) Kind() Kind {
 	return KindHTMLNode
 }
-
-//func (node *HTMLNode) Parent() *HTMLNode {
-//	return node.parentNode
-//}
-
-/*func (node *HTMLNode) AsSelectorString() string {
-	result := ""
-	result = node.Name
-	for _, attribute := range node.Attributes {
-		if attribute.Name != "class" {
-			continue
-		}
-		result += "." + attribute.Value
-	}
-	return result
-}*/
 
 func (node *HTMLNode) String() string {
 	var buffer bytes.Buffer
@@ -167,14 +168,16 @@ func (node *HTMLNode) HasSelectorPartMatch(selectorPart *CSSSelectorPart) bool {
 	return false
 }
 
-func (topNode *HTMLNode) HasMatchRecursive(selectorParts CSSSelector, htmlDefinitionName string) bool {
+func (topNode *HTMLComponentNode) HasMatchRecursive(selectorParts CSSSelector, htmlDefinitionName string) bool {
 	nodeIterationStack := make([]*HTMLNode, 0, 50)
-	nodeIterationStack = append(nodeIterationStack, topNode)
-
-	//nodePreviousStack := make([]*HTMLNode, 0, 20)
-
-	// This is for matching parents of the node being iterated on.
-	nodeScopeStack := make([]*HTMLNode, 0, 20)
+	childNodes := topNode.Nodes()
+	for i := len(childNodes) - 1; i >= 0; i-- {
+		itNode, ok := childNodes[i].(*HTMLNode)
+		if !ok {
+			continue
+		}
+		nodeIterationStack = append(nodeIterationStack, itNode)
+	}
 
 	lastSelectorPart := &selectorParts[len(selectorParts)-1]
 	if lastSelectorPart.Kind != SelectorKindAttribute &&
@@ -189,21 +192,12 @@ NodeLoop:
 		node := nodeIterationStack[len(nodeIterationStack)-1]
 		nodeIterationStack = nodeIterationStack[:len(nodeIterationStack)-1]
 
-		if node == nil {
-			nodeScopeStack = nodeScopeStack[:len(nodeScopeStack)-1]
-			continue
-		}
-
 		// Skip nodes that weren't created by the specified HTMLComponentDefinition
-		if len(node.HTMLDefinitionName) > 0 &&
+		/*if len(node.HTMLDefinitionName) > 0 &&
 			len(htmlDefinitionName) > 0 &&
 			htmlDefinitionName != node.HTMLDefinitionName {
 			continue
-		}
-
-		// Add scope
-		nodeScopeStack = append(nodeScopeStack, node)
-		nodeIterationStack = append(nodeIterationStack, nil)
+		}*/
 
 		//
 		if node.HasSelectorPartMatch(lastSelectorPart) {
@@ -211,14 +205,11 @@ NodeLoop:
 				return true
 			}
 
-			// NOTE(Jake): We only want to modify this slice within the context
-			//			   of selector matching, not across all nodes we're checking.
 			currentNode := node
 		SelectorPartMatchingLoop:
 			for p := len(selectorParts) - 2; p >= 0; p-- {
 				//
-				selectorPart := &selectorParts[p]
-				if selectorPart.Kind == SelectorKindAttribute ||
+				if selectorPart := &selectorParts[p]; selectorPart.Kind == SelectorKindAttribute ||
 					selectorPart.Kind.IsIdentifier() {
 					if !currentNode.HasSelectorPartMatch(selectorPart) {
 						continue NodeLoop
@@ -226,14 +217,14 @@ NodeLoop:
 					continue SelectorPartMatchingLoop
 				}
 
-				//
-				selectorPartOperator := selectorPart
+				// If wasn't identifier, handle operator
+				selectorPartOperator := &selectorParts[p]
 				p--
 				if p < 0 {
 					panic(fmt.Sprintf("Missing identifier before %s.", selectorPartOperator.Kind.String()))
 					continue NodeLoop
 				}
-				selectorPart = &selectorParts[p]
+				selectorPart := &selectorParts[p]
 				if !selectorPart.Kind.IsIdentifier() {
 					panic(fmt.Sprintf("Expected selector identifier, not \"%s\"", selectorPartOperator.Kind))
 					continue NodeLoop
@@ -294,18 +285,9 @@ NodeLoop:
 				continue NodeLoop
 			}
 
-			// If got to end of loop, success!
+			// If got to end of loop, then it matched!
 			return true
-			//panic(fmt.Sprintf("todo(Jake): Handle multiple selector - %s", selectorParts.String()))
 		}
-		// fmt.Printf("Tag - %s", node.Name)
-		// for _, attribute := range node.Attributes {
-		// 	switch attribute.Name {
-		// 	case "class":
-		// 		fmt.Printf(" - Class - %s", attribute.Value)
-		// 	}
-		// }
-		// fmt.Printf("\n")
 
 		// Add children
 		childNodes := node.Nodes()

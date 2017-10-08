@@ -82,11 +82,11 @@ func isEndOfLine(C rune) bool {
 }
 
 func isWhitespace(C rune) bool {
-	return (C != '\n' && unicode.IsSpace(C))
+	return C != '\n' && unicode.IsSpace(C)
 }
 
 func isAlpha(C rune) bool {
-	return (C >= 'a' && C <= 'z') || (C >= 'A' && C <= 'Z') || C >= utf8.RuneSelf && unicode.IsLetter(C)
+	return (C >= 'a' && C <= 'z') || (C >= 'A' && C <= 'Z') || (C >= utf8.RuneSelf && unicode.IsLetter(C))
 }
 
 func isNumber(C rune) bool {
@@ -247,10 +247,15 @@ func (scanner *Scanner) _getNextToken() token.Token {
 		}
 	}()
 
+	// NOTE: Eating whitespace before *and* after comments, avoids
+	//	     bug where scanner falls over on "\t" or similar
 	if scanner.scanmode != ModeCSS {
 		scanner.eatAllWhitespace()
 	}
 	scanner.eatAllComments()
+	if scanner.scanmode != ModeCSS {
+		scanner.eatAllWhitespace()
+	}
 
 	t.Start = scanner.index
 	C := scanner.nextRune()
