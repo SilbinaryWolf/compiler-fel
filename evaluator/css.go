@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	//"strings"
 
 	"github.com/silbinarywolf/compiler-fel/ast"
 	"github.com/silbinarywolf/compiler-fel/data"
@@ -20,7 +21,7 @@ func (program *Program) optimizeAndReturnUsedCSS() []*data.CSSDefinition {
 			continue
 		}
 
-		htmlDefinitionName := htmlNodeSet.HTMLDefinition.Name.String()
+		//htmlDefinitionName := htmlNodeSet.HTMLDefinition.Name.String()
 
 		dataCSSDefinition := program.evaluateCSSDefinition(cssDefinition, program.globalScope)
 		outputCSSDefinitionSet = append(outputCSSDefinitionSet, dataCSSDefinition)
@@ -38,14 +39,39 @@ func (program *Program) optimizeAndReturnUsedCSS() []*data.CSSDefinition {
 			for selectorIndex := 0; selectorIndex < len(cssRule.Selectors); selectorIndex++ {
 				cssSelector := cssRule.Selectors[selectorIndex]
 				for _, htmlNode := range htmlNodeSet.items {
-					if htmlNode.HasMatchRecursive(cssSelector, htmlDefinitionName) {
-						// If found a match, stop looking for matches with this
-						// selector
-						continue SelectorLoop
+					nodesMatched := htmlNode.HasMatchRecursive(cssSelector)
+					if len(nodesMatched) == 0 {
+						// Remove if no match
+						cssRule.Selectors = append(cssRule.Selectors[:selectorIndex], cssRule.Selectors[selectorIndex+1:]...)
+						selectorIndex--
+						continue
 					}
-					// TODO(Jake): Ensure this is correct way to remove from slice
-					cssRule.Selectors = append(cssRule.Selectors[:selectorIndex], cssRule.Selectors[selectorIndex+1:]...)
-					selectorIndex--
+					// If found a match, stop looking for matches with this
+					// selector
+					fmt.Printf("CSS Selector: %s\n", cssSelector.String())
+					for _, node := range nodesMatched {
+						for i := 0; i < len(node.Attributes); i++ {
+							var attribute *data.HTMLAttribute = &node.Attributes[i]
+
+							className := attribute.Value
+							for _, part := range cssSelector {
+								if part.Kind != data.SelectorKindClass {
+									continue
+								}
+								value := part.String()
+								value = value[1:]
+								if className != value {
+									continue
+								}
+								className = "Prefix_" + className
+								fmt.Printf("Matched %s -- %s \n", value, className)
+								attribute.Value = className
+							}
+						}
+						//fmt.Printf("Matched %s\n", node)
+					}
+					fmt.Printf("\n")
+					continue SelectorLoop
 				}
 			}
 			if len(cssRule.Selectors) == 0 {

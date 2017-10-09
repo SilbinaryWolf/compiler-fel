@@ -38,11 +38,9 @@ func (node *HTMLText) String() string {
 type HTMLNode struct {
 	Name       string
 	Attributes []HTMLAttribute
-	childNodes []Type
 
-	// NOTE: Used for context where the htmlnode was processed
-	// todo(Jake): Make new type, HTMLComponentNode.
-	//HTMLDefinitionName string
+	childNodes []Type
+	//classLookup map[string]*HTMLNode
 
 	parentNode   *HTMLNode
 	previousNode *HTMLNode
@@ -59,8 +57,12 @@ func (topNode *HTMLNode) SetNodes(nodes []Type) {
 			// Skip HTMLText, etc.
 			continue
 		}
+
 		node.previousNode = previousNode
 		node.parentNode = topNode
+
+		// Get class name
+		//node.parentNode.queryHashMap[node.]
 
 		// Get and set next node
 		for j := i + 1; j < nodesLength; j++ {
@@ -168,7 +170,8 @@ func (node *HTMLNode) HasSelectorPartMatch(selectorPart *CSSSelectorPart) bool {
 	return false
 }
 
-func (topNode *HTMLComponentNode) HasMatchRecursive(selectorParts CSSSelector, htmlDefinitionName string) bool {
+func (topNode *HTMLComponentNode) HasMatchRecursive(selectorParts CSSSelector) []*HTMLNode {
+	nodeResultStack := make([]*HTMLNode, 0, 5)
 	nodeIterationStack := make([]*HTMLNode, 0, 50)
 	childNodes := topNode.Nodes()
 	for i := len(childNodes) - 1; i >= 0; i-- {
@@ -184,7 +187,7 @@ func (topNode *HTMLComponentNode) HasMatchRecursive(selectorParts CSSSelector, h
 		!lastSelectorPart.Kind.IsIdentifier() {
 		panic(fmt.Sprintf("HTMLNode::HasMatchRecursive(): Unhandled type \"%s\" in selector \"%s\"", lastSelectorPart.Kind.String(), selectorParts.String()))
 	}
-	fmt.Printf("Search for selector - \"%s\"\n\n", lastSelectorPart.String())
+	//fmt.Printf("Search for selector - \"%s\"\n\n", lastSelectorPart.String())
 	//fmt.Printf("Selector - %s - Lastbit - %s\n", selectorParts, itLastSelectorPart)
 
 NodeLoop:
@@ -286,7 +289,7 @@ NodeLoop:
 			}
 
 			// If got to end of loop, then it matched!
-			return true
+			nodeResultStack = append(nodeResultStack, node)
 		}
 
 		// Add children
@@ -299,5 +302,9 @@ NodeLoop:
 			nodeIterationStack = append(nodeIterationStack, node)
 		}
 	}
-	return false
+
+	if len(nodeResultStack) == 0 {
+		return nil
+	}
+	return nodeResultStack
 }
