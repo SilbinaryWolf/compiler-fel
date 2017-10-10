@@ -2,15 +2,20 @@ package evaluator
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/silbinarywolf/compiler-fel/ast"
 	"github.com/silbinarywolf/compiler-fel/data"
 	"github.com/silbinarywolf/compiler-fel/token"
 )
 
+func PrefixNamespace(componentName string, className string) string {
+	return componentName + "_" + className
+}
+
 func (program *Program) evaluateTemplate(node *ast.File, scope *Scope) []data.Type {
 	program.Filepath = node.Filepath
-	result := program.evaluateHTMLNodeChildren(node.Nodes(), nil, scope)
+	result := program.evaluateHTMLNodeChildren(node.Nodes(), scope)
 	program.Filepath = ""
 	return result
 }
@@ -45,7 +50,7 @@ func (program *Program) evaluateHTMLExpression(node *ast.Expression, scope *Scop
 	return resultNodes
 }
 
-func (program *Program) evaluateHTMLNodeChildren(nodes []ast.Node, parentNode *data.HTMLNode, scope *Scope) []data.Type {
+func (program *Program) evaluateHTMLNodeChildren(nodes []ast.Node, scope *Scope) []data.Type {
 	resultNodes := make([]data.Type, 0, 5)
 
 	scope = NewScope(scope)
@@ -74,8 +79,14 @@ func (program *Program) evaluateHTMLNodeChildren(nodes []ast.Node, parentNode *d
 
 func (program *Program) evaluteHTMLComponent(topNode *ast.HTMLNode, scope *Scope) *data.HTMLComponentNode {
 	// Get children nodes
-	childNodes := program.evaluateHTMLNodeChildren(topNode.Nodes(), nil, scope)
+	childNodes := program.evaluateHTMLNodeChildren(topNode.Nodes(), scope)
+
+	//
 	componentScope := NewScope(nil)
+	program.currentComponentScope = append(program.currentComponentScope, topNode.HTMLDefinition)
+	defer func() {
+		program.currentComponentScope = program.currentComponentScope[:len(program.currentComponentScope)-1]
+	}()
 
 	// Get valid parameters
 	if properties := topNode.HTMLDefinition.Properties; properties != nil {
@@ -144,7 +155,7 @@ func (program *Program) evaluteHTMLComponent(topNode *ast.HTMLNode, scope *Scope
 }
 
 func (program *Program) evaluateHTMLBlock(node *ast.HTMLBlock, scope *Scope) *data.HTMLNode {
-	nodes := program.evaluateHTMLNodeChildren(node.Nodes(), nil, scope)
+	nodes := program.evaluateHTMLNodeChildren(node.Nodes(), scope)
 	resultNode, ok := nodes[0].(*data.HTMLNode)
 	if !ok {
 		panic("evaluateHTMLBlock: Failed to type-assert to data.HTMLNode")
@@ -156,15 +167,32 @@ func (program *Program) evaluateHTMLNode(node *ast.HTMLNode, scope *Scope) *data
 	resultDataNode := new(data.HTMLNode)
 	resultDataNode.Name = node.Name.String()
 
+	//
+	currentComponentName := ""
+	{
+		currentComponentScope := program.CurrentComponentScope()
+		if currentComponentScope != nil {
+			currentComponentName = currentComponentScope.Name.String()
+		}
+	}
+
 	// Evaluate parameters
 	if parameterSet := node.Parameters; parameterSet != nil {
 		for _, parameter := range parameterSet {
 			name := parameter.Name.String()
 			value := program.evaluateExpression(&parameter.Expression, scope).String()
-			//if name == "class" {
-			// Namespace
-			//panic(fmt.Sprintf("Value: %s", value))
-			//}
+			if len(currentComponentName) > 0 && name == "class" {
+				// Namespace
+				classList := strings.Fields(value)
+				newValue := ""
+				for i, className := range classList {
+					if i > 0 {
+						newValue += " "
+					}
+					newValue += PrefixNamespace(currentComponentName, className)
+				}
+				value = newValue
+			}
 
 			attributeNode := data.HTMLAttribute{
 				Name:  name,
@@ -174,7 +202,7 @@ func (program *Program) evaluateHTMLNode(node *ast.HTMLNode, scope *Scope) *data
 		}
 	}
 
-	childNodes := program.evaluateHTMLNodeChildren(node.Nodes(), resultDataNode, scope)
+	childNodes := program.evaluateHTMLNodeChildren(node.Nodes(), scope)
 	resultDataNode.SetNodes(childNodes)
 	return resultDataNode
 }

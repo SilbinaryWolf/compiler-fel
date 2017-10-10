@@ -8,6 +8,7 @@ import (
 type Program struct {
 	Filepath                    string
 	globalScope                 *Scope
+	currentComponentScope       []*ast.HTMLComponentDefinition
 	htmlDefinitionUsed          map[string]*HTMLNodeSet
 	anonymousCSSDefinitionsUsed []*ast.CSSDefinition
 	//debugLevel                  int
@@ -23,6 +24,14 @@ func New() *Program {
 	program.globalScope = NewScope(nil)
 	program.htmlDefinitionUsed = make(map[string]*HTMLNodeSet)
 	return program
+}
+
+func (program *Program) CurrentComponentScope() *ast.HTMLComponentDefinition {
+	length := len(program.currentComponentScope)
+	if length == 0 {
+		return nil
+	}
+	return program.currentComponentScope[length-1]
 }
 
 func (program *Program) AddHTMLDefinitionUsed(name string, htmlDefinition *ast.HTMLComponentDefinition, node *data.HTMLComponentNode) {

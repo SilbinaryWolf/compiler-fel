@@ -148,15 +148,16 @@ func (node *HTMLNode) HasSelectorPartMatch(selectorPart *CSSSelectorPart) bool {
 		}
 		return false
 	case SelectorKindAttribute:
-		attributeName := selectorPart.Name
-		attributeValue := selectorPart.Value
+		selectorValue := selectorPart.Value
 		for _, attribute := range node.Attributes {
-			if attribute.Name != attributeName {
+			if attribute.Name != selectorPart.Name {
 				continue
 			}
 			switch selectorPart.Operator {
 			case "=":
-				return attributeValue == attribute.Value
+				return attribute.Value == selectorValue
+			case "^=":
+				return strings.HasPrefix(attribute.Value, selectorValue)
 			default:
 				panic(fmt.Sprintf("HasSelectorPartMatch: Unhandled attribute operator: %s", selectorPart.Operator))
 			}
@@ -170,16 +171,17 @@ func (node *HTMLNode) HasSelectorPartMatch(selectorPart *CSSSelectorPart) bool {
 	return false
 }
 
-func (topNode *HTMLComponentNode) HasMatchRecursive(selectorParts CSSSelector) []*HTMLNode {
+func (topNode *HTMLComponentNode) QuerySelectorAll(selectorParts CSSSelector) []*HTMLNode {
 	nodeResultStack := make([]*HTMLNode, 0, 5)
 	nodeIterationStack := make([]*HTMLNode, 0, 50)
 	childNodes := topNode.Nodes()
 	for i := len(childNodes) - 1; i >= 0; i-- {
-		itNode, ok := childNodes[i].(*HTMLNode)
-		if !ok {
-			continue
+		switch node := childNodes[i].(type) {
+		case *HTMLNode:
+			nodeIterationStack = append(nodeIterationStack, node)
+		default:
+			panic(fmt.Sprintf("Unhandled type: %T", node))
 		}
-		nodeIterationStack = append(nodeIterationStack, itNode)
 	}
 
 	lastSelectorPart := &selectorParts[len(selectorParts)-1]
@@ -209,6 +211,7 @@ NodeLoop:
 			//}
 
 			currentNode := node
+
 		SelectorPartMatchingLoop:
 			for p := len(selectorParts) - 1; p >= 0; p-- {
 				//
@@ -295,11 +298,17 @@ NodeLoop:
 		// Add children
 		childNodes := node.Nodes()
 		for i := len(childNodes) - 1; i >= 0; i-- {
-			node, ok := childNodes[i].(*HTMLNode)
-			if !ok {
-				continue
+			switch node := childNodes[i].(type) {
+			case *HTMLNode:
+				nodeIterationStack = append(nodeIterationStack, node)
+			case *HTMLComponentNode:
+				// skip
+				//nodeIterationStack = append(nodeIterationStack, node)
+			case *HTMLText:
+				// skip
+			default:
+				panic(fmt.Sprintf("HasMatchRecursive()::loop: Unhandled type: %T", node))
 			}
-			nodeIterationStack = append(nodeIterationStack, node)
 		}
 	}
 

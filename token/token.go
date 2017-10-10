@@ -55,15 +55,16 @@ const (
 	Modulo           // %
 	Ternary          // ?
 	Equal            // =
+	Power            // ^
+	PowerEqual       // ^=
 	And              // &
 	Or               // |
+	Not              // !
 	ConditionalEqual // ==
 	ConditionalAnd   // &&
 	ConditionalOr    // ||
-	Not              // !
 	GreaterThan      // >
 	LessThan         // <
-	Power            // ^
 	operator_end
 )
 
@@ -126,6 +127,8 @@ var kindToString = []string{
 	Multiply:         "*",
 	Modulo:           "%",
 	Equal:            "=",
+	Power:            "^",
+	PowerEqual:       "^=",
 	And:              "&",
 	Or:               "|",
 	ConditionalEqual: "==",
@@ -133,7 +136,6 @@ var kindToString = []string{
 	ConditionalOr:    "||",
 	GreaterThan:      ">",
 	LessThan:         "<",
-	Power:            "^",
 }
 
 type Token struct {

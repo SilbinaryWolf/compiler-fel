@@ -251,10 +251,10 @@ Loop:
 				continue
 			}
 			switch operator := p.GetNextToken(); operator.Kind {
-			case token.Equal:
+			case token.Equal, token.PowerEqual:
 				node.Operator = operator
 			default:
-				panic(fmt.Sprintf("parseCSSStatements(): Expected = on Line %s", operator.Line))
+				panic(fmt.Sprintf("parseCSSStatements(): Expected =, ^= on Line %d for attribute CSS selector", operator.Line))
 			}
 			value := p.GetNextToken()
 			switch value.Kind {

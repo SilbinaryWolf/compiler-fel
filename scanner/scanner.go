@@ -375,6 +375,12 @@ func (scanner *Scanner) _getNextToken() token.Token {
 		t.Kind = token.Not
 	case '^':
 		t.Kind = token.Power
+		switch lastIndex := scanner.index; scanner.nextRune() {
+		case '=':
+			t.Kind = token.PowerEqual
+		default:
+			scanner.index = lastIndex
+		}
 	case '>':
 		t.Kind = token.GreaterThan
 	case '<':
