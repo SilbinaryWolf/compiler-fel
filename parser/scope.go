@@ -20,7 +20,7 @@ func NewScope(parent *Scope) *Scope {
 
 	result.identifiers = make(map[string]data.Kind)
 	result.cssDefinitions = make(map[string]*ast.CSSDefinition)
-	result.cssConfigDefinitions = make(map[string]*ast.HTMLComponentDefinition)
+	result.cssConfigDefinitions = make(map[string]*ast.CSSConfigDefinition)
 	result.htmlDefinitions = make(map[string]*ast.HTMLComponentDefinition)
 
 	result.parent = parent
