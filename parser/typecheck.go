@@ -181,7 +181,10 @@ func (p *Parser) TypecheckStatements(topNode ast.Node, scope *Scope) {
 		}
 
 		switch node := itNode.(type) {
-		case *ast.CSSDefinition, *ast.HTMLComponentDefinition, *ast.HTMLProperties:
+		case *ast.CSSDefinition,
+			*ast.CSSConfigDefinition,
+			*ast.HTMLComponentDefinition,
+			*ast.HTMLProperties:
 			// Skip nodes and child nodes
 			continue
 		case *ast.HTMLNode:
@@ -291,6 +294,8 @@ func (p *Parser) TypecheckAndFinalize(files []*ast.File) {
 					continue
 				}
 				scope.cssDefinitions[name] = node
+			case *ast.CSSConfigDefinition:
+				// todo(Jake):
 			default:
 				panic(fmt.Sprintf("TypecheckAndFinalize: Unknown type %T", node))
 			}

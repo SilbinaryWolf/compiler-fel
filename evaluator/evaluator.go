@@ -171,6 +171,8 @@ func (program *Program) RunProject(projectDirpath string) error {
 		}
 		astFiles = append(astFiles, astFile)
 	}
+
+	// Typecheck when we've parsed all files
 	p.TypecheckAndFinalize(astFiles)
 	parsingElapsed := time.Since(parsingStart)
 	if p.HasErrors() {

@@ -15,14 +15,6 @@ const (
 	TypeHTMLDefinitionNode
 )
 
-type CSSRuleKind int
-
-const (
-	CSSKindUnknown CSSRuleKind = 0 + iota
-	CSSKindRule
-	CSSKindAtKeyword
-)
-
 type Node interface {
 	Nodes() []Node
 }
@@ -55,34 +47,6 @@ type Expression struct {
 	Base
 }
 
-type HTMLBlock struct {
-	HTMLKeyword token.Token // NOTE(Jake): Used to determine line number/etc
-	Base
-}
-
-type HTMLProperties struct {
-	Statements []*DeclareStatement
-}
-
-func (node *HTMLProperties) Nodes() []Node {
-	return nil
-}
-
-type HTMLComponentDefinition struct {
-	Name          token.Token
-	Dependencies  map[string]*HTMLNode
-	Properties    *HTMLProperties
-	CSSDefinition *CSSDefinition // optional
-	Base
-}
-
-type HTMLNode struct {
-	Name           token.Token
-	Parameters     []Parameter
-	HTMLDefinition *HTMLComponentDefinition // optional
-	Base
-}
-
 type DeclareStatement struct {
 	Name token.Token
 	Expression
@@ -94,34 +58,4 @@ type Token struct {
 
 func (node *Token) Nodes() []Node {
 	return nil
-}
-
-type CSSDefinition struct {
-	Name token.Token
-	Base
-}
-
-type CSSRule struct {
-	Kind      CSSRuleKind
-	Selectors []CSSSelector
-	Base
-}
-
-type CSSSelector struct {
-	Base
-}
-
-type CSSAttributeSelector struct {
-	Name     token.Token
-	Operator token.Token
-	Value    token.Token
-}
-
-func (node *CSSAttributeSelector) Nodes() []Node {
-	return nil
-}
-
-type CSSProperty struct {
-	Name token.Token
-	Base
 }

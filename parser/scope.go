@@ -8,8 +8,9 @@ import (
 type Scope struct {
 	identifiers map[string]data.Kind
 
-	cssDefinitions  map[string]*ast.CSSDefinition
-	htmlDefinitions map[string]*ast.HTMLComponentDefinition
+	cssDefinitions       map[string]*ast.CSSDefinition
+	cssConfigDefinitions map[string]*ast.CSSConfigDefinition
+	htmlDefinitions      map[string]*ast.HTMLComponentDefinition
 
 	parent *Scope
 }
@@ -19,6 +20,7 @@ func NewScope(parent *Scope) *Scope {
 
 	result.identifiers = make(map[string]data.Kind)
 	result.cssDefinitions = make(map[string]*ast.CSSDefinition)
+	result.cssConfigDefinitions = make(map[string]*ast.HTMLComponentDefinition)
 	result.htmlDefinitions = make(map[string]*ast.HTMLComponentDefinition)
 
 	result.parent = parent

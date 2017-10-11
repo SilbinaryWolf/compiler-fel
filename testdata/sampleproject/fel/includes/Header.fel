@@ -1,3 +1,10 @@
+Header :: css_config {
+	.js-*,
+	.is-* {
+		namespace: false
+	}	
+}
+
 Header :: css {
 	.header {
 		width: 100%

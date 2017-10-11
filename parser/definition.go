@@ -17,6 +17,13 @@ func (p *Parser) parseDefinition(name token.Token) ast.Node {
 		}
 		node := p.parseCSS(name)
 		return node
+	case "css_config":
+		if t := p.GetNextToken(); t.Kind != token.BraceOpen {
+			p.addError(p.expect(t, token.BraceOpen))
+			return nil
+		}
+		node := p.parseCSSConfigRuleDefinition(name)
+		return node
 	case "struct":
 		if t := p.GetNextToken(); t.Kind != token.BraceOpen {
 			p.addError(p.expect(t, token.BraceOpen))

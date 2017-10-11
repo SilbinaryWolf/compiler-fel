@@ -10,7 +10,7 @@ import (
 	"github.com/silbinarywolf/compiler-fel/token"
 )
 
-func GetNewTokenList() []ast.Node {
+func getNewTokenList() []ast.Node {
 	return make([]ast.Node, 0, 30)
 }
 
@@ -137,8 +137,8 @@ Loop:
 			resultNodes = append(resultNodes, node)
 
 			// Clear
-			tokenList = GetNewTokenList()
-		case token.AtKeyword, token.Identifier, token.Number:
+			tokenList = getNewTokenList()
+		case token.AtKeyword, token.Identifier, token.Number, token.Multiply:
 			// NOTE: We do -NOT- want to eat whitespace surrounding `token.Identifier`
 			//       as that is used to detect / determine descendent selectors. (ie. ".top-class .descendent")
 			tokenList = append(tokenList, &ast.Token{Token: t})
@@ -157,7 +157,7 @@ Loop:
 			resultNodes = append(resultNodes, cssPropertyNode)
 
 			// Clear
-			tokenList = GetNewTokenList()
+			tokenList = getNewTokenList()
 		case token.Whitespace:
 			if len(tokenList) == 0 {
 				continue Loop
@@ -241,7 +241,7 @@ Loop:
 			resultNodes = append(resultNodes, rule)
 
 			// Clear
-			tokenList = GetNewTokenList()
+			tokenList = getNewTokenList()
 		case token.BracketOpen:
 			node := new(ast.CSSAttributeSelector)
 			node.Name = p.GetNextToken()
