@@ -82,7 +82,7 @@ func (p *Parser) expect(thisToken token.Token, expectedList ...interface{}) erro
 		}*/
 	}
 
-	line := p.GetLine()
+	line := p.Line()
 	if thisToken.Kind == token.Newline {
 		// Reading the newline token will offset to the next line causing a mistake in the
 		// error message

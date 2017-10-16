@@ -23,7 +23,7 @@ Loop:
 		t := p.PeekNextToken()
 		switch t.Kind {
 		case token.Identifier:
-			storeScannerState := p.ScannerState
+			storeScannerState := p.ScannerState()
 			name := p.GetNextToken()
 			switch t := p.GetNextToken(); t.Kind {
 			// myVar := {Expression} \n
@@ -71,7 +71,7 @@ Loop:
 			// PrintThisVariable \n
 			// ^
 			case token.Newline:
-				p.ScannerState = storeScannerState
+				p.SetScannerState(storeScannerState)
 				node := p.parseExpression()
 				resultNodes = append(resultNodes, node)
 			// Normalize :: css {
@@ -84,7 +84,7 @@ Loop:
 				resultNodes = append(resultNodes, node)
 			default:
 				if t.IsOperator() {
-					p.ScannerState = storeScannerState
+					p.SetScannerState(storeScannerState)
 					node := p.parseExpression()
 					resultNodes = append(resultNodes, node)
 					continue

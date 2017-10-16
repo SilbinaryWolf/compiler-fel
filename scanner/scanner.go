@@ -15,18 +15,20 @@ const (
 	ModeCSS
 )
 
-type ScannerState struct {
-	index         int
-	lastLineIndex int // Helps calculate column on token
-	lineNumber    int
+type scannerState struct {
+	index                    int
+	indexAtLastLineIncrement int // Helps calculate column on token
+	lineNumber               int
 }
 
 type Scanner struct {
-	ScannerState
+	scannerState
 	scanmode     Mode
 	filecontents []byte
 	Filepath     string
 	Error        error
+
+	//peekToken token.Token
 }
 
 const BYTE_ORDER_MARK = 0xFEFF // byte order mark, only permitted as very first character
@@ -41,34 +43,57 @@ func New(filecontents []byte, filepath string) *Scanner {
 }
 
 func (scanner *Scanner) PeekNextToken() token.Token {
-	state := scanner.ScannerState
+	// NOTE: Try to speedup PeekNextToken()
+	//if scanner.peekToken.Kind != token.Unknown {
+	//	return scanner.peekToken
+	//}
+
+	state := scanner.ScannerState()
 	result := scanner._getNextToken()
-	scanner.ScannerState = state
+	//scanner.peekToken = result
+	scanner.SetScannerState(state)
 	return result
 }
 
+func (scanner *scannerState) Column() int {
+	return scanner.index - scanner.indexAtLastLineIncrement
+}
+
+func (scanner *scannerState) Line() int {
+	return scanner.lineNumber
+}
+
+func (scanner *Scanner) ScannerState() scannerState {
+	return scanner.scannerState
+}
+
+func (scanner *Scanner) SetScannerState(state scannerState) {
+	scanner.scannerState = state
+	//scanner.peekToken.Kind = token.Unknown
+}
+
 func (scanner *Scanner) GetNextToken() token.Token {
+	// NOTE: Try to speedup PeekNextToken()
+	//if scanner.peekToken.Kind != token.Unknown {
+	//	result := scanner.peekToken
+	//	scanner.peekToken.Kind = token.Unknown
+	//	return result
+	//}
+
 	//fmt.Printf("Getting next token...")
-	token := scanner._getNextToken()
+	result := scanner._getNextToken()
 	//token.Debug()
-	return token
+	return result
 }
 
 func (scanner *Scanner) SetScanMode(scanmode Mode) {
 	scanner.scanmode = scanmode
-}
-
-func (scanner *Scanner) GetPosition() int {
-	return scanner.index
-}
-
-func (scanner *Scanner) GetLine() int {
-	return scanner.lineNumber
+	//scanner.peekToken.Kind = token.Unknown
 }
 
 func (scanner *Scanner) incrementLineNumber() {
 	scanner.lineNumber += 1
-	scanner.lastLineIndex = scanner.index
+	scanner.indexAtLastLineIncrement = scanner.index
 }
 
 func scannerDeveloperError(message string, arguments ...interface{}) {
@@ -493,8 +518,8 @@ func (scanner *Scanner) _getNextToken() token.Token {
 	if t.End == 0 {
 		t.End = scanner.index
 	}
-	t.Line = scanner.lineNumber
-	t.Column = scanner.index - scanner.lastLineIndex
+	t.Line = scanner.Line()
+	t.Column = scanner.Column()
 	if len(t.Data) == 0 && t.HasUniqueData() {
 		t.Data = string(scanner.filecontents[t.Start:t.End])
 	}
