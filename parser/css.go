@@ -118,22 +118,21 @@ Loop:
 		t := p.GetNextToken()
 		switch t.Kind {
 		case token.DeclareSet:
+			tokenList = removeTrailingWhitespaceTokens(tokenList)
 			if len(tokenList) != 1 {
 				panic(fmt.Sprintf("parseCSSStatements(): Invalid use of := on Line %d", t.Line))
 			}
-			tok, ok := tokenList[0].(*ast.Token)
+			t, ok := tokenList[0].(*ast.Token)
 			if !ok {
-				panic(fmt.Sprintf("parseCSSStatements(): Invalid use of := on Line %d", t.Line))
+				panic(fmt.Sprintf("parseCSSStatements(): Invalid use of := on Line %d, expected *ast.Token", t.Line))
 			}
-			var name token.Token = tok.Token
-			//switch tok := tokenList[0].(type) {
-			//case *ast.Token:
-			//	name = tok.Token
-			//default:
-			//	panic(fmt.Sprintf("parseCSSStatements(): Invalid use of := on Line %d", t.Line))
-			//}
+			name := t.Token
 
+			// NOTE(Jake): Switch to regular scanning mode to skip over whitespace
+			p.SetScanMode(scanner.ModeDefault)
 			node := p.NewDeclareStatement(name, token.Token{}, p.parseExpressionNodes())
+			p.SetScanMode(scanner.ModeCSS)
+
 			resultNodes = append(resultNodes, node)
 
 			// Clear

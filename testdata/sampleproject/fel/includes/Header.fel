@@ -1,7 +1,7 @@
 Header :: css_config {
 	.js-*,
 	.is-* {
-		namespace: false
+		modify_name: false
 	}	
 }
 

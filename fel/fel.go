@@ -6,10 +6,6 @@ import (
 	"github.com/silbinarywolf/compiler-fel/evaluator"
 )
 
-func addNode() {
-	fmt.Printf("test\n")
-}
-
 func main() {
 	/*	{
 		// Takes approx ~600ms on Windows machine
