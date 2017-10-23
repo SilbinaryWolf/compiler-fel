@@ -20,7 +20,11 @@ func (program *Program) optimizeAndReturnUsedCSS() []*data.CSSDefinition {
 			continue
 		}
 
+		// Process CSSDefinition
+		program.currentComponentScope = append(program.currentComponentScope, htmlNodeSet.HTMLDefinition)
 		dataCSSDefinition := program.evaluateCSSDefinition(cssDefinition, program.globalScope)
+		program.currentComponentScope = program.currentComponentScope[:len(program.currentComponentScope)-1]
+
 		outputCSSDefinitionSet = append(outputCSSDefinitionSet, dataCSSDefinition)
 
 		for ruleIndex := 0; ruleIndex < len(dataCSSDefinition.ChildNodes); ruleIndex++ {

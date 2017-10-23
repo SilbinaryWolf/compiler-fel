@@ -14,6 +14,7 @@ func (p *Parser) parseCSSConfigRuleDefinition(name token.Token) *ast.CSSConfigDe
 
 	// Check / read data from ast
 	cssConfigDefinition := new(ast.CSSConfigDefinition)
+	cssConfigDefinition.Name = name
 	//cssConfigDefinition.Rules = make([]ast.CSSConfigMatchPart, 0, len(nodes))
 	for _, itNode := range nodes {
 		switch node := itNode.(type) {

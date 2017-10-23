@@ -95,8 +95,13 @@ Loop:
 		// ^
 		// (anonymous definiton)
 		case token.DoubleColon:
-			p.GetNextToken()
-			node := p.parseDefinition(token.Token{})
+			// NOTE(Jake): Passing :: token for unnamed definition
+			//			   so the line/column can be reasoned about for errors.
+			blankName := p.GetNextToken()
+			blankName.Kind = token.Unknown
+			blankName.Data = ""
+
+			node := p.parseDefinition(blankName)
 			if node == nil {
 				break Loop
 			}
