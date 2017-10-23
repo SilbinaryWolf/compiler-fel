@@ -55,6 +55,14 @@ func (scope *Scope) GetCSSDefinition(name string) (*ast.CSSDefinition, bool) {
 	return value, ok
 }
 
+func (scope *Scope) GetCSSConfigDefinition(name string) (*ast.CSSConfigDefinition, bool) {
+	value, ok := scope.cssConfigDefinitions[name]
+	if !ok && scope.parent != nil {
+		value, ok = scope.parent.GetCSSConfigDefinition(name)
+	}
+	return value, ok
+}
+
 func (scope *Scope) GetFromThisScope(name string) (data.Kind, bool) {
 	value, ok := scope.identifiers[name]
 	return value, ok

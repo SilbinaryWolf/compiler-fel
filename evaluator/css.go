@@ -99,6 +99,11 @@ func (program *Program) optimizeAndReturnUsedCSS() []*data.CSSDefinition {
 }
 
 func (program *Program) evaluateSelector(cssDefinition *data.CSSDefinition, nodes []ast.Node) data.CSSSelector {
+	var cssConfigDefinition *ast.CSSConfigDefinition
+	if htmlComponentDefinition := program.CurrentComponentScope(); htmlComponentDefinition != nil {
+		cssConfigDefinition = htmlComponentDefinition.CSSConfigDefinition
+	}
+
 	selectorList := make(data.CSSSelector, 0, len(nodes))
 	for _, itSelectorPartNode := range nodes {
 		//var value string
@@ -112,8 +117,10 @@ func (program *Program) evaluateSelector(cssDefinition *data.CSSDefinition, node
 				switch name[0] {
 				case '.':
 					selectorKind = data.SelectorKindClass
+
 					// Prefix component namespace
-					if len(cssDefinition.Name) > 0 {
+					config := cssConfigDefinition.GetSettings(name)
+					if config.ModifyName && len(cssDefinition.Name) > 0 {
 						name = "." + PrefixNamespace(cssDefinition.Name, name[1:])
 					}
 				case '#':

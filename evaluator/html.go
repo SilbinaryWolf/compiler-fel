@@ -169,11 +169,10 @@ func (program *Program) evaluateHTMLNode(node *ast.HTMLNode, scope *Scope) *data
 
 	//
 	currentComponentName := ""
-	{
-		currentComponentScope := program.CurrentComponentScope()
-		if currentComponentScope != nil {
-			currentComponentName = currentComponentScope.Name.String()
-		}
+	var cssConfigDefinition *ast.CSSConfigDefinition
+	if currentComponentScope := program.CurrentComponentScope(); currentComponentScope != nil {
+		cssConfigDefinition = currentComponentScope.CSSConfigDefinition
+		currentComponentName = currentComponentScope.Name.String()
 	}
 
 	// Evaluate parameters
@@ -189,7 +188,12 @@ func (program *Program) evaluateHTMLNode(node *ast.HTMLNode, scope *Scope) *data
 					if i > 0 {
 						newValue += " "
 					}
-					newValue += PrefixNamespace(currentComponentName, className)
+					config := cssConfigDefinition.GetSettings("." + className)
+					if config.ModifyName {
+						newValue += PrefixNamespace(currentComponentName, className)
+						continue
+					}
+					newValue += className
 				}
 				value = newValue
 			}

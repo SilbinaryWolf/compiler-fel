@@ -18,10 +18,11 @@ func (node *HTMLProperties) Nodes() []Node {
 }
 
 type HTMLComponentDefinition struct {
-	Name          token.Token
-	Dependencies  map[string]*HTMLNode
-	Properties    *HTMLProperties
-	CSSDefinition *CSSDefinition // optional
+	Name                token.Token
+	Dependencies        map[string]*HTMLNode
+	Properties          *HTMLProperties
+	CSSDefinition       *CSSDefinition       // optional
+	CSSConfigDefinition *CSSConfigDefinition // optional
 	Base
 }
 

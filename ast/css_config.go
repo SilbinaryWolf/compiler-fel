@@ -36,9 +36,12 @@ func NewCSSConfigRule() *CSSConfigRule {
 	return result
 }
 
-func (cssConfigDefinition *CSSConfigDefinition) GetRule(name string) CSSConfigSettings {
+func (cssConfigDefinition *CSSConfigDefinition) GetSettings(name string) CSSConfigSettings {
 	result := CSSConfigSettings{}
 	initDefaultCSSConfigSettings(&result)
+	if cssConfigDefinition == nil {
+		return result
+	}
 
 	for _, rule := range cssConfigDefinition.Rules {
 		for _, pattern := range rule.SelectorsAsPattern {

@@ -2,7 +2,11 @@ Header :: css_config {
 	.js-*,
 	.is-* {
 		modify_name: false
-	}	
+	}
+
+	.heade* {
+		modify_name: false
+	}
 }
 
 Header :: css {

@@ -129,6 +129,12 @@ func (p *Parser) TypecheckHTMLDefinition(htmlDefinition *ast.HTMLComponentDefini
 		htmlDefinition.CSSDefinition = cssDefinition
 	}
 
+	// Attach CSSConfigDefinition if found
+	cssConfigDefinition, ok := parentScope.GetCSSConfigDefinition(name)
+	if ok {
+		htmlDefinition.CSSConfigDefinition = cssConfigDefinition
+	}
+
 	//
 	var globalScopeNoVariables Scope = *parentScope
 	globalScopeNoVariables.identifiers = nil
