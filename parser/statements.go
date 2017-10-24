@@ -89,7 +89,9 @@ Loop:
 					resultNodes = append(resultNodes, node)
 					continue
 				}
-				panic(fmt.Sprintf("parseStatements(): Handle other ident case kind: %s", t.Kind.String()))
+				p.addErrorToken(fmt.Errorf("Unexpected %s after identifier.", t.Kind.String()), t)
+				return nil
+				//panic(fmt.Sprintf("parseStatements(): Unhandled token kind after identifier: %s", t.Kind.String()))
 			}
 		// :: css {
 		// ^

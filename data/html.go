@@ -179,8 +179,10 @@ func (topNode *HTMLComponentNode) QuerySelectorAll(selectorParts CSSSelector) []
 		switch node := childNodes[i].(type) {
 		case *HTMLNode:
 			nodeIterationStack = append(nodeIterationStack, node)
+		case *HTMLText, *HTMLComponentNode:
+			// skip
 		default:
-			panic(fmt.Sprintf("Unhandled type: %T", node))
+			panic(fmt.Sprintf("QuerySelectorAll: Unhandled type: %T", node))
 		}
 	}
 
@@ -301,10 +303,7 @@ NodeLoop:
 			switch node := childNodes[i].(type) {
 			case *HTMLNode:
 				nodeIterationStack = append(nodeIterationStack, node)
-			case *HTMLComponentNode:
-				// skip
-				//nodeIterationStack = append(nodeIterationStack, node)
-			case *HTMLText:
+			case *HTMLText, *HTMLComponentNode:
 				// skip
 			default:
 				panic(fmt.Sprintf("HasMatchRecursive()::loop: Unhandled type: %T", node))

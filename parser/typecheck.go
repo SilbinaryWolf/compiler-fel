@@ -336,6 +336,19 @@ func (p *Parser) TypecheckAndFinalize(files []*ast.File) {
 		p.TypecheckHTMLDefinition(htmlDefinition, globalScope)
 	}
 
+	// Check if CSS config matches a HTML or CSS component. If not, throw error.
+	for name, cssConfigDefinition := range globalScope.cssConfigDefinitions {
+		_, ok := globalScope.GetCSSDefinition(name)
+		if ok {
+			continue
+		}
+		_, ok = globalScope.GetHTMLDefinition(name)
+		if ok {
+			continue
+		}
+		p.addErrorToken(fmt.Errorf("\"%s :: css_config\" has no matching \":: css\" or \":: html\" block.", name), cssConfigDefinition.Name)
+	}
+
 	// Get nested dependencies
 	for _, htmlDefinition := range globalScope.htmlDefinitions {
 		nodeStack := make([]*ast.HTMLNode, 0, 50)

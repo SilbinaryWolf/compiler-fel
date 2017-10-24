@@ -80,13 +80,13 @@ func (p *Parser) parseDefinition(name token.Token) ast.Node {
 				switch node := itNode.(type) {
 				case *ast.HTMLProperties:
 					if properties != nil {
-						p.addError(fmt.Errorf("Cannot declare ':: properties' twice in the same HTML component."))
+						p.addError(fmt.Errorf("Cannot declare \":: struct\" twice in the same HTML component."))
 						break RetrievePropertyDefinitionLoop
 					}
 					properties = node
 				case *ast.CSSDefinition:
 					if cssDef != nil {
-						p.addError(fmt.Errorf("Cannot declare ':: css' twice in the same HTML component."))
+						p.addError(fmt.Errorf("Cannot declare \":: css\" twice in the same HTML component."))
 						break RetrievePropertyDefinitionLoop
 					}
 					cssDef = node

@@ -42,17 +42,22 @@ func (program *Program) optimizeAndReturnUsedCSS() []*data.CSSDefinition {
 
 		SelectorLoop:
 			for selectorIndex := 0; selectorIndex < len(cssRule.Selectors); selectorIndex++ {
-				cssSelector := cssRule.Selectors[selectorIndex]
-				cssSelectorAsString := cssSelector.String()
-				config := cssConfigDefinition.GetSettings(cssSelectorAsString)
+				selector := cssRule.Selectors[selectorIndex]
 
-				// Don't optimize away if specifically flagged to not modify.
-				if !config.Modify {
-					continue
+				// If part of a selector has "modify: false" rule, do not optimize
+				// this selector away.
+				// ie. Keeping "js-my-hook", "is-active", "active"
+				for _, part := range selector {
+					partString := part.String()
+					config := cssConfigDefinition.GetSettings(partString)
+					// Don't optimize away if specifically flagged to not modify.
+					if !config.Modify {
+						continue SelectorLoop
+					}
 				}
 
 				for _, htmlNode := range htmlNodeSet.items {
-					nodesMatched := htmlNode.QuerySelectorAll(cssSelector)
+					nodesMatched := htmlNode.QuerySelectorAll(selector)
 					if len(nodesMatched) == 0 {
 						// Remove if no match
 						cssRule.Selectors = append(cssRule.Selectors[:selectorIndex], cssRule.Selectors[selectorIndex+1:]...)
