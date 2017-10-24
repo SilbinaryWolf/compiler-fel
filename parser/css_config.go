@@ -27,14 +27,14 @@ func (p *Parser) parseCSSConfigRuleDefinition(name token.Token) *ast.CSSConfigDe
 				case *ast.CSSProperty:
 					name := node.Name.String()
 					switch name {
-					case "modify_name":
+					case "modify":
 						value, ok := p.getBoolFromCSSConfigProperty(node)
 						if !ok {
 							return nil
 						}
-						configRule.ModifyName = value
+						configRule.Modify = value
 					default:
-						p.addErrorToken(fmt.Errorf("Invalid config key \"%s\". Expected \"modify_name\".", name), node.Name)
+						p.addErrorToken(fmt.Errorf("Invalid config key \"%s\". Expected \"modify\".", name), node.Name)
 						return nil
 					}
 				case *ast.DeclareStatement:

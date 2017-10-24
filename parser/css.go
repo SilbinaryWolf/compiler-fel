@@ -176,7 +176,8 @@ Loop:
 			}
 		case token.BraceOpen:
 			if len(tokenList) == 0 {
-				panic(fmt.Sprintf("parseCSSStatements(): Got {, expected identifiers preceding for CSS rule on Line %d", t.Line))
+				p.addErrorToken(fmt.Errorf("Unexpected {, expected identifiers preceding for CSS rule."), t)
+				return nil
 			}
 
 			// Remove trailing whitespace tokens

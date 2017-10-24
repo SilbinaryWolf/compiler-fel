@@ -282,6 +282,9 @@ func (p *Parser) TypecheckAndFinalize(files []*ast.File) {
 			case *ast.HTMLNode, *ast.DeclareStatement, *ast.Expression:
 				// no-op, these are checked in TypecheckFile()
 			case *ast.HTMLComponentDefinition:
+				if node == nil {
+					continue
+				}
 				if node.Name.Kind == token.Unknown {
 					p.addErrorToken(fmt.Errorf("Cannot declare unnamed \":: html\" block."), node.Name)
 					continue
@@ -294,6 +297,9 @@ func (p *Parser) TypecheckAndFinalize(files []*ast.File) {
 				}
 				scope.htmlDefinitions[name] = node
 			case *ast.CSSDefinition:
+				if node == nil {
+					continue
+				}
 				if node.Name.Kind == token.Unknown {
 					continue
 				}
@@ -305,6 +311,9 @@ func (p *Parser) TypecheckAndFinalize(files []*ast.File) {
 				}
 				scope.cssDefinitions[name] = node
 			case *ast.CSSConfigDefinition:
+				if node == nil {
+					continue
+				}
 				if node.Name.Kind == token.Unknown {
 					p.addErrorToken(fmt.Errorf("Cannot declare unnamed \":: css_config\" block."), node.Name)
 					continue

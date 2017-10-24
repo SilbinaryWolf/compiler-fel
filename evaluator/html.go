@@ -189,7 +189,7 @@ func (program *Program) evaluateHTMLNode(node *ast.HTMLNode, scope *Scope) *data
 						newValue += " "
 					}
 					config := cssConfigDefinition.GetSettings("." + className)
-					if config.ModifyName {
+					if config.Modify {
 						newValue += PrefixNamespace(currentComponentName, className)
 						continue
 					}

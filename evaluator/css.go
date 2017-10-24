@@ -20,6 +20,9 @@ func (program *Program) optimizeAndReturnUsedCSS() []*data.CSSDefinition {
 			continue
 		}
 
+		// Get config (if exists)
+		cssConfigDefinition := htmlNodeSet.HTMLDefinition.CSSConfigDefinition
+
 		// Process CSSDefinition
 		program.currentComponentScope = append(program.currentComponentScope, htmlNodeSet.HTMLDefinition)
 		dataCSSDefinition := program.evaluateCSSDefinition(cssDefinition, program.globalScope)
@@ -40,8 +43,15 @@ func (program *Program) optimizeAndReturnUsedCSS() []*data.CSSDefinition {
 		SelectorLoop:
 			for selectorIndex := 0; selectorIndex < len(cssRule.Selectors); selectorIndex++ {
 				cssSelector := cssRule.Selectors[selectorIndex]
+				cssSelectorAsString := cssSelector.String()
+				config := cssConfigDefinition.GetSettings(cssSelectorAsString)
+
+				// Don't optimize away if specifically flagged to not modify.
+				if !config.Modify {
+					continue
+				}
+
 				for _, htmlNode := range htmlNodeSet.items {
-					//fmt.Printf("HTML Node - %s\n", htmlNode.String())
 					nodesMatched := htmlNode.QuerySelectorAll(cssSelector)
 					if len(nodesMatched) == 0 {
 						// Remove if no match
@@ -124,7 +134,7 @@ func (program *Program) evaluateSelector(cssDefinition *data.CSSDefinition, node
 
 					// Prefix component namespace
 					config := cssConfigDefinition.GetSettings(name)
-					if config.ModifyName && len(cssDefinition.Name) > 0 {
+					if config.Modify && len(cssDefinition.Name) > 0 {
 						name = "." + PrefixNamespace(cssDefinition.Name, name[1:])
 					}
 				case '#':

@@ -114,7 +114,7 @@ Loop:
 		case token.BraceClose:
 			p.GetNextToken()
 			break Loop
-		case token.Newline:
+		case token.Newline, token.Semicolon:
 			// no-op
 			p.GetNextToken()
 		case token.EOF, token.Illegal:
