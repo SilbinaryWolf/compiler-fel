@@ -286,13 +286,15 @@ func (p *Parser) TypecheckAndFinalize(files []*ast.File) {
 					continue
 				}
 				if node.Name.Kind == token.Unknown {
-					p.addErrorToken(fmt.Errorf("Cannot declare unnamed \":: html\" block."), node.Name)
+					p.addErrorToken(fmt.Errorf("Cannot declare anonymous \":: html\" block."), node.Name)
 					continue
 				}
 				name := node.Name.String()
-				_, ok := scope.htmlDefinitions[name]
+				existingNode, ok := scope.htmlDefinitions[name]
 				if ok {
-					p.addErrorToken(fmt.Errorf("Cannot declare \"%s :: html\" more than once in global scope.", name), node.Name)
+					errorMessage := fmt.Errorf("Cannot declare \"%s :: html\" more than once in global scope.", name)
+					p.addErrorToken(errorMessage, existingNode.Name)
+					p.addErrorToken(errorMessage, node.Name)
 					continue
 				}
 				scope.htmlDefinitions[name] = node
@@ -304,9 +306,11 @@ func (p *Parser) TypecheckAndFinalize(files []*ast.File) {
 					continue
 				}
 				name := node.Name.String()
-				_, ok := scope.cssDefinitions[name]
+				existingNode, ok := scope.cssDefinitions[name]
 				if ok {
-					p.addErrorToken(fmt.Errorf("Cannot declare \"%s :: css\" more than once in global scope.", name), node.Name)
+					errorMessage := fmt.Errorf("Cannot declare \"%s :: css\" more than once in global scope.", name)
+					p.addErrorToken(errorMessage, existingNode.Name)
+					p.addErrorToken(errorMessage, node.Name)
 					continue
 				}
 				scope.cssDefinitions[name] = node
@@ -315,13 +319,15 @@ func (p *Parser) TypecheckAndFinalize(files []*ast.File) {
 					continue
 				}
 				if node.Name.Kind == token.Unknown {
-					p.addErrorToken(fmt.Errorf("Cannot declare unnamed \":: css_config\" block."), node.Name)
+					p.addErrorToken(fmt.Errorf("Cannot declare anonymous \":: css_config\" block."), node.Name)
 					continue
 				}
 				name := node.Name.String()
-				_, ok := scope.cssConfigDefinitions[name]
+				existingNode, ok := scope.cssConfigDefinitions[name]
 				if ok {
-					p.addErrorToken(fmt.Errorf("Cannot declare \"%s :: css_config\" more than once in global scope.", name), node.Name)
+					errorMessage := fmt.Errorf("Cannot declare \"%s :: css_config\" more than once in global scope.", name)
+					p.addErrorToken(errorMessage, existingNode.Name)
+					p.addErrorToken(errorMessage, node.Name)
 					continue
 				}
 				scope.cssConfigDefinitions[name] = node

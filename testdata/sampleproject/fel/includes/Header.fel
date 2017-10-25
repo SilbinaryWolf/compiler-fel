@@ -4,12 +4,6 @@ Header :: css_config {
 	}
 }
 
-Header :: css_config {
-	.is-* {
-		modify: false
-	}
-}
-
 Header :: css {
 	.header {
 		width: 100%
