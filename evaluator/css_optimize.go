@@ -5,11 +5,7 @@ import (
 	"github.com/silbinarywolf/compiler-fel/data"
 )
 
-func optimizeRules(definition *data.CSSDefinition, htmlNodeSet *HTMLNodeSet, cssConfigDefinition *ast.CSSConfigDefinition) {
-	if htmlNodeSet == nil {
-		panic("Cannot use htmlNodeSet if nil here")
-	}
-
+func optimizeRules(definition *data.CSSDefinition, htmlNodeSet HTMLComponentNodeInfo, cssConfigDefinition *ast.CSSConfigDefinition) {
 	for ruleIndex := 0; ruleIndex < len(definition.ChildNodes); ruleIndex++ {
 		cssRule := definition.ChildNodes[ruleIndex]
 
@@ -59,7 +55,7 @@ func optimizeRules(definition *data.CSSDefinition, htmlNodeSet *HTMLNodeSet, css
 	}
 }
 
-func (program *Program) optimizeAndReturnUsedCSS() []*data.CSSDefinition {
+func (program *Program) evaluateOptimizeAndReturnUsedCSS() []*data.CSSDefinition {
 	outputCSSDefinitionSet := make([]*data.CSSDefinition, 0, 3)
 
 	// Output named "MyComponent :: css" blocks
@@ -76,22 +72,30 @@ func (program *Program) optimizeAndReturnUsedCSS() []*data.CSSDefinition {
 
 		// Process CSSDefinition
 		program.currentComponentScope = append(program.currentComponentScope, htmlNodeSet.HTMLDefinition)
-		definition := program.evaluateCSSDefinition(cssDefinition, program.globalScope)
+		dataCSSDefinition := program.evaluateCSSDefinition(cssDefinition, program.globalScope)
 		program.currentComponentScope = program.currentComponentScope[:len(program.currentComponentScope)-1]
 
 		// Optimize
-		optimizeRules(definition, htmlNodeSet, htmlDefinition.CSSConfigDefinition)
+		optimizeRules(dataCSSDefinition, htmlNodeSet, htmlDefinition.CSSConfigDefinition)
 
 		// Add output
-		if len(definition.ChildNodes) > 0 {
-			outputCSSDefinitionSet = append(outputCSSDefinitionSet, definition)
+		if len(dataCSSDefinition.ChildNodes) > 0 {
+			outputCSSDefinitionSet = append(outputCSSDefinitionSet, dataCSSDefinition)
 		}
 	}
 
 	// Output anonymous ":: css" blocks
 	for _, cssDefinition := range program.anonymousCSSDefinitionsUsed {
-		definition := program.evaluateCSSDefinition(cssDefinition, program.globalScope)
-		outputCSSDefinitionSet = append(outputCSSDefinitionSet, definition)
+		dataCSSDefinition := program.evaluateCSSDefinition(cssDefinition, program.globalScope)
+
+		for _, htmlNodeSet := range program.htmlTemplatesUsed {
+			optimizeRules(dataCSSDefinition, htmlNodeSet, nil)
+		}
+
+		// Add output
+		if len(dataCSSDefinition.ChildNodes) > 0 {
+			outputCSSDefinitionSet = append(outputCSSDefinitionSet, dataCSSDefinition)
+		}
 
 		// todo(Jake): Get all templates, iterate over each
 		//			   and optimize away anonymous CSS

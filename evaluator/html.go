@@ -13,10 +13,15 @@ func PrefixNamespace(componentName string, className string) string {
 	return componentName + "_" + className
 }
 
-func (program *Program) evaluateTemplate(node *ast.File, scope *Scope) []data.Type {
+func (program *Program) evaluateTemplate(node *ast.File, scope *Scope) *data.HTMLComponentNode {
+	result := new(data.HTMLComponentNode)
+	result.Name = node.Filepath
+
+	//
 	program.Filepath = node.Filepath
-	result := program.evaluateHTMLNodeChildren(node.Nodes(), scope)
+	result.ChildNodes = program.evaluateHTMLNodeChildren(node.Nodes(), scope)
 	program.Filepath = ""
+
 	return result
 }
 

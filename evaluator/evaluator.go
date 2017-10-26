@@ -203,10 +203,14 @@ func (program *Program) RunProject(projectDirpath string) error {
 			continue
 		}
 		program.globalScope = NewScope(nil)
-		nodes := program.evaluateTemplate(astFile, program.globalScope)
+		componentNode := program.evaluateTemplate(astFile, program.globalScope)
+		nodes := componentNode.Nodes()
 		if len(nodes) == 0 {
 			return fmt.Errorf("File %s\n- No top-level HTMLNode or HTMLText found.\n\nStopping due to errors.", astFile.Filepath)
 		}
+		program.AddHTMLTemplateUsed(componentNode)
+
+		// Get filepath
 		baseFilename := astFile.Filepath[len(templateInputDirectory) : len(astFile.Filepath)-4]
 		outputFilepath := filepath.Clean(fmt.Sprintf("%s%s.html", templateOutputDirectory, baseFilename))
 		result := TemplateFile{
@@ -217,7 +221,7 @@ func (program *Program) RunProject(projectDirpath string) error {
 	}
 
 	// Output named "MyComponent :: css" blocks
-	outputCSSDefinitionSet := program.optimizeAndReturnUsedCSS()
+	outputCSSDefinitionSet := program.evaluateOptimizeAndReturnUsedCSS()
 
 	executionElapsed := time.Since(executionStart)
 
