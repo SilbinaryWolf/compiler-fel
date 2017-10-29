@@ -20,18 +20,17 @@ func main() {
 	}*/
 
 	/*{
-		// Does not support `let` keyword, ECMAScript 5.1+ only, not ECMAScript 2015.
-		vm := goja.New()
-		v, err := vm.RunScript("filename_here", `
-			var result = 1
-			result += 2
-		`)
-		if err != nil {
-			panic(err)
-		}
-		num := v.Export().(int64)
-		fmt.Printf("Result is: %d\n", num)
-		panic("DONE!")
+		ctx := duktape.New()
+		ctx.PevalString(`let result = 2 + 3; return result;`)
+		result := ctx.GetNumber(-1)
+		ctx.Pop()
+		fmt.Println("result is:", result)
+
+		// To prevent memory leaks, don't forget to clean up after
+		// yourself when you're done using a context.
+		//ctx.DestroyHeap()
+
+		//panic("Done!")
 	}*/
 
 	program := evaluator.New()
