@@ -88,23 +88,28 @@ func (topNode *HTMLNode) QuerySelectorAll(selectorParts CSSSelector) []*HTMLNode
 func (topNode *HTMLNode) querySelectorAllWithOptions(selectorParts CSSSelector, onlyScanCurrentHTMLComponentScope bool) []*HTMLNode {
 	nodeResultStack := make([]*HTMLNode, 0, 5)
 	nodeIterationStack := make([]*HTMLNode, 0, 50)
-	childNodes := topNode.Nodes()
-	for i := len(childNodes) - 1; i >= 0; i-- {
-		switch node := childNodes[i].(type) {
-		case *HTMLNode:
-			nodeIterationStack = append(nodeIterationStack, node)
-		case *HTMLComponentNode:
-			if onlyScanCurrentHTMLComponentScope {
-				continue
+
+	//
+	{
+		childNodes := topNode.Nodes()
+		for i := len(childNodes) - 1; i >= 0; i-- {
+			switch node := childNodes[i].(type) {
+			case *HTMLNode:
+				nodeIterationStack = append(nodeIterationStack, node)
+			case *HTMLComponentNode:
+				if onlyScanCurrentHTMLComponentScope {
+					continue
+				}
+				panic("todo(Jake): Add HTMLNode items from HTMLComponentNode")
+				// todo(Jake):
+				//nodeIterationStack = append(nodeIterationStack, node.Nodes())
+			case *HTMLText:
+				// skip
+			default:
+				panic(fmt.Sprintf("QuerySelectorAll: Unhandled type: %T", node))
 			}
-			panic("todo(Jake): Add HTMLNode items from HTMLComponentNode")
-			// todo(Jake):
-			//nodeIterationStack = append(nodeIterationStack, node.Nodes())
-		case *HTMLText:
-			// skip
-		default:
-			panic(fmt.Sprintf("QuerySelectorAll: Unhandled type: %T", node))
 		}
+		nodeIterationStack = append(nodeIterationStack, topNode)
 	}
 
 	lastSelectorPart := &selectorParts[len(selectorParts)-1]

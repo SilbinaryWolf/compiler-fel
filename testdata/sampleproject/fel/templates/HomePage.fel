@@ -1,2 +1,15 @@
+:: css {
+	.exists {
+		color: green
+	}
+
+	.dont-exist {
+		color: red
+	}
+}
+
 Layout(body_class="HomePage") {
+	div(class="exists") {
+		"Test"
+	}
 }

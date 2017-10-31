@@ -28,6 +28,10 @@ func PrettyHTML(nodes []data.Type) string {
 	return gen.String()
 }
 
+func PrettyHTMLComponentNode(node *data.HTMLComponentNode) string {
+	return PrettyHTML([]data.Type{node})
+}
+
 func (gen *Generator) WriteHTMLComponentNode(node *data.HTMLComponentNode) {
 	componentName := node.Name
 	gen.WriteString(fmt.Sprintf("<!-- FEL Begin: %s -->", componentName))

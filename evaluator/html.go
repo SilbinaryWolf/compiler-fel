@@ -13,16 +13,23 @@ func PrefixNamespace(componentName string, className string) string {
 	return componentName + "_" + className
 }
 
-func (program *Program) evaluateTemplate(node *ast.File, scope *Scope) *data.HTMLComponentNode {
+func (program *Program) evaluateTemplate(node *ast.File) (*data.HTMLComponentNode, error) {
 	result := new(data.HTMLComponentNode)
 	result.Name = node.Filepath
 
 	//
 	program.Filepath = node.Filepath
-	result.ChildNodes = program.evaluateHTMLNodeChildren(node.Nodes(), scope)
+	result.ChildNodes = program.evaluateHTMLNodeChildren(node.Nodes(), NewScope(nil))
 	program.Filepath = ""
 
-	return result
+	if len(result.ChildNodes) == 0 {
+		return nil, fmt.Errorf("Unexpected error. evaluateTemplate returned 0 nodes which should not happen if the AST is typechecked.")
+	}
+
+	// Add template
+	program.AddHTMLTemplateUsed(result)
+
+	return result, nil
 }
 
 func (program *Program) evaluateHTMLExpression(node *ast.Expression, scope *Scope, resultNodes []data.Type) []data.Type {

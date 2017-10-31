@@ -1,11 +1,12 @@
 package evaluator
 
 import (
+	//"fmt"
 	"github.com/silbinarywolf/compiler-fel/ast"
 	"github.com/silbinarywolf/compiler-fel/data"
 )
 
-func optimizeRules(definition *data.CSSDefinition, htmlNodeSet HTMLComponentNodeInfo, cssConfigDefinition *ast.CSSConfigDefinition) {
+func optimizeRules(definition *data.CSSDefinition, htmlNodeInfo HTMLComponentNodeInfo, cssConfigDefinition *ast.CSSConfigDefinition) {
 	for ruleIndex := 0; ruleIndex < len(definition.ChildNodes); ruleIndex++ {
 		cssRule := definition.ChildNodes[ruleIndex]
 
@@ -32,18 +33,21 @@ func optimizeRules(definition *data.CSSDefinition, htmlNodeSet HTMLComponentNode
 				}
 			}
 
-			for _, htmlNode := range htmlNodeSet.Nodes {
+			// Check for matches
+			nodesMatchedCount := 0
+			for _, htmlNode := range htmlNodeInfo.Nodes {
 				nodesMatched := htmlNode.QuerySelectorAll(selector)
-				if len(nodesMatched) == 0 {
-					// Remove if no match
-					cssRule.Selectors = append(cssRule.Selectors[:selectorIndex], cssRule.Selectors[selectorIndex+1:]...)
-					selectorIndex--
-					continue
-				}
-				// If found a match, stop looking for matches with this
-				// selector
+				nodesMatchedCount += len(nodesMatched)
+			}
+			if nodesMatchedCount == 0 {
+				// Remove if no match
+				cssRule.Selectors = append(cssRule.Selectors[:selectorIndex], cssRule.Selectors[selectorIndex+1:]...)
+				selectorIndex--
 				continue SelectorLoop
 			}
+			// If found a match, stop looking for matches with this
+			// selector
+			continue SelectorLoop
 		}
 
 		// If no selectors (ie. removed all the ones that didnt match, remove this rule)
@@ -59,8 +63,8 @@ func (program *Program) evaluateOptimizeAndReturnUsedCSS() []*data.CSSDefinition
 	outputCSSDefinitionSet := make([]*data.CSSDefinition, 0, 3)
 
 	// Output named "MyComponent :: css" blocks
-	for _, htmlNodeSet := range program.htmlDefinitionUsed {
-		htmlDefinition := htmlNodeSet.HTMLDefinition
+	for _, htmlNodeInfo := range program.htmlDefinitionUsed {
+		htmlDefinition := htmlNodeInfo.HTMLDefinition
 		if htmlDefinition == nil {
 			panic("Unexpected error. HTMLNodeSet should always have a HTMLDefinition.")
 		}
@@ -71,12 +75,12 @@ func (program *Program) evaluateOptimizeAndReturnUsedCSS() []*data.CSSDefinition
 		}
 
 		// Process CSSDefinition
-		program.currentComponentScope = append(program.currentComponentScope, htmlNodeSet.HTMLDefinition)
+		program.currentComponentScope = append(program.currentComponentScope, htmlNodeInfo.HTMLDefinition)
 		dataCSSDefinition := program.evaluateCSSDefinition(cssDefinition, program.globalScope)
 		program.currentComponentScope = program.currentComponentScope[:len(program.currentComponentScope)-1]
 
 		// Optimize
-		optimizeRules(dataCSSDefinition, htmlNodeSet, htmlDefinition.CSSConfigDefinition)
+		optimizeRules(dataCSSDefinition, htmlNodeInfo, htmlDefinition.CSSConfigDefinition)
 
 		// Add output
 		if len(dataCSSDefinition.ChildNodes) > 0 {
@@ -85,12 +89,16 @@ func (program *Program) evaluateOptimizeAndReturnUsedCSS() []*data.CSSDefinition
 	}
 
 	// Output anonymous ":: css" blocks
+	htmlNodeInfo := HTMLComponentNodeInfo{}
+	for _, itHtmlNodeInfo := range program.htmlTemplatesUsed {
+		// NOTE: Packing each seperate template into this so `optimizeRules`
+		//		 code can be reused easily.
+		htmlNodeInfo.Nodes = append(htmlNodeInfo.Nodes, itHtmlNodeInfo.Nodes...)
+	}
 	for _, cssDefinition := range program.anonymousCSSDefinitionsUsed {
 		dataCSSDefinition := program.evaluateCSSDefinition(cssDefinition, program.globalScope)
 
-		for _, htmlNodeSet := range program.htmlTemplatesUsed {
-			optimizeRules(dataCSSDefinition, htmlNodeSet, nil)
-		}
+		optimizeRules(dataCSSDefinition, htmlNodeInfo, nil)
 
 		// Add output
 		if len(dataCSSDefinition.ChildNodes) > 0 {

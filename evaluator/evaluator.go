@@ -159,11 +159,10 @@ func (program *Program) RunProject(projectDirpath string) error {
 		readFileTime += time.Since(fileReadStart)
 		if err != nil {
 			return fmt.Errorf("An error occurred reading file: %v, Error message: %v", filepath, err)
-			//continue
 		}
 		astFile := p.Parse(filecontentsAsBytes, filepath)
 		if astFile == nil {
-			panic("Unexpected parse error (Parse() returned a nil ast.File node)")
+			return fmt.Errorf("Unexpected parse error (Parse() returned a nil ast.File node)")
 		}
 		if p.Scanner.HasErrors() {
 			p.PrintErrors()
@@ -202,13 +201,14 @@ func (program *Program) RunProject(projectDirpath string) error {
 		if !strings.HasPrefix(astFile.Filepath, templateInputDirectory) {
 			continue
 		}
-		program.globalScope = NewScope(nil)
-		componentNode := program.evaluateTemplate(astFile, program.globalScope)
+		componentNode, err := program.evaluateTemplate(astFile)
+		if err != nil {
+			return fmt.Errorf("File %s\n- %v", err)
+		}
 		nodes := componentNode.Nodes()
 		if len(nodes) == 0 {
 			return fmt.Errorf("File %s\n- No top-level HTMLNode or HTMLText found.\n\nStopping due to errors.", astFile.Filepath)
 		}
-		program.AddHTMLTemplateUsed(componentNode)
 
 		// Get filepath
 		baseFilename := astFile.Filepath[len(templateInputDirectory) : len(astFile.Filepath)-4]

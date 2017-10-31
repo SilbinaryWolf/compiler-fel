@@ -107,7 +107,7 @@ func (p *Parser) typecheckExpression(scope *Scope, expression *ast.Expression) {
 			if exprType != variableType {
 				p.addErrorToken(fmt.Errorf("\":: html\" must be a %s not %s.", exprType.String(), variableType.String()), node.HTMLKeyword)
 			}
-			p.TypecheckHTMLBlock(node, scope)
+			p.typecheckHTMLBlock(node, scope)
 		default:
 			panic(fmt.Sprintf("typecheckExpression: Unhandled type %T", node))
 		}
@@ -116,12 +116,12 @@ func (p *Parser) typecheckExpression(scope *Scope, expression *ast.Expression) {
 	expression.Type = exprType
 }
 
-func (p *Parser) TypecheckHTMLBlock(htmlBlock *ast.HTMLBlock, scope *Scope) {
+func (p *Parser) typecheckHTMLBlock(htmlBlock *ast.HTMLBlock, scope *Scope) {
 	scope = NewScope(scope)
-	p.TypecheckStatements(htmlBlock, scope)
+	p.typecheckStatements(htmlBlock, scope)
 }
 
-func (p *Parser) TypecheckHTMLDefinition(htmlDefinition *ast.HTMLComponentDefinition, parentScope *Scope) {
+func (p *Parser) typecheckHTMLDefinition(htmlDefinition *ast.HTMLComponentDefinition, parentScope *Scope) {
 	// Attach CSSDefinition if found
 	name := htmlDefinition.Name.String()
 	cssDefinition, ok := parentScope.GetCSSDefinition(name)
@@ -163,12 +163,12 @@ func (p *Parser) TypecheckHTMLDefinition(htmlDefinition *ast.HTMLComponentDefini
 		panic("typecheckHtmlNodeDependencies must be nil before being re-assigned")
 	}
 	p.typecheckHtmlNodeDependencies = make(map[string]*ast.HTMLNode)
-	p.TypecheckStatements(htmlDefinition, scope)
+	p.typecheckStatements(htmlDefinition, scope)
 	htmlDefinition.Dependencies = p.typecheckHtmlNodeDependencies
 	p.typecheckHtmlNodeDependencies = nil
 }
 
-func (p *Parser) TypecheckStatements(topNode ast.Node, scope *Scope) {
+func (p *Parser) typecheckStatements(topNode ast.Node, scope *Scope) {
 	nodeStack := make([]ast.Node, 0, 50)
 	nodes := topNode.Nodes()
 	for i := len(nodes) - 1; i >= 0; i-- {
@@ -193,6 +193,8 @@ func (p *Parser) TypecheckStatements(topNode ast.Node, scope *Scope) {
 			*ast.HTMLProperties:
 			// Skip nodes and child nodes
 			continue
+		case *ast.HTMLBlock:
+			p.typecheckHTMLBlock(node, scope)
 		case *ast.HTMLNode:
 			for i, _ := range node.Parameters {
 				p.typecheckExpression(scope, &node.Parameters[i].Expression)
@@ -268,7 +270,7 @@ func (p *Parser) TypecheckStatements(topNode ast.Node, scope *Scope) {
 
 func (p *Parser) TypecheckFile(file *ast.File, globalScope *Scope) {
 	scope := NewScope(globalScope)
-	p.TypecheckStatements(file, scope)
+	p.typecheckStatements(file, scope)
 }
 
 func (p *Parser) TypecheckAndFinalize(files []*ast.File) {
@@ -279,7 +281,7 @@ func (p *Parser) TypecheckAndFinalize(files []*ast.File) {
 		scope := globalScope
 		for _, itNode := range file.ChildNodes {
 			switch node := itNode.(type) {
-			case *ast.HTMLNode, *ast.DeclareStatement, *ast.Expression:
+			case *ast.HTMLNode, *ast.DeclareStatement, *ast.Expression, *ast.HTMLBlock:
 				// no-op, these are checked in TypecheckFile()
 			case *ast.HTMLComponentDefinition:
 				if node == nil {
@@ -339,7 +341,7 @@ func (p *Parser) TypecheckAndFinalize(files []*ast.File) {
 
 	//
 	for _, htmlDefinition := range globalScope.htmlDefinitions {
-		p.TypecheckHTMLDefinition(htmlDefinition, globalScope)
+		p.typecheckHTMLDefinition(htmlDefinition, globalScope)
 	}
 
 	// Check if CSS config matches a HTML or CSS component. If not, throw error.
