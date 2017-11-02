@@ -1,6 +1,7 @@
 package data
 
 import (
+	//"encoding/json"
 	"fmt"
 	"strings"
 )
@@ -54,44 +55,17 @@ func (node *HTMLNode) HasSelectorPartMatch(selectorPart *CSSSelectorPart) bool {
 	return false
 }
 
-func (topNode *HTMLComponentNode) QuerySelectorAll(selectorParts CSSSelector) []*HTMLNode {
-	nodeResultStack := make([]*HTMLNode, 0, 5)
-
-	// Get nodes
-	nodes := topNode.Nodes()
-	for _, itNode := range nodes {
-		switch node := itNode.(type) {
-		case *HTMLNode:
-			foundNodes := node.querySelectorAllWithOptions(selectorParts, true)
-			if foundNodes != nil {
-				nodeResultStack = append(nodeResultStack, foundNodes...)
-			}
-		case *HTMLComponentNode:
-			foundNodes := node.QuerySelectorAll(selectorParts)
-			if foundNodes != nil {
-				nodeResultStack = append(nodeResultStack, foundNodes...)
-			}
-		case *HTMLText:
-			// skip
-		default:
-			panic(fmt.Sprintf("QuerySelectorAll: Unknown type %T", node))
-		}
-	}
-
-	return nodeResultStack
+func (rootNode *HTMLNode) QuerySelectorAll(selectorParts CSSSelector) []*HTMLNode {
+	return rootNode.QuerySelectorAllWithOptions(selectorParts, false)
 }
 
-func (topNode *HTMLNode) QuerySelectorAll(selectorParts CSSSelector) []*HTMLNode {
-	return topNode.querySelectorAllWithOptions(selectorParts, false)
-}
-
-func (topNode *HTMLNode) querySelectorAllWithOptions(selectorParts CSSSelector, onlyScanCurrentHTMLComponentScope bool) []*HTMLNode {
+func (rootNode *HTMLNode) QuerySelectorAllWithOptions(selectorParts CSSSelector, onlyScanCurrentHTMLComponentScope bool) []*HTMLNode {
 	nodeResultStack := make([]*HTMLNode, 0, 5)
 	nodeIterationStack := make([]*HTMLNode, 0, 50)
 
 	//
 	{
-		childNodes := topNode.Nodes()
+		childNodes := rootNode.Nodes()
 		for i := len(childNodes) - 1; i >= 0; i-- {
 			switch node := childNodes[i].(type) {
 			case *HTMLNode:
@@ -100,16 +74,15 @@ func (topNode *HTMLNode) querySelectorAllWithOptions(selectorParts CSSSelector, 
 				if onlyScanCurrentHTMLComponentScope {
 					continue
 				}
-				panic("todo(Jake): Add HTMLNode items from HTMLComponentNode")
-				// todo(Jake):
-				//nodeIterationStack = append(nodeIterationStack, node.Nodes())
+				nodeIterationStack = append(nodeIterationStack, &node.HTMLNode)
+				//panic("todo(Jake): Add HTMLNode items from HTMLComponentNode")
 			case *HTMLText:
 				// skip
 			default:
 				panic(fmt.Sprintf("QuerySelectorAll: Unhandled type: %T", node))
 			}
 		}
-		nodeIterationStack = append(nodeIterationStack, topNode)
+		nodeIterationStack = append(nodeIterationStack, rootNode)
 	}
 
 	lastSelectorPart := &selectorParts[len(selectorParts)-1]
@@ -220,7 +193,8 @@ NodeRecursionLoop:
 				if onlyScanCurrentHTMLComponentScope {
 					continue
 				}
-				panic("todo(Jake): Add HTMLNode items from HTMLComponentNode")
+				nodeIterationStack = append(nodeIterationStack, &node.HTMLNode)
+				//panic("todo(Jake): Add HTMLNode items from HTMLComponentNode")
 			case *HTMLText:
 				// skip
 			default:

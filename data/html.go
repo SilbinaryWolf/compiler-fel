@@ -6,20 +6,26 @@ import (
 )
 
 type HTMLComponentNode struct {
-	Name       string
-	ChildNodes []Type
+	HTMLNode
 }
 
 func (node *HTMLComponentNode) Kind() Kind {
 	return KindHTMLComponentNode
 }
 
-func (node *HTMLComponentNode) String() string {
-	return fmt.Sprintf("(%s :: html)", node.Name)
-}
-
-func (node *HTMLComponentNode) Nodes() []Type {
-	return node.ChildNodes
+func (rootNode *HTMLComponentNode) String() string {
+	result := fmt.Sprintf("(%s :: html)\n", rootNode.Name)
+	for _, itNode := range rootNode.Nodes() {
+		switch node := itNode.(type) {
+		case *HTMLNode:
+			result += fmt.Sprintf("- %s\n", node.Name)
+		case *HTMLComponentNode:
+			result += fmt.Sprintf("- %s\n", node.Name)
+		default:
+			result += "- Unknown\n"
+		}
+	}
+	return result
 }
 
 type HTMLText struct {

@@ -10,7 +10,7 @@ import (
 )
 
 func PrefixNamespace(componentName string, className string) string {
-	return componentName + "_" + className
+	return componentName + "__" + className
 }
 
 func (program *Program) evaluateTemplate(node *ast.File) (*data.HTMLComponentNode, error) {
@@ -19,10 +19,10 @@ func (program *Program) evaluateTemplate(node *ast.File) (*data.HTMLComponentNod
 
 	//
 	program.Filepath = node.Filepath
-	result.ChildNodes = program.evaluateHTMLNodeChildren(node.Nodes(), NewScope(nil))
+	result.SetNodes(program.evaluateHTMLNodeChildren(node.Nodes(), NewScope(nil)))
 	program.Filepath = ""
 
-	if len(result.ChildNodes) == 0 {
+	if len(result.Nodes()) == 0 {
 		return nil, fmt.Errorf("Unexpected error. evaluateTemplate returned 0 nodes which should not happen if the AST is typechecked.")
 	}
 
@@ -157,8 +157,8 @@ func (program *Program) evaluteHTMLComponent(topNode *ast.HTMLNode, scope *Scope
 			panic(fmt.Sprintf("evaluteHTMLComponent(): Unhandled type %T", node))
 		}
 	}
-	resultDataNode.ChildNodes = resultNodes
-	if len(resultDataNode.ChildNodes) == 0 {
+	resultDataNode.SetNodes(resultNodes)
+	if len(resultDataNode.Nodes()) == 0 {
 		panic("evaluteHTMLComponent(): Component must contain one top-level HTML node.")
 	}
 

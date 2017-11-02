@@ -1,12 +1,13 @@
 package evaluator
 
 import (
+	//"encoding/json"
 	//"fmt"
 	"github.com/silbinarywolf/compiler-fel/ast"
 	"github.com/silbinarywolf/compiler-fel/data"
 )
 
-func optimizeRules(definition *data.CSSDefinition, htmlNodeInfo HTMLComponentNodeInfo, cssConfigDefinition *ast.CSSConfigDefinition) {
+func optimizeRules(definition *data.CSSDefinition, htmlNodeInfo HTMLComponentNodeInfo, cssConfigDefinition *ast.CSSConfigDefinition, onlyScanCurrentHTMLComponentScope bool) {
 	for ruleIndex := 0; ruleIndex < len(definition.ChildNodes); ruleIndex++ {
 		cssRule := definition.ChildNodes[ruleIndex]
 
@@ -36,7 +37,7 @@ func optimizeRules(definition *data.CSSDefinition, htmlNodeInfo HTMLComponentNod
 			// Check for matches
 			nodesMatchedCount := 0
 			for _, htmlNode := range htmlNodeInfo.Nodes {
-				nodesMatched := htmlNode.QuerySelectorAll(selector)
+				nodesMatched := htmlNode.HTMLNode.QuerySelectorAllWithOptions(selector, onlyScanCurrentHTMLComponentScope)
 				nodesMatchedCount += len(nodesMatched)
 			}
 			if nodesMatchedCount == 0 {
@@ -79,8 +80,15 @@ func (program *Program) evaluateOptimizeAndReturnUsedCSS() []*data.CSSDefinition
 		dataCSSDefinition := program.evaluateCSSDefinition(cssDefinition, program.globalScope)
 		program.currentComponentScope = program.currentComponentScope[:len(program.currentComponentScope)-1]
 
+		// Debug
+		//{
+		//	json, _ := json.MarshalIndent(htmlNodeInfo, "", "   ")
+		//	fmt.Printf("%s", string(json))
+		//	panic("ROY")
+		//}
+
 		// Optimize
-		optimizeRules(dataCSSDefinition, htmlNodeInfo, htmlDefinition.CSSConfigDefinition)
+		optimizeRules(dataCSSDefinition, htmlNodeInfo, htmlDefinition.CSSConfigDefinition, true)
 
 		// Add output
 		if len(dataCSSDefinition.ChildNodes) > 0 {
@@ -98,7 +106,7 @@ func (program *Program) evaluateOptimizeAndReturnUsedCSS() []*data.CSSDefinition
 	for _, cssDefinition := range program.anonymousCSSDefinitionsUsed {
 		dataCSSDefinition := program.evaluateCSSDefinition(cssDefinition, program.globalScope)
 
-		optimizeRules(dataCSSDefinition, htmlNodeInfo, nil)
+		optimizeRules(dataCSSDefinition, htmlNodeInfo, nil, false)
 
 		// Add output
 		if len(dataCSSDefinition.ChildNodes) > 0 {
