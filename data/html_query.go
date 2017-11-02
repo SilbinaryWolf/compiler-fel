@@ -15,10 +15,12 @@ func (node *HTMLNode) HasSelectorPartMatch(selectorPart *CSSSelectorPart) bool {
 			if attribute.Name != "class" {
 				continue
 			}
-			className := attribute.Value
-			// NOTE(Jake): This technically has a bug, should split
-			//			   into words and then check if equal
-			return strings.Contains(className, selectorString)
+			classList := strings.Fields(attribute.Value)
+			hasClass := false
+			for _, className := range classList {
+				hasClass = hasClass || strings.Contains(className, selectorString)
+			}
+			return hasClass
 		}
 		return false
 	case SelectorKindID:
