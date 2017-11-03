@@ -20,6 +20,22 @@ func TestOptimizeCSSClass(t *testing.T) {
 	//
 	//
 	// children
+	CSSOptimizeRuleCheck(t, `
+		:: css {
+			.exists {
+				color: green;
+			}
+			.no-exists {
+				color: red;
+			}
+		}
+		div(class="exists") {
+		}
+	`, []string{
+		".exists",
+	}, []string{
+		".no-exists",
+	})
 
 	CSSOptimizeRuleCheck(t, `
 		MyComponent :: css {
@@ -37,39 +53,51 @@ func TestOptimizeCSSClass(t *testing.T) {
 			}
 		}
 
-		:: css {
-			.exists {
-				color: green;
-			}
-			.no-exists {
-				color: red;
-			}
-		}
-		div(class="exists") {
-			MyComponent() {
-			}
+		MyComponent() {
 		}
 	`, []string{
-		".exists",
 		".MyComponent__exists-2",
 	}, []string{
-		".no-exists",
 		".MyComponent__no-exists-2",
 	})
 }
 
 func TestOptimizeCSSTagName(t *testing.T) {
+	// NOTE: This doesn't properly test to ensure
+	//		 the component <div> exists.
+	//		 - 2017-11-03
 	CSSOptimizeRuleCheck(t, `
 		:: css {
+			div {
+				color: green;
+			}
 			a {
 				color: red;
-			}
-			div {
-				color: blue;
 			}
 		}
 
 		div() {}
+	`, []string{
+		"div",
+	}, []string{
+		"a",
+	})
+
+	CSSOptimizeRuleCheck(t, `
+		MyComponent :: css {
+			div {
+				color: green;
+			}
+			a {
+				color: red;
+			}
+		}
+
+		MyComponent :: html {
+			div() {}
+		}
+
+		MyComponent() {}
 	`, []string{
 		"div",
 	}, []string{
@@ -81,7 +109,7 @@ func TestOptimizeCSSSibling(t *testing.T) {
 	CSSOptimizeRuleCheck(t, `
 		:: css {
 			div ~ div {
-				color: blue;
+				color: green;
 			}
 			div > div {
 				color: red;
@@ -90,10 +118,32 @@ func TestOptimizeCSSSibling(t *testing.T) {
 
 		div() {}
 		div() {}
+
 	`, []string{
 		"div~div",
 	}, []string{
 		"div>div",
+	})
+
+	CSSOptimizeRuleCheck(t, `
+		MyComponent :: css {
+			.sib ~ .sib {
+				color: green;
+			}
+			.sib > .sib {
+				color: red;
+			}
+		}
+
+		MyComponent :: html {
+			div(class="sib") {}
+			div(class="sib") {}
+		}
+		MyComponent() {}
+	`, []string{
+		".MyComponent__sib~.MyComponent__sib",
+	}, []string{
+		".MyComponent__sib>.MyComponent__sib",
 	})
 }
 
@@ -118,6 +168,32 @@ func TestOptimizeCSSAdjacent(t *testing.T) {
 		"p+p",
 	}, []string{
 		"div+div",
+	})
+
+	CSSOptimizeRuleCheck(t, `
+		MyComponent :: css {
+			.p + .p {
+				color: green;
+			}
+			.div + .div {
+				color: red;
+			}
+		}
+
+		MyComponent :: html {
+			div(class="div") {
+				p(class="p") {}
+				p(class="p") {}
+			}
+			section() {}
+			div(class="div") {}
+		}
+		
+		MyComponent(){}
+	`, []string{
+		".MyComponent__p+.MyComponent__p",
+	}, []string{
+		".MyComponent__div+MyComponent__div",
 	})
 }
 
@@ -148,7 +224,7 @@ func CSSOptimizeRuleCheck(t *testing.T, template string, successContainsList []s
 		cssOutput += generate.PrettyCSS(cssDefinition) + "\n"
 	}
 
-	//
+	// If test failed, print out errors and output so the issue can be diagnosed
 	outputCSSWithFatal := false
 	for _, successContains := range successContainsList {
 		if !strings.Contains(cssOutput, successContains) {
