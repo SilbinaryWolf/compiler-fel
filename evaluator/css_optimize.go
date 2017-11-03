@@ -5,9 +5,10 @@ import (
 	//"fmt"
 	"github.com/silbinarywolf/compiler-fel/ast"
 	"github.com/silbinarywolf/compiler-fel/data"
+	//"github.com/silbinarywolf/compiler-fel/generate"
 )
 
-func optimizeRules(definition *data.CSSDefinition, htmlNodeInfo HTMLComponentNodeInfo, cssConfigDefinition *ast.CSSConfigDefinition, onlyScanCurrentHTMLComponentScope bool) {
+func optimizeRules(definition *data.CSSDefinition, htmlNodeInfo *HTMLComponentNodeInfo, cssConfigDefinition *ast.CSSConfigDefinition, onlyScanCurrentHTMLComponentScope bool) {
 	for ruleIndex := 0; ruleIndex < len(definition.ChildNodes); ruleIndex++ {
 		cssRule := definition.ChildNodes[ruleIndex]
 
@@ -33,6 +34,14 @@ func optimizeRules(definition *data.CSSDefinition, htmlNodeInfo HTMLComponentNod
 					continue SelectorLoop
 				}
 			}
+
+			/*{
+				res := ""
+				for _, htmlNode := range htmlNodeInfo.Nodes {
+					res += generate.PrettyHTML([]data.Type{htmlNode}) + "\n"
+				}
+				panic(fmt.Sprintf("%s\nDone %d nodes for \"%s\"", res, len(htmlNodeInfo.Nodes), htmlNodeInfo.HTMLDefinition.Name))
+			}*/
 
 			// Check for matches
 			nodesMatchedCount := 0
@@ -97,7 +106,7 @@ func (program *Program) evaluateOptimizeAndReturnUsedCSS() []*data.CSSDefinition
 	}
 
 	// Output anonymous ":: css" blocks
-	htmlNodeInfo := HTMLComponentNodeInfo{}
+	htmlNodeInfo := new(HTMLComponentNodeInfo)
 	for _, itHtmlNodeInfo := range program.htmlTemplatesUsed {
 		// NOTE: Packing each seperate template into this so `optimizeRules`
 		//		 code can be reused easily.
