@@ -9,7 +9,7 @@ import (
 	"github.com/silbinarywolf/compiler-fel/token"
 )
 
-type GlobalDefinitions struct{}
+const FatalErrorMessage = "Fatal parsing error occurred. Please notify the developer(s)."
 
 type Parser struct {
 	*scanner.Scanner
@@ -88,14 +88,7 @@ func (p *Parser) expect(thisToken token.Token, expectedList ...interface{}) erro
 		// error message
 		line--
 	}
-
-	// NOTE(Jake): Line 1, Expected { instead got "newline"
-	result := fmt.Errorf("Expected %s instead got \"%s\".", line, expectedItemsString, thisToken.String())
-
-	// For debugging
-	panic(result)
-
-	return result
+	return fmt.Errorf("Expected %s instead got \"%s\".", expectedItemsString, thisToken.String())
 }
 
 //func (p *Parser) GetErrors() []error {
@@ -125,6 +118,18 @@ func (p *Parser) addErrorToken(message error, token token.Token) {
 	}
 	message = fmt.Errorf("Line %d | %s", token.Line, message)
 	p.errors[filepath] = append(p.errors[filepath], message)
+}
+
+func (p *Parser) fatalError(message error) {
+	p.addError(message)
+	p.PrintErrors()
+	panic(FatalErrorMessage)
+}
+
+func (p *Parser) fatalErrorToken(message error, token token.Token) {
+	p.addErrorToken(message, token)
+	p.PrintErrors()
+	panic(FatalErrorMessage)
 }
 
 func (p *Parser) PrintErrors() {

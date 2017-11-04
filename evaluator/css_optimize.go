@@ -1,11 +1,8 @@
 package evaluator
 
 import (
-	//"encoding/json"
-	//"fmt"
 	"github.com/silbinarywolf/compiler-fel/ast"
 	"github.com/silbinarywolf/compiler-fel/data"
-	//"github.com/silbinarywolf/compiler-fel/generate"
 )
 
 func optimizeRules(definition *data.CSSDefinition, htmlNodeInfo *HTMLComponentNodeInfo, cssConfigDefinition *ast.CSSConfigDefinition, onlyScanCurrentHTMLComponentScope bool) {

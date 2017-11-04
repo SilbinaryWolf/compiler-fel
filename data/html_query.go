@@ -1,7 +1,6 @@
 package data
 
 import (
-	//"encoding/json"
 	"fmt"
 	"strings"
 )
@@ -44,17 +43,14 @@ func (node *HTMLNode) HasSelectorPartMatch(selectorPart *CSSSelectorPart) bool {
 				return attribute.Value == selectorValue
 			case "^=":
 				return strings.HasPrefix(attribute.Value, selectorValue)
-			default:
-				panic(fmt.Sprintf("HasSelectorPartMatch: Unhandled attribute operator: %s", selectorPart.Operator))
 			}
-			return false
+			panic(fmt.Errorf("HasSelectorPartMatch: Unhandled attribute operator: %s", selectorPart.Operator))
 		}
+		return false
 	case SelectorKindTag:
 		return node.Name == selectorString
-	default:
-		panic(fmt.Sprintf("HasSelectorPartMatch: Unhandled selector part kind: %s", selectorPart.Kind.String()))
 	}
-	return false
+	panic(fmt.Errorf("HasSelectorPartMatch: Unhandled selector part kind: %s", selectorPart.Kind.String()))
 }
 
 func (rootNode *HTMLNode) QuerySelectorAll(selectorParts CSSSelector) []*HTMLNode {
@@ -117,19 +113,15 @@ NodeRecursionLoop:
 				selectorPartOperator := &selectorParts[p]
 				p--
 				if p < 0 {
-					panic(fmt.Sprintf("Missing identifier before %s.", selectorPartOperator.Kind.String()))
-					continue NodeRecursionLoop
+					panic(fmt.Errorf("Missing identifier before %s.", selectorPartOperator.Kind.String()))
 				}
 				selectorPart := &selectorParts[p]
 				if !selectorPart.Kind.IsIdentifier() {
 					panic(fmt.Sprintf("Expected selector identifier, not \"%s\"", selectorPartOperator.Kind))
-					continue NodeRecursionLoop
 				}
 
 				switch selectorPartOperator.Kind {
 				case SelectorKindAncestor:
-					// Has matched!
-					//continue SelectorPartMatchingLoop
 					for {
 						currentNode = currentNode.Parent()
 						if currentNode == nil {
@@ -160,6 +152,7 @@ NodeRecursionLoop:
 					if !currentNode.HasSelectorPartMatch(selectorPart) {
 						continue NodeRecursionLoop
 					}
+					// Has matched!
 					continue SelectorPartMatchingLoop
 				case SelectorKindSibling:
 					for {
@@ -174,11 +167,8 @@ NodeRecursionLoop:
 					}
 					// Has matched!
 					continue SelectorPartMatchingLoop
-					//panic("todo(Jake): Sibling selector matching")
-				default:
-					panic(fmt.Sprintf("HTMLNode::HasMatchRecursive():inner: Unhandled type \"%s\"", selectorPart.Kind.String()))
 				}
-				continue NodeRecursionLoop
+				panic(fmt.Sprintf("HTMLNode::HasMatchRecursive():inner: Unhandled type \"%s\"", selectorPart.Kind.String()))
 			}
 
 			// If got to end of loop, then it matched!

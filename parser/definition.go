@@ -9,7 +9,8 @@ import (
 
 func (p *Parser) parseDefinition(name token.Token) ast.Node {
 	keywordToken := p.GetNextToken()
-	switch keyword := keywordToken.String(); keyword {
+	keyword := keywordToken.String()
+	switch keyword {
 	case "css":
 		if t := p.GetNextToken(); t.Kind != token.BraceOpen {
 			p.addError(p.expect(t, token.BraceOpen))
@@ -108,9 +109,7 @@ func (p *Parser) parseDefinition(name token.Token) ast.Node {
 		node.HTMLKeyword = keywordToken
 		node.ChildNodes = childNodes
 		return node
-	default:
-		p.addError(fmt.Errorf("Unexpected keyword '%s' for definition (::) type. Expected 'css', 'html' or 'properties' on Line %d", keyword, keywordToken.Line))
-		return nil
 	}
+	p.addError(fmt.Errorf("Unexpected keyword '%s' for definition (::) type. Expected 'css', 'html' or 'properties' on Line %d", keyword, keywordToken.Line))
 	return nil
 }

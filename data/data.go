@@ -1,8 +1,6 @@
 package data
 
 import (
-	"bytes"
-	//"fmt"
 	"strconv"
 )
 
@@ -93,9 +91,9 @@ func (array *MixedArray) Kind() Kind {
 
 func (array *MixedArray) String() string {
 	panic("(array *MixedArray) String(): Not implemented")
-	var buffer bytes.Buffer
+	/*var buffer bytes.Buffer
 	for _, record := range array.Array {
 		buffer.WriteString(record.String())
 	}
-	return buffer.String()
+	return buffer.String()*/
 }

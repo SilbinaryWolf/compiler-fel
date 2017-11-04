@@ -2,7 +2,6 @@ package evaluator
 
 import (
 	"bytes"
-	//"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -203,7 +202,7 @@ func (program *Program) RunProject(projectDirpath string) error {
 		}
 		componentNode, err := program.evaluateTemplate(astFile)
 		if err != nil {
-			return fmt.Errorf("File %s\n- %v", err)
+			return fmt.Errorf("File %s\n- %v", astFile.Filepath, err)
 		}
 		nodes := componentNode.Nodes()
 		if len(nodes) == 0 {
@@ -273,6 +272,5 @@ func (program *Program) RunProject(projectDirpath string) error {
 	fmt.Printf("Generate/File write time: %s\n", generateTimeElapsed)
 	totalTimeElapsed := time.Since(totalTimeStart)
 	fmt.Printf("Total time: %s\n", totalTimeElapsed)
-	panic("Evaluator::RunProject(): todo(Jake): The rest of the function")
 	return nil
 }

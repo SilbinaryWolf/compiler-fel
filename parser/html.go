@@ -1,8 +1,6 @@
 package parser
 
 import (
-	//"encoding/json"
-
 	"fmt"
 
 	"github.com/silbinarywolf/compiler-fel/ast"

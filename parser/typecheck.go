@@ -2,8 +2,6 @@ package parser
 
 import (
 	"fmt"
-	//"io/ioutil"
-	//"encoding/json"
 	"strings"
 
 	"github.com/silbinarywolf/compiler-fel/ast"

@@ -2,6 +2,7 @@ package parser
 
 import (
 	"fmt"
+
 	"github.com/silbinarywolf/compiler-fel/ast"
 	"github.com/silbinarywolf/compiler-fel/scanner"
 	"github.com/silbinarywolf/compiler-fel/token"
@@ -130,9 +131,8 @@ func (p *Parser) getBoolFromCSSConfigProperty(node *ast.CSSProperty) (bool, bool
 			return false, false
 		}
 		return value, ok
-	default:
-		panic(fmt.Sprintf("parseCSSConfigRuleDefinition:propertyValueLoop: Unknown type %T", node))
 	}
+	p.fatalErrorToken(fmt.Errorf("Unknown type %T", node), node.Name)
 	return false, false
 }
 

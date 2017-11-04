@@ -1,8 +1,6 @@
 package parser
 
 import (
-	//"encoding/json"
-
 	"fmt"
 
 	"github.com/silbinarywolf/compiler-fel/ast"
@@ -68,8 +66,7 @@ func (p *Parser) parseCSSProperty(tokenList []ast.Node) *ast.CSSProperty {
 
 		tokenNode, ok := itNode.(*ast.Token)
 		if !ok {
-			panic(fmt.Sprintf("parseCSSStatements(): Expected property to be identifier type, not %T", itNode))
-			return nil
+			p.fatalError(fmt.Errorf("Expected property to be identifier, not %T", itNode))
 		}
 		if tokenNode.Kind == token.Whitespace {
 			continue
@@ -85,15 +82,13 @@ func (p *Parser) parseCSSProperty(tokenList []ast.Node) *ast.CSSProperty {
 
 		tokenNode, ok := itNode.(*ast.Token)
 		if !ok {
-			panic(fmt.Sprintf("parseCSSStatements(): Expected *ast.Token not %T.", itNode))
-			return nil
+			p.fatalErrorToken(fmt.Errorf("Expected *ast.Token not %T, near \"%s:\"", itNode, name.String()), name)
 		}
 		if tokenNode.Kind == token.Whitespace {
 			continue
 		}
 		if tokenNode.Kind != token.Colon {
-			panic(fmt.Sprintf("parseCSSStatements(): Expected : after property name, not \"%s\" (Data: %s) on Line %d.", tokenNode.Kind.String(), tokenNode.Data, tokenNode.Line))
-			return nil
+			p.fatalErrorToken(fmt.Errorf("parseCSSStatements(): Expected : after property name, not \"%s\" (Data: %s).", tokenNode.Kind.String(), tokenNode.Data), tokenNode.Token)
 		}
 		// Found it!
 		break
@@ -266,9 +261,7 @@ Loop:
 				panic(fmt.Sprintf("parseCSSStatements(): Unexpected token in attribute after operator on Line %d", value.Line))
 			}
 			if t := p.GetNextToken(); t.Kind != token.BracketClose {
-				panic("parseCSSStatements: Expected ]")
-				p.addError(p.expect(t, token.BracketClose))
-				break Loop
+				p.fatalErrorToken(p.expect(t, token.BracketClose), t)
 			}
 		case token.ParenOpen:
 			nodes := p.parseCSSStatements()

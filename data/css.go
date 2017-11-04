@@ -1,9 +1,7 @@
 package data
 
 import (
-	//"byt
 	"fmt"
-	//"strconv"
 )
 
 type CSSSelectorPartKind int
