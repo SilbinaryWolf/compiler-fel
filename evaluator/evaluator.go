@@ -45,17 +45,17 @@ func FolderExistsMaybeCreate(directory string, configName string, createIfDoesnt
 	_, err := os.Stat(directory)
 	if os.IsNotExist(err) {
 		if !createIfDoesntExist {
-			return fmt.Errorf("\"%s\" does not exist: %s", configName, directory)
+			return fmt.Errorf("%s: does not exist: %s", configName, directory)
 		}
-		fmt.Printf("%s: Creating \"%s\"...\n", configName, directory)
+		fmt.Printf("%s: Creating missing folder \"%s\"\n", configName, directory)
 		err = os.MkdirAll(directory, os.ModePerm)
 		if err != nil {
-			return fmt.Errorf("\"configName\" error: %v", configName, err)
+			return fmt.Errorf("%s: error: %v", configName, err)
 		}
 		return nil
 	}
 	if err != nil {
-		return fmt.Errorf("\"%s\" OS error: %v", configName, err)
+		return fmt.Errorf("%s: OS error: %v", configName, err)
 	}
 	return nil
 }
@@ -126,6 +126,8 @@ func (program *Program) RunProject(projectDirpath string) error {
 	cssOutputDirectory = path.Clean(fmt.Sprintf("%s/%s", projectDirpath, cssOutputDirectory))
 
 	// Check if configured folders exist, create output folders automatically if it doesn't.
+	//fmt.Printf("Creating output folders defined from \"config.fel\"...\n")
+	//fmt.Printf("------------------------------------------\n")
 	err = FolderExistsMaybeCreate(templateInputDirectory, "template_input_directory", false)
 	if err != nil {
 		return err
@@ -138,6 +140,7 @@ func (program *Program) RunProject(projectDirpath string) error {
 	if err != nil {
 		return err
 	}
+	fmt.Printf("\n")
 
 	// Get all files in folder recursively with *.fel
 	filepathSet := make([]string, 0, 50)

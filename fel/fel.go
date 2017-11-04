@@ -22,7 +22,7 @@ func main() {
 	}*/
 
 	program := evaluator.New()
-	err := program.RunProject("../testdata/sampleproject/fel")
+	err := program.RunProject("testdata/sampleproject/fel")
 	if err != nil {
 		panic(fmt.Errorf("%v", err))
 	}
