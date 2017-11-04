@@ -8,73 +8,16 @@ Header :: css {
 	.header {
 		width: 100%
 		height: 60px
+		background-color: blue;
 	}
 
 	.header.is-active {
 		display: block;
 	}
-
-	.header.header {
-		height: 1px;
-	}
-
-	// test nested child selector
-	.header .top {
-		height: 1px;
-	}
-
-	// Test child selecotr
-	.header > .top {
-		height: 1px;
-	}
-
-	// test complicated selector
-	.header.header > .top {
-		height: 1px;
-	}
-
-	.bop .top {
-		height: 1px;
-	}
-
-	// todo, test ID
-	#header {
-		color: blue;
-	}
-
-	[data-test^="test"] {
-		height: 1px;
-	}
-
-	// Adjacent selector
-	.top + .bottom {
-		height: 1px
-	}
-
-	.top ~ .bottom {
-		height: 1px
-	}
-
-	//[data-test~="test"] {
-	//
-	//} 
-
-	// TEST
-
-	// .header > .top {
-	// 	height: 1px;
-	// }
 }
 
 Header :: html {
 	header(class="header") {
-		div(class="top", data-test="testy") {
-		}
-		div(class="middle") {
-
-		}
-		div(class="bottom") {
-
-		}
+		"Headers"
 	}
 }

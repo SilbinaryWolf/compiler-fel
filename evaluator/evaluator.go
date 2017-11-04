@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"time"
@@ -38,6 +39,25 @@ func (program *Program) GetConfigString(configName string) (string, error) {
 		return "", fmt.Errorf("%s is expected to be a string.", configName)
 	}
 	return value.String(), nil
+}
+
+func FolderExistsMaybeCreate(directory string, configName string, createIfDoesntExist bool) error {
+	_, err := os.Stat(directory)
+	if os.IsNotExist(err) {
+		if !createIfDoesntExist {
+			return fmt.Errorf("\"%s\" does not exist: %s", configName, directory)
+		}
+		fmt.Printf("%s: Creating \"%s\"...\n", configName, directory)
+		err = os.MkdirAll(directory, os.ModePerm)
+		if err != nil {
+			return fmt.Errorf("\"configName\" error: %v", configName, err)
+		}
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("\"%s\" OS error: %v", configName, err)
+	}
+	return nil
 }
 
 func (program *Program) RunProject(projectDirpath string) error {
@@ -86,43 +106,37 @@ func (program *Program) RunProject(projectDirpath string) error {
 	//panic("Finished evaluating config file")
 
 	// Get config variables
+
+	templateInputDirectory, err := program.GetConfigString("template_input_directory")
+	if err != nil {
+		return err
+	}
+	templateInputDirectory = path.Clean(fmt.Sprintf("%s/%s", projectDirpath, templateInputDirectory))
+
 	templateOutputDirectory, err := program.GetConfigString("template_output_directory")
 	if err != nil {
 		return err
 	}
-	templateOutputDirectory = fmt.Sprintf("%s/%s", projectDirpath, templateOutputDirectory)
+	templateOutputDirectory = path.Clean(fmt.Sprintf("%s/%s", projectDirpath, templateOutputDirectory))
+
 	cssOutputDirectory, err := program.GetConfigString("css_output_directory")
 	if err != nil {
 		return err
 	}
-	cssOutputDirectory = fmt.Sprintf("%s/%s", projectDirpath, cssOutputDirectory)
+	cssOutputDirectory = path.Clean(fmt.Sprintf("%s/%s", projectDirpath, cssOutputDirectory))
 
-	//templateInputDirectory, err := program.GetConfigString("template_input_directory")
-	//if err != nil {
-	//	return err
-	//}
-	//templateInputDirectory = fmt.Sprintf("%s/%s", projectDirpath, templateInputDirectory)
-	templateInputDirectory := projectDirpath + "/templates"
-	// Check if input templates directory exists
-	{
-		_, err := os.Stat(templateInputDirectory)
-		if err != nil {
-			return fmt.Errorf("Error with directory \"templates\" directory in project directory: %v", err)
-		}
-		if os.IsNotExist(err) {
-			return fmt.Errorf("Expected to find \"templates\" directory in: %s", projectDirpath)
-		}
+	// Check if configured folders exist, create output folders automatically if it doesn't.
+	err = FolderExistsMaybeCreate(templateInputDirectory, "template_input_directory", false)
+	if err != nil {
+		return err
 	}
-
-	// Check if output templates directory exists
-	{
-		_, err := os.Stat(templateOutputDirectory)
-		if err != nil {
-			return fmt.Errorf("Error with directory: %v", err)
-		}
-		if os.IsNotExist(err) {
-			return fmt.Errorf("template_output_directory specified does not exist: %s", templateOutputDirectory)
-		}
+	err = FolderExistsMaybeCreate(templateOutputDirectory, "template_output_directory", true)
+	if err != nil {
+		return err
+	}
+	err = FolderExistsMaybeCreate(cssOutputDirectory, "css_output_directory", true)
+	if err != nil {
+		return err
 	}
 
 	// Get all files in folder recursively with *.fel
@@ -178,15 +192,6 @@ func (program *Program) RunProject(projectDirpath string) error {
 		return fmt.Errorf("Stopping due to parsing errors.")
 	}
 
-	//fmt.Printf("File read time: %s\n", readFileTime)
-	//fmt.Printf("Parsing time: %s\n", parsingElapsed)
-	//panic("TESTING TYPECHECKER: Finished Typecheck.")
-
-	/*{
-		json, _ := json.MarshalIndent(astFiles, "", "   ")
-		fmt.Printf("%s", string(json))
-	}*/
-
 	type TemplateFile struct {
 		Filepath string
 		Content  string
@@ -240,14 +245,13 @@ func (program *Program) RunProject(projectDirpath string) error {
 				cssOutput.WriteString(generate.PrettyCSS(cssDefinition))
 			}
 			outputFilepath := filepath.Clean(fmt.Sprintf("%s/%s.css", cssOutputDirectory, "main"))
-			fmt.Printf("%s\n", outputFilepath)
 			err := ioutil.WriteFile(
 				outputFilepath,
 				cssOutput.Bytes(),
 				0644,
 			)
 			if err != nil {
-				panic(err)
+				return err
 			}
 		}
 
