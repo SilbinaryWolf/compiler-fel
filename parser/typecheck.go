@@ -79,7 +79,7 @@ func (p *Parser) typecheckExpression(scope *Scope, expression *ast.Expression) {
 				if !ok {
 					_, ok := scope.GetHTMLDefinition(name)
 					if ok {
-						p.addErrorToken(fmt.Errorf("Undeclared identifier \"%s\". Did you mean \"%s()\" or \"%s{ }\" to reference the \"%s :: html\" component?", name, name, name), node.Token)
+						p.addErrorToken(fmt.Errorf("Undeclared identifier \"%s\". Did you mean \"%s()\" or \"%s{ }\" to reference the \"%s :: html\" component?", name, name, name, name), node.Token)
 						continue
 					}
 					p.addErrorToken(fmt.Errorf("Undeclared identifier \"%s\".", name), node.Token)
