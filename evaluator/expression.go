@@ -6,21 +6,30 @@ import (
 	"github.com/silbinarywolf/compiler-fel/ast"
 	"github.com/silbinarywolf/compiler-fel/data"
 	"github.com/silbinarywolf/compiler-fel/token"
+	"github.com/silbinarywolf/compiler-fel/types"
 )
 
 func (program *Program) evaluateExpression(expressionNode *ast.Expression, scope *Scope) data.Type {
 	var stack []data.Type
 
-	if expressionNode.TypeInfo == nil {
-		panic(fmt.Sprintf("Line %d - evaluateExpression: Expression node has not been type-checked", expressionNode.TypeIdentifier))
+	nodes := expressionNode.Nodes()
+	if len(nodes) == 0 {
+		panic(fmt.Sprintf("evaluateExpression: Expression node is missing nodes."))
+	}
+	if types.HasNoType(expressionNode.TypeInfo) {
+		panic(fmt.Sprintf("evaluateExpression: Expression node has not been type-checked. Type Token: %v\nExpression Node Data:\n%v", expressionNode.TypeIdentifier, expressionNode))
 	}
 
 	// todo(Jake): Rewrite string concat to use `var stringBuffer bytes.Buffer` and see if
 	//			   there is a speedup
-
-	for _, itNode := range expressionNode.Nodes() {
+	for _, itNode := range nodes {
 
 		switch node := itNode.(type) {
+		case *ast.ArrayLiteral:
+			panic("evaluateExpression: todo(Jake): Support Array literal, add \"parseType\" function and return token")
+		case *ast.HTMLBlock:
+			value := program.evaluateHTMLBlock(node, scope)
+			stack = append(stack, value)
 		case *ast.Token:
 			switch node.Kind {
 			case token.String:
@@ -68,9 +77,6 @@ func (program *Program) evaluateExpression(expressionNode *ast.Expression, scope
 				}
 				panic(fmt.Sprintf("Evaluator::evaluateExpression(): Unhandled *.astToken kind: %s", node.Kind.String()))
 			}
-		case *ast.HTMLBlock:
-			value := program.evaluateHTMLBlock(node, scope)
-			stack = append(stack, value)
 		default:
 			panic(fmt.Sprintf("evaluateExpression(): Unhandled type: %T", node))
 		}

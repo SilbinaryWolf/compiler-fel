@@ -9,7 +9,7 @@
 }
 
 Layout(body_class="HomePage") {
-	test := true
+	test := []string{"test", "array", "of", "strings"}
 	div(class="exists") {
 		"Test"
 	}

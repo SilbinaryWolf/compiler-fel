@@ -41,6 +41,12 @@ type Parameter struct {
 	Expression
 }
 
+type ArrayLiteral struct {
+	TypeInfo       types.TypeInfo
+	TypeIdentifier token.Token
+	Base
+}
+
 type Expression struct {
 	TypeInfo       types.TypeInfo
 	TypeIdentifier token.Token

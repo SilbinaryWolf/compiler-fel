@@ -31,65 +31,115 @@ import (
 // 	}
 // }
 
-func (p *Parser) typecheckExpression(scope *Scope, expression *ast.Expression) {
-	var typeInfo types.TypeInfo
-	defer func() {
-		expression.TypeInfo = typeInfo
-	}()
+func (p *Parser) typecheckArrayLiteral(scope *Scope, literal *ast.ArrayLiteral) {
+	//test := [][]string{
+	//	[]string{"test"}
+	//}
+	//if len(test) > 0 {
+	//
+	//}
 
+	typeIdentString := literal.TypeIdentifier.String()
+	resultTypeInfo := types.GetTypeFromString(typeIdentString)
+	if types.HasNoType(resultTypeInfo) {
+		p.addErrorToken(fmt.Errorf("Undeclared type %s used for array literal", typeIdentString), literal.TypeIdentifier)
+		return
+	}
+	literal.TypeInfo = resultTypeInfo
+
+	// Run type checking on each array element
+	nodes := literal.Nodes()
+	for _, itNode := range nodes {
+		switch node := itNode.(type) {
+		case *ast.Expression:
+			// NOTE(Jake): Set to 'string' type info so
+			//			   type checking will catch things immediately
+			//			   when we call `typecheckExpression`
+			//			   ie. Won't infer, will mark as invalid.
+			if types.HasNoType(node.TypeInfo) {
+				node.TypeInfo = literal.TypeInfo
+			}
+			p.typecheckExpression(scope, node)
+
+			if types.HasNoType(node.TypeInfo) {
+				panic(fmt.Sprintf("typecheckArrayLiteral: Missing type on expression node."))
+			}
+			if !types.Equals(node.TypeInfo, resultTypeInfo) {
+				p.addErrorToken(fmt.Errorf("Cannot use \"%s\" in array literal of %s", node.TypeInfo, node.TypeInfo), node.TypeIdentifier)
+			}
+			continue
+		}
+		panic(fmt.Sprintf("typecheckArrayLiteral: Unhandled type: %T", itNode))
+	}
+}
+
+func (p *Parser) typecheckExpression(scope *Scope, expression *ast.Expression) {
+	var resultTypeInfo types.TypeInfo
+
+	// Get type info from text (ie. "string", "int", etc)
 	if t := expression.TypeIdentifier; t.Kind != token.Unknown {
 		typeIdentString := t.String()
-		typeInfo = types.GetTypeFromString(typeIdentString)
-		if types.HasNoType(typeInfo) {
+		resultTypeInfo = types.GetTypeFromString(typeIdentString)
+		if types.HasNoType(resultTypeInfo) {
 			p.addErrorToken(fmt.Errorf("Undeclared type %s", typeIdentString), t)
 			return
 		}
-		/*switch typeTokenString {
-		case "string":
-			exprType = data.KindString
-		case "int", "int64":
-			exprType = data.KindInteger64
-		case "float", "float64":
-			exprType = data.KindFloat64
-		case "html_node":
-			exprType = data.KindHTMLNode
-		default:
-			p.addErrorToken(fmt.Errorf("Unknown data type %s", typeTokenString), typeToken)
-			panic(fmt.Sprintf("typecheckExpression: TODO: Handle explicit type decl. Unknown type \"%s\"", typeTokenString))
-		}*/
 	}
 
 	for _, itNode := range expression.Nodes() {
 		switch node := itNode.(type) {
+		case *ast.ArrayLiteral:
+			p.typecheckArrayLiteral(scope, node)
+			expectedTypeInfo := node.TypeInfo
+			if types.HasNoType(resultTypeInfo) {
+				resultTypeInfo = expectedTypeInfo
+			}
+			if !types.Equals(resultTypeInfo, expectedTypeInfo) {
+				p.addErrorToken(fmt.Errorf("Cannot mix array literal %s with %s", expectedTypeInfo.Name(), resultTypeInfo.Name()), node.TypeIdentifier)
+			}
+			continue
+		case *ast.HTMLBlock:
+			panic("typecheckExpression: todo(Jake): Fix HTMLBlock")
+			/*variableType := data.KindHTMLNode
+			if exprType == data.KindUnknown {
+				exprType = variableType
+			}
+			if exprType != variableType {
+				p.addErrorToken(fmt.Errorf("\":: html\" must be a %s not %s.", exprType.String(), variableType.String()), node.HTMLKeyword)
+			}
+			p.typecheckHTMLBlock(node, scope)*/
 		case *ast.Token:
 			switch node.Kind {
 			case token.String:
 				expectedTypeInfo := types.String()
-				if types.HasNoType(typeInfo) {
-					typeInfo = expectedTypeInfo
+				if types.HasNoType(resultTypeInfo) {
+					resultTypeInfo = expectedTypeInfo
 				}
-				if !types.Equals(typeInfo, expectedTypeInfo) {
-					p.addErrorToken(fmt.Errorf("Cannot mix %s \"%s\" with %s", expectedTypeInfo.Name(), node.String(), typeInfo.Name()), node.Token)
+				if !types.Equals(resultTypeInfo, expectedTypeInfo) {
+					p.addErrorToken(fmt.Errorf("Cannot mix %s \"%s\" with %s", expectedTypeInfo.Name(), node.String(), resultTypeInfo.Name()), node.Token)
 				}
+				continue
 			case token.Number:
-				if types.HasNoType(typeInfo) {
-					typeInfo = types.Int()
+				if types.HasNoType(resultTypeInfo) {
+					resultTypeInfo = types.Int()
 					if strings.ContainsRune(node.Data, '.') {
 						//exprType = types.Float()
 						panic("todo(Jake): Fix float")
 					}
 				}
-				if !types.Equals(typeInfo, types.Int()) && !types.Equals(typeInfo, types.Float()) {
-					p.addErrorToken(fmt.Errorf("Cannot mix number \"%s\" with %s", node.String(), typeInfo.Name()), node.Token)
+				if !types.Equals(resultTypeInfo, types.Int()) && !types.Equals(resultTypeInfo, types.Float()) {
+					p.addErrorToken(fmt.Errorf("Cannot mix number \"%s\" with %s", node.String(), resultTypeInfo.Name()), node.Token)
 				}
+				continue
 			case token.KeywordTrue, token.KeywordFalse:
 				expectedTypeInfo := types.Bool()
-				if types.HasNoType(typeInfo) {
-					typeInfo = expectedTypeInfo
+				if types.HasNoType(resultTypeInfo) {
+					resultTypeInfo = expectedTypeInfo
 				}
-				if !types.Equals(typeInfo, expectedTypeInfo) {
-					p.addErrorToken(fmt.Errorf("Cannot mix %s \"%s\" with %s", expectedTypeInfo.Name(), node.String(), typeInfo.Name()), node.Token)
+				if !types.Equals(resultTypeInfo, expectedTypeInfo) {
+					p.addErrorToken(fmt.Errorf("Cannot mix %s \"%s\" with %s", expectedTypeInfo.Name(), node.String(), resultTypeInfo.Name()), node.Token)
 				}
+				continue
 			case token.Identifier:
 				name := node.String()
 				variableTypeInfo, ok := scope.Get(name)
@@ -102,32 +152,23 @@ func (p *Parser) typecheckExpression(scope *Scope, expression *ast.Expression) {
 					p.addErrorToken(fmt.Errorf("Undeclared identifier \"%s\".", name), node.Token)
 					continue
 				}
-				if types.HasNoType(typeInfo) {
-					typeInfo = variableTypeInfo
+				if types.HasNoType(resultTypeInfo) {
+					resultTypeInfo = variableTypeInfo
 				}
-				if !types.Equals(typeInfo, variableTypeInfo) {
-					p.addErrorToken(fmt.Errorf("Identifier \"%s\" must be a %s not %s.", name, typeInfo.Name(), variableTypeInfo.Name()), node.Token)
+				if !types.Equals(resultTypeInfo, variableTypeInfo) {
+					p.addErrorToken(fmt.Errorf("Identifier \"%s\" must be a %s not %s.", name, resultTypeInfo.Name(), variableTypeInfo.Name()), node.Token)
 				}
-			default:
-				if node.IsOperator() {
-					continue
-				}
-				panic(fmt.Sprintf("typecheckExpression: Unhandled token kind: \"%s\" with value: %s", node.Kind.String(), node.String()))
+				continue
 			}
-		case *ast.HTMLBlock:
-			panic("todo(Jake): Fix")
-			/*variableType := data.KindHTMLNode
-			if exprType == data.KindUnknown {
-				exprType = variableType
+			if node.IsOperator() {
+				continue
 			}
-			if exprType != variableType {
-				p.addErrorToken(fmt.Errorf("\":: html\" must be a %s not %s.", exprType.String(), variableType.String()), node.HTMLKeyword)
-			}
-			p.typecheckHTMLBlock(node, scope)*/
-		default:
-			panic(fmt.Sprintf("typecheckExpression: Unhandled type %T", node))
+			panic(fmt.Sprintf("typecheckExpression: Unhandled token kind: \"%s\" with value: %s", node.Kind.String(), node.String()))
 		}
+		panic(fmt.Sprintf("typecheckExpression: Unhandled type %T", itNode))
 	}
+
+	expression.TypeInfo = resultTypeInfo
 }
 
 func (p *Parser) typecheckHTMLBlock(htmlBlock *ast.HTMLBlock, scope *Scope) {

@@ -54,8 +54,11 @@ func (p *Parser) unexpected(thisToken token.Token) error {
 	if thisToken.IsOperator() {
 		return fmt.Errorf("Unexpected operator \"%s\".", thisToken.String())
 	}
-	if thisToken.Kind == token.Identifier {
+	switch thisToken.Kind {
+	case token.Identifier:
 		return fmt.Errorf("Unexpected identifier \"%s\".", thisToken.String())
+	case token.EOF:
+		return fmt.Errorf("Unexpectedly reached end of file.")
 	}
 	return fmt.Errorf("Unexpected %s", thisToken.Kind)
 }
