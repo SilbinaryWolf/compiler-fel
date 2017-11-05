@@ -11,6 +11,7 @@ const (
 	KindString
 	KindInteger64
 	KindFloat64
+	KindBoolean
 	KindHTMLNode
 	KindHTMLText
 	KindHTMLComponentNode
@@ -39,6 +40,8 @@ type Type interface {
 	Kind() Kind
 }
 
+// String
+
 type String struct {
 	Value string
 }
@@ -50,6 +53,25 @@ func (s *String) Kind() Kind {
 func (s *String) String() string {
 	return s.Value
 }
+
+// Boolean
+
+type Bool struct {
+	Value bool
+}
+
+func (s *Bool) Kind() Kind {
+	return KindBoolean
+}
+
+func (i *Bool) String() string {
+	if i.Value {
+		return "true"
+	}
+	return "false"
+}
+
+// Integer64
 
 type Integer64 struct {
 	Value int64
@@ -63,6 +85,8 @@ func (i *Integer64) String() string {
 	return strconv.FormatInt(i.Value, 10)
 }
 
+// Float 64
+
 type Float64 struct {
 	Value float64
 }
@@ -74,6 +98,8 @@ func (s *Float64) Kind() Kind {
 func (f *Float64) String() string {
 	return strconv.FormatFloat(f.Value, 'f', 6, 64)
 }
+
+// Mixed Array
 
 type MixedArray struct {
 	Array []Type

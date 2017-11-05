@@ -132,7 +132,7 @@ Loop:
 
 			// Clear
 			tokenList = getNewTokenList()
-		case token.AtKeyword, token.Identifier, token.Number, token.Multiply:
+		case token.AtKeyword, token.KeywordTrue, token.KeywordFalse, token.Identifier, token.Number, token.Multiply:
 			// NOTE: We do -NOT- want to eat whitespace surrounding `token.Identifier`
 			//       as that is used to detect / determine descendent selectors. (ie. ".top-class .descendent")
 			tokenList = append(tokenList, &ast.Token{Token: t})
@@ -278,7 +278,7 @@ Loop:
 		case token.EOF:
 			panic("parseCSSStatements(): Reached end of file, Should be closed with }")
 		default:
-			panic(fmt.Sprintf("parseCSSStatements(): Unhandled token type(%d): \"%s\" (value: %s) on Line %d", t.Kind, t.Kind.String(), t.String(), t.Line))
+			p.fatalErrorToken(p.unexpected(t), t)
 		}
 	}
 

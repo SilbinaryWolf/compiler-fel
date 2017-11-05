@@ -106,7 +106,7 @@ func (program *Program) evaluteHTMLComponent(topNode *ast.HTMLNode, scope *Scope
 			for _, decl := range propertySet {
 				name := decl.Name.String()
 				if len(decl.ChildNodes) == 0 {
-					componentScope.Set(name, program.CreateDataType(decl.TypeToken))
+					componentScope.Set(name, decl.TypeInfo.Create())
 				} else {
 					componentScope.Set(name, program.evaluateExpression(&decl.Expression, nil))
 				}

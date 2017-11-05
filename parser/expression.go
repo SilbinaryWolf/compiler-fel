@@ -27,7 +27,7 @@ Loop:
 	for {
 		t := p.PeekNextToken()
 		switch t.Kind {
-		case token.Identifier:
+		case token.Identifier, token.KeywordTrue, token.KeywordFalse:
 			p.GetNextToken()
 			if expectOperator {
 				panic("Expected operator, not identifier")
@@ -107,7 +107,8 @@ Loop:
 				operatorNodes = append(operatorNodes, &ast.Token{Token: t})
 				continue
 			}
-			panic(fmt.Sprintf("parseExpression(): Unhandled token type: \"%s\" (value: %s) on Line %d", t.Kind.String(), t.String(), t.Line))
+			p.fatalErrorToken(fmt.Errorf("Unhandled token type: \"%s\" (value: %s)", t.Kind.String(), t.String()), t)
+			return nil
 		}
 	}
 

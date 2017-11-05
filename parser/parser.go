@@ -3,11 +3,15 @@ package parser
 import (
 	"fmt"
 	"io/ioutil"
+	"runtime"
+	"strings"
 
 	"github.com/silbinarywolf/compiler-fel/ast"
 	"github.com/silbinarywolf/compiler-fel/scanner"
 	"github.com/silbinarywolf/compiler-fel/token"
 )
+
+const DEBUG = true
 
 const FatalErrorMessage = "Fatal parsing error occurred. Please notify the developer(s)."
 
@@ -41,6 +45,19 @@ func (p *Parser) Parse(filecontentsAsBytes []byte, filepath string) *ast.File {
 	}
 	resultNode.ChildNodes = p.parseStatements()
 	return resultNode
+}
+
+func (p *Parser) unexpected(thisToken token.Token) error {
+	if thisToken.IsKeyword() {
+		return fmt.Errorf("Unexpected keyword \"%s\".", thisToken.String())
+	}
+	if thisToken.IsOperator() {
+		return fmt.Errorf("Unexpected operator \"%s\".", thisToken.String())
+	}
+	if thisToken.Kind == token.Identifier {
+		return fmt.Errorf("Unexpected identifier \"%s\".", thisToken.String())
+	}
+	return fmt.Errorf("Unexpected %s", thisToken.Kind)
 }
 
 func (p *Parser) expect(thisToken token.Token, expectedList ...interface{}) error {
@@ -81,13 +98,6 @@ func (p *Parser) expect(thisToken token.Token, expectedList ...interface{}) erro
 			panic(fmt.Sprintf("Unhandled token kind: %s", expectTokenKind.String()))
 		}*/
 	}
-
-	line := p.Line()
-	if thisToken.Kind == token.Newline {
-		// Reading the newline token will offset to the next line causing a mistake in the
-		// error message
-		line--
-	}
 	return fmt.Errorf("Expected %s instead got \"%s\".", expectedItemsString, thisToken.String())
 }
 
@@ -117,6 +127,28 @@ func (p *Parser) addErrorToken(message error, token token.Token) {
 		p.errors[filepath] = make([]error, 0, 10)
 	}
 	message = fmt.Errorf("Line %d | %s", token.Line, message)
+	if DEBUG {
+		// Get where the error message was added from to help
+		// track where error messages are raised.
+
+		pc, file, line, ok := runtime.Caller(1)
+		details := runtime.FuncForPC(pc)
+
+		// Go up one call stack higher if one of these functions
+		if name := details.Name(); strings.Contains(name, "fatalErrorToken") ||
+			strings.Contains(name, "fatalError") {
+			pc, file, line, ok = runtime.Caller(2)
+		}
+
+		if ok && details != nil {
+			// Reduce full filepath to just the scope of the `compiler-fel` repo
+			fileParts := strings.Split(file, "/")
+			if len(fileParts) >= 3 {
+				file = fileParts[len(fileParts)-3] + "/" + fileParts[len(fileParts)-2] + "/" + fileParts[len(fileParts)-1]
+			}
+			message = fmt.Errorf("%s\n-- Line: %d | %s", message, line, file)
+		}
+	}
 	p.errors[filepath] = append(p.errors[filepath], message)
 }
 

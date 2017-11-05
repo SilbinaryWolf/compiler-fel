@@ -5,8 +5,8 @@ import (
 	"strings"
 
 	"github.com/silbinarywolf/compiler-fel/ast"
-	"github.com/silbinarywolf/compiler-fel/data"
 	"github.com/silbinarywolf/compiler-fel/token"
+	"github.com/silbinarywolf/compiler-fel/types"
 	"github.com/silbinarywolf/compiler-fel/util"
 )
 
@@ -32,12 +32,19 @@ import (
 // }
 
 func (p *Parser) typecheckExpression(scope *Scope, expression *ast.Expression) {
-	var exprType data.Kind
+	var typeInfo types.TypeInfo
+	defer func() {
+		expression.TypeInfo = typeInfo
+	}()
 
-	typeToken := expression.TypeToken
-	if typeToken.Kind != token.Unknown {
-		typeTokenString := typeToken.String()
-		switch typeTokenString {
+	if t := expression.TypeIdentifier; t.Kind != token.Unknown {
+		typeIdentString := t.String()
+		typeInfo = types.GetTypeFromString(typeIdentString)
+		if types.HasNoType(typeInfo) {
+			p.addErrorToken(fmt.Errorf("Undeclared type %s", typeIdentString), t)
+			return
+		}
+		/*switch typeTokenString {
 		case "string":
 			exprType = data.KindString
 		case "int", "int64":
@@ -49,7 +56,7 @@ func (p *Parser) typecheckExpression(scope *Scope, expression *ast.Expression) {
 		default:
 			p.addErrorToken(fmt.Errorf("Unknown data type %s", typeTokenString), typeToken)
 			panic(fmt.Sprintf("typecheckExpression: TODO: Handle explicit type decl. Unknown type \"%s\"", typeTokenString))
-		}
+		}*/
 	}
 
 	for _, itNode := range expression.Nodes() {
@@ -57,25 +64,35 @@ func (p *Parser) typecheckExpression(scope *Scope, expression *ast.Expression) {
 		case *ast.Token:
 			switch node.Kind {
 			case token.String:
-				if exprType == data.KindUnknown {
-					exprType = data.KindString
+				expectedTypeInfo := types.String()
+				if types.HasNoType(typeInfo) {
+					typeInfo = expectedTypeInfo
 				}
-				if exprType != data.KindString {
-					p.addErrorToken(fmt.Errorf("Cannot mix string \"%s\" with %s", node.String(), exprType.String()), node.Token)
+				if !types.Equals(typeInfo, expectedTypeInfo) {
+					p.addErrorToken(fmt.Errorf("Cannot mix %s \"%s\" with %s", expectedTypeInfo.Name(), node.String(), typeInfo.Name()), node.Token)
 				}
 			case token.Number:
-				if exprType == data.KindUnknown {
-					exprType = data.KindInteger64
+				if types.HasNoType(typeInfo) {
+					typeInfo = types.Int()
 					if strings.ContainsRune(node.Data, '.') {
-						exprType = data.KindFloat64
+						//exprType = types.Float()
+						panic("todo(Jake): Fix float")
 					}
 				}
-				if exprType != data.KindInteger64 && exprType != data.KindFloat64 {
-					p.addErrorToken(fmt.Errorf("Cannot mix number (\"%s\") with %s", node.String(), exprType.String()), node.Token)
+				if !types.Equals(typeInfo, types.Int()) && !types.Equals(typeInfo, types.Float()) {
+					p.addErrorToken(fmt.Errorf("Cannot mix number \"%s\" with %s", node.String(), typeInfo.Name()), node.Token)
+				}
+			case token.KeywordTrue, token.KeywordFalse:
+				expectedTypeInfo := types.Bool()
+				if types.HasNoType(typeInfo) {
+					typeInfo = expectedTypeInfo
+				}
+				if !types.Equals(typeInfo, expectedTypeInfo) {
+					p.addErrorToken(fmt.Errorf("Cannot mix %s \"%s\" with %s", expectedTypeInfo.Name(), node.String(), typeInfo.Name()), node.Token)
 				}
 			case token.Identifier:
 				name := node.String()
-				variableType, ok := scope.Get(name)
+				variableTypeInfo, ok := scope.Get(name)
 				if !ok {
 					_, ok := scope.GetHTMLDefinition(name)
 					if ok {
@@ -85,11 +102,11 @@ func (p *Parser) typecheckExpression(scope *Scope, expression *ast.Expression) {
 					p.addErrorToken(fmt.Errorf("Undeclared identifier \"%s\".", name), node.Token)
 					continue
 				}
-				if exprType == data.KindUnknown {
-					exprType = variableType
+				if types.HasNoType(typeInfo) {
+					typeInfo = variableTypeInfo
 				}
-				if exprType != variableType {
-					p.addErrorToken(fmt.Errorf("Identifier \"%s\" must be a %s not %s.", name, exprType.String(), variableType.String()), node.Token)
+				if !types.Equals(typeInfo, variableTypeInfo) {
+					p.addErrorToken(fmt.Errorf("Identifier \"%s\" must be a %s not %s.", name, typeInfo.Name(), variableTypeInfo.Name()), node.Token)
 				}
 			default:
 				if node.IsOperator() {
@@ -98,20 +115,19 @@ func (p *Parser) typecheckExpression(scope *Scope, expression *ast.Expression) {
 				panic(fmt.Sprintf("typecheckExpression: Unhandled token kind: \"%s\" with value: %s", node.Kind.String(), node.String()))
 			}
 		case *ast.HTMLBlock:
-			variableType := data.KindHTMLNode
+			panic("todo(Jake): Fix")
+			/*variableType := data.KindHTMLNode
 			if exprType == data.KindUnknown {
 				exprType = variableType
 			}
 			if exprType != variableType {
 				p.addErrorToken(fmt.Errorf("\":: html\" must be a %s not %s.", exprType.String(), variableType.String()), node.HTMLKeyword)
 			}
-			p.typecheckHTMLBlock(node, scope)
+			p.typecheckHTMLBlock(node, scope)*/
 		default:
 			panic(fmt.Sprintf("typecheckExpression: Unhandled type %T", node))
 		}
 	}
-
-	expression.Type = exprType
 }
 
 func (p *Parser) typecheckHTMLBlock(htmlBlock *ast.HTMLBlock, scope *Scope) {
@@ -137,7 +153,7 @@ func (p *Parser) typecheckHTMLDefinition(htmlDefinition *ast.HTMLComponentDefini
 	var globalScopeNoVariables Scope = *parentScope
 	globalScopeNoVariables.identifiers = nil
 	scope := NewScope(&globalScopeNoVariables)
-	scope.Set("children", data.KindHTMLNode)
+	scope.Set("children", types.HTML())
 
 	if htmlDefinition.Properties != nil {
 		for i, _ := range htmlDefinition.Properties.Statements {
@@ -153,7 +169,7 @@ func (p *Parser) typecheckHTMLDefinition(htmlDefinition *ast.HTMLComponentDefini
 				p.addErrorToken(fmt.Errorf("Property \"%s\" declared twice.", name), propertyNode.Name)
 				continue
 			}
-			scope.Set(name, propertyNode.Type)
+			scope.Set(name, propertyNode.TypeInfo)
 		}
 	}
 
@@ -225,8 +241,10 @@ func (p *Parser) typecheckStatements(topNode ast.Node, scope *Scope) {
 					paramName := parameterNode.Name.String()
 					for _, componentParamNode := range node.HTMLDefinition.Properties.Statements {
 						if paramName == componentParamNode.Name.String() {
-							if componentParamNode.Type != parameterNode.Type {
-								p.addErrorToken(fmt.Errorf("\"%s\" must be of type %s, not %s", paramName, componentParamNode.Type.String(), parameterNode.Type.String()), parameterNode.Name)
+							parameterType := parameterNode.TypeInfo
+							componentStructType := componentParamNode.TypeInfo
+							if parameterType != componentStructType {
+								p.addErrorToken(fmt.Errorf("\"%s\" must be of type %s, not %s", paramName, componentStructType.Name(), parameterType.Name()), parameterNode.Name)
 							}
 							continue ParameterCheckLoop
 						}
@@ -244,7 +262,7 @@ func (p *Parser) typecheckStatements(topNode ast.Node, scope *Scope) {
 				p.addErrorToken(fmt.Errorf("Cannot redeclare \"%s\".", name), node.Name)
 				continue
 			}
-			scope.Set(name, node.Expression.Type)
+			scope.Set(name, node.Expression.TypeInfo)
 			continue
 		case *ast.Expression:
 			p.typecheckExpression(scope, node)

@@ -14,10 +14,9 @@ import (
 	"github.com/silbinarywolf/compiler-fel/data"
 	"github.com/silbinarywolf/compiler-fel/generate"
 	"github.com/silbinarywolf/compiler-fel/parser"
-	"github.com/silbinarywolf/compiler-fel/token"
 )
 
-func (program *Program) CreateDataType(t token.Token) data.Type {
+/*func (program *Program) CreateDataType(t token.Token) data.Type {
 	typename := t.String()
 	switch typename {
 	case "string":
@@ -28,7 +27,7 @@ func (program *Program) CreateDataType(t token.Token) data.Type {
 	default:
 		panic(fmt.Sprintf("Unknown type name: %s", typename))
 	}
-}
+}*/
 
 func (program *Program) GetConfigString(configName string) (string, error) {
 	value, ok := program.globalScope.Get(configName)

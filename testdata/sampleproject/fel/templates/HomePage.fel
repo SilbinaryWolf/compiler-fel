@@ -9,6 +9,7 @@
 }
 
 Layout(body_class="HomePage") {
+	test := true
 	div(class="exists") {
 		"Test"
 	}

@@ -41,6 +41,8 @@ const (
 	KeywordIf
 	KeywordElse
 	KeywordFor
+	KeywordTrue
+	KeywordFalse
 	//KeywordConfig
 	//KeywordHTML
 
@@ -114,9 +116,11 @@ var kindToString = []string{
 	At:             "@",
 	Ternary:        "?",
 
-	KeywordIf:   "if",
-	KeywordElse: "else",
-	KeywordFor:  "for",
+	KeywordIf:    "if",
+	KeywordElse:  "else",
+	KeywordFor:   "for",
+	KeywordTrue:  "true",
+	KeywordFalse: "false",
 	//KeywordConfig: "config",
 	//KeywordHTML:   "html",
 

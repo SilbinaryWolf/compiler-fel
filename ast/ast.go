@@ -1,8 +1,8 @@
 package ast
 
 import (
-	"github.com/silbinarywolf/compiler-fel/data"
 	"github.com/silbinarywolf/compiler-fel/token"
+	"github.com/silbinarywolf/compiler-fel/types"
 )
 
 type TypeKind int
@@ -42,8 +42,8 @@ type Parameter struct {
 }
 
 type Expression struct {
-	TypeToken token.Token
-	Type      data.Kind
+	TypeInfo       types.TypeInfo
+	TypeIdentifier token.Token
 	Base
 }
 

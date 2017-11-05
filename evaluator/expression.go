@@ -11,21 +11,8 @@ import (
 func (program *Program) evaluateExpression(expressionNode *ast.Expression, scope *Scope) data.Type {
 	var stack []data.Type
 
-	switch expressionNode.Type {
-	case data.KindUnknown:
-		var t token.Token
-		for _, itNode := range expressionNode.Nodes() {
-			switch node := itNode.(type) {
-			case *ast.Token:
-				t = node.Token
-				break
-			}
-		}
-		panic(fmt.Sprintf("Line %d - evaluateExpression: Expression node has not been type-checked", t.Line))
-	case data.KindString, data.KindHTMLNode:
-		// no-op
-	default:
-		panic(fmt.Sprintf("evaluateExpression: Type \"%s\" not supported.", expressionNode.Type.String()))
+	if expressionNode.TypeInfo == nil {
+		panic(fmt.Sprintf("Line %d - evaluateExpression: Expression node has not been type-checked", expressionNode.TypeIdentifier))
 	}
 
 	// todo(Jake): Rewrite string concat to use `var stringBuffer bytes.Buffer` and see if
@@ -45,6 +32,12 @@ func (program *Program) evaluateExpression(expressionNode *ast.Expression, scope
 				if !exists {
 					panic(fmt.Sprintf("Variable isn't declared '%v' on Line %d", name, node.Line))
 				}
+				stack = append(stack, value)
+			case token.KeywordTrue:
+				value := &data.Bool{Value: true}
+				stack = append(stack, value)
+			case token.KeywordFalse:
+				value := &data.Bool{Value: false}
 				stack = append(stack, value)
 			default:
 				if node.IsOperator() {

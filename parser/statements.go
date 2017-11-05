@@ -10,7 +10,7 @@ import (
 func (p *Parser) NewDeclareStatement(name token.Token, typeToken token.Token, expressionNodes []ast.Node) *ast.DeclareStatement {
 	node := new(ast.DeclareStatement)
 	node.Name = name
-	node.TypeToken = typeToken
+	node.TypeIdentifier = typeToken
 	node.ChildNodes = expressionNodes
 	return node
 }
@@ -91,7 +91,6 @@ Loop:
 				}
 				p.addErrorToken(fmt.Errorf("Unexpected %s after identifier.", t.Kind.String()), t)
 				return nil
-				//panic(fmt.Sprintf("parseStatements(): Unhandled token kind after identifier: %s", t.Kind.String()))
 			}
 		// :: css {
 		// ^
@@ -123,10 +122,8 @@ Loop:
 			break Loop
 		default:
 			p.GetNextToken()
-			p.PrintErrors()
-			//json, _ := json.MarshalIndent(resultNodes, "", "   ")
-			//fmt.Printf("%s", string(json))
-			panic(fmt.Errorf("parseStatements(): Unhandled token: %s on Line %d", t.Kind.String(), t.Line))
+			p.addErrorToken(p.unexpected(t), t)
+			return nil
 		}
 	}
 	return resultNodes

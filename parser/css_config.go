@@ -111,7 +111,7 @@ func (p *Parser) getBoolFromCSSConfigProperty(node *ast.CSSProperty) (bool, bool
 	switch node := itNode.(type) {
 	case *ast.Token:
 		t := node.Token
-		if t.Kind != token.Identifier {
+		if t.Kind != token.KeywordTrue && t.Kind != token.KeywordFalse {
 			p.addErrorToken(fmt.Errorf("Expected \"true\" or \"false\" after \"%s\".", t.String()), t)
 			return false, false
 		}
