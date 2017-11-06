@@ -16,7 +16,7 @@ func Equal(a TypeInfo, b TypeInfo) bool {
 }
 
 // Built-ins
-var typeString = new(string_)
+var typeString = new(String_)
 var typeInt = new(int_)
 var typeFloat = new(float_)
 var typeBool = new(bool_)
@@ -60,11 +60,11 @@ func (info *bool_) Create() data.Type { return new(data.Bool) }
 func Bool() *bool_                    { return typeBool }
 
 // String
-type string_ struct{}
+type String_ struct{}
 
-func (info *string_) Name() string      { return "string" }
-func (info *string_) Create() data.Type { return new(data.String) }
-func String() *string_                  { return typeString }
+func (info *String_) Name() string      { return "string" }
+func (info *String_) Create() data.Type { return new(data.String) }
+func String() *String_                  { return typeString }
 
 // HTML
 type html struct{}

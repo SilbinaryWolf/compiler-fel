@@ -20,13 +20,26 @@ func (program *Program) evaluateExpression(expressionNode *ast.Expression, scope
 		panic(fmt.Sprintf("evaluateExpression: Expression node has not been type-checked. Type Token: %v\nExpression Node Data:\n%v", expressionNode.TypeIdentifier, expressionNode))
 	}
 
+	typeInfo := expressionNode.TypeInfo
+	_, isStringExpr := typeInfo.(*types.String_)
+
 	// todo(Jake): Rewrite string concat to use `var stringBuffer bytes.Buffer` and see if
 	//			   there is a speedup
 	for _, itNode := range nodes {
 
 		switch node := itNode.(type) {
 		case *ast.ArrayLiteral:
-			panic("evaluateExpression: todo(Jake): Support Array literal, add \"parseType\" function and return token")
+			resultValue := data.NewArray(typeInfo.Create())
+			for _, itNode := range node.ChildNodes {
+				switch node := itNode.(type) {
+				case *ast.Expression:
+					value := program.evaluateExpression(node, scope)
+					resultValue.Push(value)
+					continue
+				}
+				panic(fmt.Sprintf("evaluateExpression:arrayLiteral: Unhandled type %T", itNode))
+			}
+			stack = append(stack, resultValue)
 		case *ast.HTMLBlock:
 			value := program.evaluateHTMLBlock(node, scope)
 			stack = append(stack, value)
@@ -58,22 +71,28 @@ func (program *Program) evaluateExpression(expressionNode *ast.Expression, scope
 					leftValue := stack[len(stack)-1]
 					stack = stack[:len(stack)-1]
 
-					rightType := rightValue.Kind()
-					leftType := leftValue.Kind()
-
-					switch node.Kind {
-					case token.Add:
-						if leftType == data.KindString && rightType == data.KindString {
-							result := &data.String{
-								Value: leftValue.String() + rightValue.String(),
-							}
-							stack = append(stack, result)
-							continue
+					// Handle concat of strings
+					if isStringExpr {
+						rightTypeString, ok := rightValue.(*data.String)
+						if !ok {
+							panic(fmt.Sprintf("evaluateExpression(): Unexpected error, expression type was string but right-value inside weren't."))
 						}
-						panic("evaluateExpression(): Unhandled type computation in +")
-					default:
-						panic(fmt.Sprintf("evaluateExpression(): Unhandled operator type: %s", node.Kind.String()))
+						leftTypeString, ok := leftValue.(*data.String)
+						if !ok {
+							panic(fmt.Sprintf("evaluateExpression(): Unexpected error, expression type was string but left-value inside weren't."))
+						}
+						if node.Kind != token.Add {
+							panic(fmt.Sprintf("evaluateExpression(): Can only + strings together.", node.Kind.String()))
+						}
+
+						result := &data.String{
+							Value: leftTypeString.String() + rightTypeString.String(),
+						}
+						stack = append(stack, result)
+						continue
 					}
+
+					panic("todo(Jake): Handle adding numbers together. (Only strings supported currently)")
 				}
 				panic(fmt.Sprintf("Evaluator::evaluateExpression(): Unhandled *.astToken kind: %s", node.Kind.String()))
 			}

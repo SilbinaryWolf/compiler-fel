@@ -9,9 +9,9 @@ type HTMLComponentNode struct {
 	HTMLNode
 }
 
-func (node *HTMLComponentNode) Kind() Kind {
+/*func (node *HTMLComponentNode) Kind() Kind {
 	return KindHTMLComponentNode
-}
+}*/
 
 func (rootNode *HTMLComponentNode) String() string {
 	result := fmt.Sprintf("(%s :: html)\n", rootNode.Name)
@@ -32,9 +32,9 @@ type HTMLText struct {
 	Value string
 }
 
-func (node *HTMLText) Kind() Kind {
+/*func (node *HTMLText) Kind() Kind {
 	return KindHTMLText
-}
+}*/
 
 func (node *HTMLText) String() string {
 	return node.Value
@@ -104,9 +104,9 @@ type HTMLAttribute struct {
 	Value string
 }
 
-func (node *HTMLNode) Kind() Kind {
+/*func (node *HTMLNode) Kind() Kind {
 	return KindHTMLNode
-}
+}*/
 
 func (node *HTMLNode) String() string {
 	var buffer bytes.Buffer

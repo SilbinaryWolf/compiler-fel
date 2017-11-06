@@ -82,6 +82,7 @@ Loop:
 				infixNodes = append(infixNodes, topOperatorNode)
 				operatorNodes = operatorNodes[:len(operatorNodes)-1]
 			}
+		// ie. :: css, :: html
 		case token.DoubleColon:
 			p.GetNextToken()
 			node := p.parseDefinition(token.Token{})
@@ -89,58 +90,36 @@ Loop:
 				panic("parseExpressionNodes: parseDefinition returned nil")
 			}
 			infixNodes = append(infixNodes, node)
+		// ie. []string{"item1", "item2", "item3"}
 		case token.BracketOpen:
-			p.GetNextToken()
-			t := p.GetNextToken()
-			switch t.Kind {
-			case token.BracketClose:
-				typeName := p.GetNextToken()
-				switch typeName.Kind {
-				case token.BracketOpen:
-					panic("todo(Jake): Support literal arrays of arrays. ie. [][]type")
-				case token.Identifier:
-					typeNameString := typeName.String()
-					t := p.GetNextToken()
-					if t.Kind != token.BraceOpen {
-						p.addErrorToken(fmt.Errorf("Expected { after %s", typeNameString), t)
-						return nil
-					}
-
-					node := new(ast.ArrayLiteral)
-					node.TypeIdentifier = typeName
-
-				ArrayLiteralLoop:
-					for i := 0; true; i++ {
-						expr := p.parseExpression()
-						sep := p.GetNextToken()
-						switch sep.Kind {
-						case token.Comma:
-							node.ChildNodes = append(node.ChildNodes, expr)
-							continue
-						case token.BraceClose:
-							break ArrayLiteralLoop
-						case token.EOF:
-							p.addErrorToken(p.unexpected(sep), sep)
-							return nil
-						}
-						/*itemName := item.String()
-						if item.Kind == token.String {
-							itemName = "\"" + itemName + "\""
-						}
-						p.addErrorToken(fmt.Errorf("Expected , or } after array item #%d %s.", i, itemName), sep)*/
-						p.addErrorToken(fmt.Errorf("Expected , or } after array item #%d.", i), sep)
-						return nil
-					}
-					infixNodes = append(infixNodes, node)
-					continue Loop
-				}
-				p.addErrorToken(fmt.Errorf("Expected [ or identifier"), t)
+			typeIdent := p.parseType()
+			if t := p.GetNextToken(); t.Kind != token.BraceOpen {
+				p.addErrorToken(p.expect(t, token.BraceOpen), t)
 				return nil
-			case token.Number:
-				panic("todo(Jake): Support accessing from arrays")
 			}
-			p.addErrorToken(fmt.Errorf("Expected number or ]"), t)
-			return nil
+
+			node := new(ast.ArrayLiteral)
+			node.TypeIdentifier = typeIdent
+
+		ArrayLiteralLoop:
+			for i := 0; true; i++ {
+				expr := p.parseExpression()
+				sep := p.GetNextToken()
+				switch sep.Kind {
+				case token.Comma:
+					node.ChildNodes = append(node.ChildNodes, expr)
+					continue
+				case token.BraceClose:
+					break ArrayLiteralLoop
+				case token.EOF:
+					p.addErrorToken(p.unexpected(sep), sep)
+					return nil
+				}
+				p.addErrorToken(fmt.Errorf("Expected , or } after array item #%d, not %s.", i, sep.Kind.String()), sep)
+				return nil
+			}
+			infixNodes = append(infixNodes, node)
+			continue Loop
 		default:
 			if t.IsOperator() {
 				if !expectOperator {

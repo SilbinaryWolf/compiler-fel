@@ -84,7 +84,7 @@ var precedence = []int{
 }
 
 var kindToString = []string{
-	Unknown:         "unknown token",
+	Unknown:         "unset token",
 	Illegal:         "illegal token",
 	EOF:             "eof",
 	Newline:         "newline",

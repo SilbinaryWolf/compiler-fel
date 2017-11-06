@@ -125,7 +125,7 @@ Loop:
 
 			// NOTE(Jake): Switch to regular scanning mode to skip over whitespace
 			p.SetScanMode(scanner.ModeDefault)
-			node := p.NewDeclareStatement(name, token.Token{}, p.parseExpressionNodes())
+			node := p.NewDeclareStatement(name, ast.Type{}, p.parseExpressionNodes())
 			p.SetScanMode(scanner.ModeCSS)
 
 			resultNodes = append(resultNodes, node)

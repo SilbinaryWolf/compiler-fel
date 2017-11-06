@@ -39,16 +39,21 @@ func (p *Parser) typecheckArrayLiteral(scope *Scope, literal *ast.ArrayLiteral) 
 	//
 	//}
 
-	typeIdentString := literal.TypeIdentifier.String()
+	typeIdent := literal.TypeIdentifier.Name
+	typeIdentString := typeIdent.String()
 	resultTypeInfo := types.GetTypeFromString(typeIdentString)
 	if types.HasNoType(resultTypeInfo) {
-		p.addErrorToken(fmt.Errorf("Undeclared type %s used for array literal", typeIdentString), literal.TypeIdentifier)
+		p.addErrorToken(fmt.Errorf("Undeclared type \"%s\" used for array literal", typeIdentString), typeIdent)
 		return
 	}
 	literal.TypeInfo = resultTypeInfo
 
 	// Run type checking on each array element
 	nodes := literal.Nodes()
+	if len(nodes) == 0 {
+		p.addErrorToken(fmt.Errorf("Cannot have array literal with zero elements."), typeIdent)
+		return
+	}
 	for _, itNode := range nodes {
 		switch node := itNode.(type) {
 		case *ast.Expression:
@@ -65,7 +70,7 @@ func (p *Parser) typecheckArrayLiteral(scope *Scope, literal *ast.ArrayLiteral) 
 				panic(fmt.Sprintf("typecheckArrayLiteral: Missing type on expression node."))
 			}
 			if !types.Equals(node.TypeInfo, resultTypeInfo) {
-				p.addErrorToken(fmt.Errorf("Cannot use \"%s\" in array literal of %s", node.TypeInfo, node.TypeInfo), node.TypeIdentifier)
+				p.addErrorToken(fmt.Errorf("Cannot use \"%s\" in array literal of %s", node.TypeInfo, node.TypeInfo), typeIdent)
 			}
 			continue
 		}
@@ -75,13 +80,14 @@ func (p *Parser) typecheckArrayLiteral(scope *Scope, literal *ast.ArrayLiteral) 
 
 func (p *Parser) typecheckExpression(scope *Scope, expression *ast.Expression) {
 	var resultTypeInfo types.TypeInfo
+	typeIdent := expression.TypeIdentifier.Name
 
 	// Get type info from text (ie. "string", "int", etc)
-	if t := expression.TypeIdentifier; t.Kind != token.Unknown {
-		typeIdentString := t.String()
+	if typeIdent.Kind != token.Unknown {
+		typeIdentString := typeIdent.String()
 		resultTypeInfo = types.GetTypeFromString(typeIdentString)
 		if types.HasNoType(resultTypeInfo) {
-			p.addErrorToken(fmt.Errorf("Undeclared type %s", typeIdentString), t)
+			p.addErrorToken(fmt.Errorf("Undeclared type %s", typeIdentString), typeIdent)
 			return
 		}
 	}
@@ -95,7 +101,7 @@ func (p *Parser) typecheckExpression(scope *Scope, expression *ast.Expression) {
 				resultTypeInfo = expectedTypeInfo
 			}
 			if !types.Equals(resultTypeInfo, expectedTypeInfo) {
-				p.addErrorToken(fmt.Errorf("Cannot mix array literal %s with %s", expectedTypeInfo.Name(), resultTypeInfo.Name()), node.TypeIdentifier)
+				p.addErrorToken(fmt.Errorf("Cannot mix array literal %s with %s", expectedTypeInfo.Name(), resultTypeInfo.Name()), typeIdent)
 			}
 			continue
 		case *ast.HTMLBlock:

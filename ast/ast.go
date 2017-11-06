@@ -36,6 +36,15 @@ type Block struct {
 	Base
 }
 
+type Type struct {
+	Name       token.Token
+	ArrayDepth int // [] = 1, [][] = 2, [][][] = 3
+}
+
+func (node *Type) Nodes() []Node {
+	return nil
+}
+
 type Parameter struct {
 	Name token.Token
 	Expression
@@ -43,13 +52,13 @@ type Parameter struct {
 
 type ArrayLiteral struct {
 	TypeInfo       types.TypeInfo
-	TypeIdentifier token.Token
+	TypeIdentifier Type
 	Base
 }
 
 type Expression struct {
 	TypeInfo       types.TypeInfo
-	TypeIdentifier token.Token
+	TypeIdentifier Type
 	Base
 }
 

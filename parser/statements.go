@@ -7,12 +7,42 @@ import (
 	"github.com/silbinarywolf/compiler-fel/token"
 )
 
-func (p *Parser) NewDeclareStatement(name token.Token, typeToken token.Token, expressionNodes []ast.Node) *ast.DeclareStatement {
+func (p *Parser) NewDeclareStatement(name token.Token, typeIdent ast.Type, expressionNodes []ast.Node) *ast.DeclareStatement {
 	node := new(ast.DeclareStatement)
 	node.Name = name
-	node.TypeIdentifier = typeToken
+	node.TypeIdentifier = typeIdent
 	node.ChildNodes = expressionNodes
 	return node
+}
+
+func (p *Parser) parseType() ast.Type {
+	result := ast.Type{}
+
+	t := p.GetNextToken()
+	if t.Kind == token.BracketOpen {
+		// Parse array / array-of-array / etc
+		// ie. []string, [][]string, [][][]string, etc
+		result.ArrayDepth = 1
+		for {
+			t = p.GetNextToken()
+			if t.Kind != token.BracketClose {
+				p.addErrorToken(p.expect(t, token.BracketClose), t)
+				return result
+			}
+			t = p.GetNextToken()
+			if t.Kind == token.BracketOpen {
+				result.ArrayDepth++
+				continue
+			}
+			break
+		}
+	}
+	if t.Kind != token.Identifier {
+		p.addErrorToken(p.expect(t, token.Identifier), t)
+		return result
+	}
+	result.Name = t
+	return result
 }
 
 func (p *Parser) parseStatements() []ast.Node {
@@ -29,22 +59,18 @@ Loop:
 			// myVar := {Expression} \n
 			//
 			case token.DeclareSet:
-				node := p.NewDeclareStatement(name, token.Token{}, p.parseExpressionNodes())
+				node := p.NewDeclareStatement(name, ast.Type{}, p.parseExpressionNodes())
 				resultNodes = append(resultNodes, node)
 			// myVar : string \n
 			case token.Colon:
-				tType := p.GetNextToken()
-				if tType.Kind != token.Identifier {
-					p.addError(p.expect(tType, token.Identifier))
-					return nil
-				}
-				var expressionNodes []ast.Node
+				typeName := p.parseType()
 				// myVar : string = {Expression} \n
+				var expressionNodes []ast.Node
 				if p.PeekNextToken().Kind == token.Equal {
 					p.GetNextToken()
 					expressionNodes = p.parseExpressionNodes()
 				}
-				node := p.NewDeclareStatement(name, tType, expressionNodes)
+				node := p.NewDeclareStatement(name, typeName, expressionNodes)
 				resultNodes = append(resultNodes, node)
 			// div {
 			//     ^

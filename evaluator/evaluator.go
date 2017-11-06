@@ -34,10 +34,11 @@ func (program *Program) GetConfigString(configName string) (string, error) {
 	if !ok {
 		return "", fmt.Errorf("%s is undefined in config.fel. This definition is required.", configName)
 	}
-	if value.Kind() != data.KindString {
+	valueAsserted, ok := value.(*data.String)
+	if !ok {
 		return "", fmt.Errorf("%s is expected to be a string.", configName)
 	}
-	return value.String(), nil
+	return valueAsserted.String(), nil
 }
 
 func FolderExistsMaybeCreate(directory string, configName string, createIfDoesntExist bool) error {

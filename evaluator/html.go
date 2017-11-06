@@ -40,10 +40,12 @@ func (program *Program) evaluateHTMLExpression(node *ast.Expression, scope *Scop
 			Value: value.String(),
 		}
 		resultNodes = append(resultNodes, subResultDataNode)
-	case *data.MixedArray:
-		for _, subValue := range value.Array {
-			resultNodes = append(resultNodes, subValue)
+	case *data.Array:
+		_, ok := value.Type().(*data.HTMLComponentNode)
+		if !ok {
+			panic(fmt.Sprintf("evaluateHTMLNodeChildren: Expected array of *data.HTMLComponentNode, not %T", value.Type()))
 		}
+		resultNodes = append(resultNodes, value.Elements...)
 	case *data.HTMLNode:
 		if value != nil {
 			resultNodes = append(resultNodes, value)
@@ -51,14 +53,6 @@ func (program *Program) evaluateHTMLExpression(node *ast.Expression, scope *Scop
 	default:
 		panic(fmt.Sprintf("evaluateHTMLNodeChildren: Unhandled value result in HTMLNode: %T", value))
 	}
-	/*if value.Kind() == data.KindMixedArray {
-		panic("test")
-	} else {
-		subResultDataNode := &data.HTMLText{
-			Value: value.String(),
-		}
-		resultNodes = append(resultNodes, subResultDataNode)
-	}*/
 	return resultNodes
 }
 
@@ -128,10 +122,12 @@ func (program *Program) evaluteHTMLComponent(topNode *ast.HTMLNode, scope *Scope
 	}
 
 	// Add children to component scope if they exist
+	array := data.NewArray(&data.HTMLComponentNode{})
 	if len(childNodes) > 0 {
-		componentScope.Set("children", data.NewMixedArray(childNodes))
+		array.Elements = childNodes
+		componentScope.Set("children", array)
 	} else {
-		componentScope.Set("children", data.NewMixedArray(nil))
+		componentScope.Set("children", array)
 	}
 
 	// Get resultDataNode
