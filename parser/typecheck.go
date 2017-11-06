@@ -337,13 +337,9 @@ func (p *Parser) typecheckStatements(topNode ast.Node, scope *Scope) {
 				//
 				// WARNING: Ensure nothing else appends to `nodeStack` after this.
 				//
-
-				// TODO(Jake): Fix bug where introducing this gets
-				//			   `Undeclared identifier "str".`, but it works without it.
-
-				//scope = NewScope(scope)
-				//nodeStack = append(nodeStack, nil)
-				//avoidNestingScopeThisIteration = true
+				scope = NewScope(scope)
+				nodeStack = append(nodeStack, nil)
+				avoidNestingScopeThisIteration = true
 			}
 
 			// Set left-hand value type

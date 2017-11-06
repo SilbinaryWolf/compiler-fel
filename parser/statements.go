@@ -155,6 +155,7 @@ Loop:
 				p.addErrorToken(p.expect(t, token.BraceOpen), t)
 				return nil
 			}
+			node.ChildNodes = p.parseStatements()
 			resultNodes = append(resultNodes, node)
 		case token.EOF, token.Illegal:
 			break Loop

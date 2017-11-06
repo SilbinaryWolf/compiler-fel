@@ -76,6 +76,21 @@ func (program *Program) evaluateHTMLNodeChildren(nodes []ast.Node, scope *Scope)
 			if node.Name.Kind == token.Unknown {
 				program.anonymousCSSDefinitionsUsed = append(program.anonymousCSSDefinitionsUsed, node)
 			}
+		case *ast.For:
+			//program.evaluateFor(node, scope)
+			iValue := program.evaluateExpression(&node.Array, scope)
+			value := iValue.(*data.Array)
+
+			scope = NewScope(scope)
+			{
+				name := node.RecordName.String()
+				nodes := node.Nodes()
+				for _, val := range value.Elements {
+					scope.Set(name, val)
+					resultNodes = append(resultNodes, program.evaluateHTMLNodeChildren(nodes, scope)...)
+				}
+			}
+			scope = scope.parent
 		default:
 			program.evaluateStatement(itNode, scope)
 		}

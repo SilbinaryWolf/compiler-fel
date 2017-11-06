@@ -9,11 +9,17 @@
 }
 
 Layout(body_class="HomePage") {
-	testA := [][]string{[]string{"test"}, []string{"array"}, []string{"of"}, []string{"strings"}}
+	testA := [][]string{[]string{"test", "test2"}, []string{"array"}, []string{"of"}, []string{"strings"}}
 	testB := []string{"test", "array", "of", "strings"}
-	//str := "test"
-	for str := testB {
-		div(class=str) {
+	for str := testA {
+		div(class="top") {
+			for itStr := str {
+				div(class=itStr) {
+					a(class=itStr) {
+						
+					}
+				}
+			}
 		}
 	}
 	div(class="exists") {

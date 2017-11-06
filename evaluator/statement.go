@@ -24,8 +24,6 @@ func (program *Program) evaluateStatement(topNode ast.Node, scope *Scope) {
 		// ignore
 	case *ast.CSSDefinition:
 		panic("todo(Jake): Handle CSS definition in statement")
-	case *ast.For:
-		program.evaluateFor(node, scope)
 	default:
 		panic(fmt.Sprintf("evaluateStatement(): Unhandled type: %T", node))
 	}
