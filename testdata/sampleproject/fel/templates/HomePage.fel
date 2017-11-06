@@ -9,7 +9,8 @@
 }
 
 Layout(body_class="HomePage") {
-	test := []string{"test", "array", "of", "strings"}
+	testA := [][]string{[]string{"test"}, []string{"array"}, []string{"of"}, []string{"strings"}}
+	testB := []string{"test", "array", "of", "strings"}
 	div(class="exists") {
 		"Test"
 	}

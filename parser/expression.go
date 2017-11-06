@@ -110,6 +110,7 @@ Loop:
 					node.ChildNodes = append(node.ChildNodes, expr)
 					continue
 				case token.BraceClose:
+					node.ChildNodes = append(node.ChildNodes, expr)
 					break ArrayLiteralLoop
 				case token.EOF:
 					p.addErrorToken(p.unexpected(sep), sep)
@@ -118,6 +119,11 @@ Loop:
 				p.addErrorToken(fmt.Errorf("Expected , or } after array item #%d, not %s.", i, sep.Kind.String()), sep)
 				return nil
 			}
+
+			if len(node.ChildNodes) == 0 {
+				p.addErrorToken(fmt.Errorf("Cannot have array literal with zero elements."), node.TypeIdentifier.Name)
+			}
+
 			infixNodes = append(infixNodes, node)
 			continue Loop
 		default:

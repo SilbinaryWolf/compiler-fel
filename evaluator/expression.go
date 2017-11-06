@@ -21,7 +21,7 @@ func (program *Program) evaluateExpression(expressionNode *ast.Expression, scope
 	}
 
 	typeInfo := expressionNode.TypeInfo
-	_, isStringExpr := typeInfo.(*types.String_)
+	isStringExpr := types.Equals(typeInfo, types.String())
 
 	// todo(Jake): Rewrite string concat to use `var stringBuffer bytes.Buffer` and see if
 	//			   there is a speedup

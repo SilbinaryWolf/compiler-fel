@@ -5,7 +5,7 @@ import (
 	"github.com/silbinarywolf/compiler-fel/types"
 )
 
-type TypeKind int
+/*type TypeKind int
 
 const (
 	TypeUnknown TypeKind = 0 + iota
@@ -13,7 +13,7 @@ const (
 	TypeInteger64
 	TypeFloat64
 	TypeHTMLDefinitionNode
-)
+)*/
 
 type Node interface {
 	Nodes() []Node

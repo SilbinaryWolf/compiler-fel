@@ -6,24 +6,8 @@ import (
 	"github.com/silbinarywolf/compiler-fel/data"
 )
 
-var registeredTypes = make(map[string]TypeInfo)
-
-func Equal(a TypeInfo, b TypeInfo) bool {
-	if a == b {
-		return true
-	}
-	return false
-}
-
-// Built-ins
-var typeString = new(String_)
-var typeInt = new(int_)
-var typeFloat = new(float_)
-var typeBool = new(bool_)
-var typeHTML = new(html)
-
 type TypeInfo interface {
-	Name() string
+	String() string
 	Create() data.Type
 }
 
@@ -32,6 +16,11 @@ func HasNoType(a TypeInfo) bool {
 }
 
 func Equals(a TypeInfo, b TypeInfo) bool {
+	aAsArray, aOk := a.(*Array_)
+	bAsArray, bOk := b.(*Array_)
+	if aOk && bOk {
+		return Equals(aAsArray.underlying, bAsArray.underlying)
+	}
 	if a == b {
 		return true
 	}
@@ -39,50 +28,79 @@ func Equals(a TypeInfo, b TypeInfo) bool {
 }
 
 // Int
-type int_ struct{}
+type Int_ struct{}
 
-func (info *int_) Name() string      { return "int" }
-func (info *int_) Create() data.Type { return new(data.Integer64) }
-func Int() *int_                     { return typeInt }
+func (info *Int_) String() string    { return "int" }
+func (info *Int_) Create() data.Type { return new(data.Integer64) }
+
+var typeInt = new(Int_)
+
+func Int() TypeInfo { return typeInt }
 
 // Float
-type float_ struct{}
+type Float_ struct{}
 
-func (info *float_) Name() string      { return "float" }
-func (info *float_) Create() data.Type { return new(data.Float64) }
-func Float() *float_                   { return typeFloat }
+func (info *Float_) String() string { return "float" }
+
+func (info *Float_) Create() data.Type { return new(data.Float64) }
+
+var typeFloat = new(Float_)
+
+func Float() TypeInfo { return typeFloat }
 
 // Bool
-type bool_ struct{}
+type Bool_ struct{}
 
-func (info *bool_) Name() string      { return "bool" }
-func (info *bool_) Create() data.Type { return new(data.Bool) }
-func Bool() *bool_                    { return typeBool }
+func (info *Bool_) String() string { return "bool" }
+
+func (info *Bool_) Create() data.Type { return new(data.Bool) }
+
+var typeBool = new(Bool_)
+
+func Bool() TypeInfo { return typeBool }
 
 // String
 type String_ struct{}
 
-func (info *String_) Name() string      { return "string" }
+func (info *String_) String() string { return "string" }
+
 func (info *String_) Create() data.Type { return new(data.String) }
-func String() *String_                  { return typeString }
+
+var typeString = new(String_)
+
+func String() TypeInfo { return typeString }
 
 // HTML
-type html struct{}
+type HTMLNode_ struct{}
 
-func (info *html) Name() string      { return "html node" }
-func (info *html) Create() data.Type { return new(data.HTMLNode) }
-func HTML() *html                    { return typeHTML }
+func (info *HTMLNode_) String() string { return "html node" }
 
-//
-// Parser
-//
-func GetTypeFromString(name string) TypeInfo {
-	return registeredTypes[name]
+func (info *HTMLNode_) Create() data.Type { return new(data.HTMLNode) }
+
+var typeHTMLNode_ = new(HTMLNode_)
+
+func HTMLNode() TypeInfo { return typeHTMLNode_ }
+
+// Array
+type Array_ struct {
+	underlying TypeInfo
+}
+
+func (info *Array_) String() string       { return "[]" + info.underlying.String() }
+func (info *Array_) Underlying() TypeInfo { return info.underlying }
+func (info *Array_) Create() data.Type    { return data.NewArray(info.underlying.Create()) }
+
+func Array(underlying TypeInfo) TypeInfo {
+	result := new(Array_)
+	result.underlying = underlying
+	return result
 }
 
 //
 // Initialization
 //
+var registeredTypes = make(map[string]TypeInfo)
+
 func RegisterType(name string, info TypeInfo) {
 	_, ok := registeredTypes[name]
 	if ok {
@@ -91,11 +109,13 @@ func RegisterType(name string, info TypeInfo) {
 	registeredTypes[name] = info
 }
 
-func init() {
-	RegisterType("string", typeString)
-	RegisterType("int", typeInt)
-	RegisterType("float", typeFloat)
-	RegisterType("bool", typeBool)
+func GetRegisteredType(name string) TypeInfo {
+	return registeredTypes[name]
+}
 
-	RegisterType("html", typeHTML)
+func init() {
+	RegisterType("string", String())
+	RegisterType("int", Int())
+	RegisterType("float", Float())
+	RegisterType("bool", Bool())
 }
