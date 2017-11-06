@@ -50,6 +50,14 @@ type Parameter struct {
 	Expression
 }
 
+type For struct {
+	IndexName    token.Token
+	RecordName   token.Token
+	Array        Expression
+	IsDeclareSet bool
+	Base
+}
+
 type ArrayLiteral struct {
 	TypeInfo       types.TypeInfo
 	TypeIdentifier Type

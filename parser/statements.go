@@ -103,8 +103,6 @@ Loop:
 				break Loop
 			}
 			resultNodes = append(resultNodes, node)
-		case token.BraceOpen:
-			panic("todo(Jake): Handle map data structure { \"thing\": [] }")
 		case token.String:
 			node := p.parseExpression()
 			resultNodes = append(resultNodes, node)
@@ -114,6 +112,50 @@ Loop:
 		case token.Newline, token.Semicolon:
 			// no-op
 			p.GetNextToken()
+		case token.KeywordIf:
+			p.fatalErrorToken(fmt.Errorf("If statements aren't implemented."), t)
+			return nil
+		case token.KeywordFor:
+			p.GetNextToken()
+			varName := p.GetNextToken()
+			if varName.Kind != token.Identifier {
+				p.addErrorToken(p.expect(varName, token.Identifier), varName)
+				return nil
+			}
+			t := p.GetNextToken()
+
+			var node *ast.For
+			switch t.Kind {
+			case token.DeclareSet:
+				node = new(ast.For)
+				node.IsDeclareSet = true
+				node.RecordName = varName
+				node.Array.ChildNodes = p.parseExpressionNodes()
+			case token.Comma:
+				secondVarName := p.GetNextToken()
+				if secondVarName.Kind != token.Identifier {
+					p.addErrorToken(p.expect(secondVarName, token.Identifier), secondVarName)
+					return nil
+				}
+				t = p.GetNextToken()
+				if t.Kind != token.DeclareSet {
+					p.addErrorToken(p.expect(t, token.DeclareSet), t)
+					return nil
+				}
+				node = new(ast.For)
+				node.IsDeclareSet = true
+				node.IndexName = varName
+				node.RecordName = secondVarName
+				node.Array.ChildNodes = p.parseExpressionNodes()
+			default:
+				p.addErrorToken(p.expect(t, token.DeclareSet, token.Comma), t)
+				return nil
+			}
+			if t := p.GetNextToken(); t.Kind != token.BraceOpen {
+				p.addErrorToken(p.expect(t, token.BraceOpen), t)
+				return nil
+			}
+			resultNodes = append(resultNodes, node)
 		case token.EOF, token.Illegal:
 			break Loop
 		default:

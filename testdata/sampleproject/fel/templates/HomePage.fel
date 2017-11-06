@@ -11,6 +11,11 @@
 Layout(body_class="HomePage") {
 	testA := [][]string{[]string{"test"}, []string{"array"}, []string{"of"}, []string{"strings"}}
 	testB := []string{"test", "array", "of", "strings"}
+	//str := "test"
+	for str := testB {
+		div(class=str) {
+		}
+	}
 	div(class="exists") {
 		"Test"
 	}

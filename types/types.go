@@ -104,7 +104,7 @@ var registeredTypes = make(map[string]TypeInfo)
 func RegisterType(name string, info TypeInfo) {
 	_, ok := registeredTypes[name]
 	if ok {
-		panic(fmt.Sprintf("Already registered \"%s\" type."))
+		panic(fmt.Sprintf("Already registered \"%s\" type.", name))
 	}
 	registeredTypes[name] = info
 }

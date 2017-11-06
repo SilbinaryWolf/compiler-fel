@@ -243,6 +243,7 @@ func (p *Parser) typecheckStatements(topNode ast.Node, scope *Scope) {
 	for len(nodeStack) > 0 {
 		itNode := nodeStack[len(nodeStack)-1]
 		nodeStack = nodeStack[:len(nodeStack)-1]
+		avoidNestingScopeThisIteration := false
 
 		if itNode == nil {
 			scope = scope.parent
@@ -257,6 +258,7 @@ func (p *Parser) typecheckStatements(topNode ast.Node, scope *Scope) {
 			// Skip nodes and child nodes
 			continue
 		case *ast.HTMLBlock:
+			panic("todo(Jake): Remove this if unused.")
 			p.typecheckHTMLBlock(node, scope)
 		case *ast.HTMLNode:
 			for i, _ := range node.Parameters {
@@ -304,31 +306,71 @@ func (p *Parser) typecheckStatements(topNode ast.Node, scope *Scope) {
 			}
 
 		case *ast.DeclareStatement:
-			p.typecheckExpression(scope, &node.Expression)
+			expr := &node.Expression
+			p.typecheckExpression(scope, expr)
 			name := node.Name.String()
 			_, ok := scope.GetFromThisScope(name)
 			if ok {
 				p.addErrorToken(fmt.Errorf("Cannot redeclare \"%s\".", name), node.Name)
 				continue
 			}
-			scope.Set(name, node.Expression.TypeInfo)
+			scope.Set(name, expr.TypeInfo)
 			continue
 		case *ast.Expression:
 			p.typecheckExpression(scope, node)
 			continue
+		case *ast.For:
+			if !node.IsDeclareSet {
+				panic("todo(Jake): handle array without declare set")
+			}
+			p.typecheckExpression(scope, &node.Array)
+			iTypeInfo := node.Array.TypeInfo
+			typeInfo, ok := iTypeInfo.(*types.Array_)
+			if !ok {
+				p.addErrorToken(fmt.Errorf("Cannot use type %s as array.", iTypeInfo.String()), node.RecordName)
+				continue
+			}
+			if node.IsDeclareSet {
+				// Nest scope
+				// - Earlier nesting so we declare variables in the `for` line rather
+				//	 then only after the {
+				//
+				// WARNING: Ensure nothing else appends to `nodeStack` after this.
+				//
+
+				// TODO(Jake): Fix bug where introducing this gets
+				//			   `Undeclared identifier "str".`, but it works without it.
+
+				//scope = NewScope(scope)
+				//nodeStack = append(nodeStack, nil)
+				//avoidNestingScopeThisIteration = true
+			}
+
+			// Set left-hand value type
+			name := node.RecordName.String()
+			_, ok = scope.GetFromThisScope(name)
+			if ok {
+				p.addErrorToken(fmt.Errorf("Cannot redeclare \"%s\" in for-loop.", name), node.RecordName)
+				continue
+			}
+			scope.Set(name, typeInfo.Underlying())
+			if len(node.Nodes()) == 0 {
+				panic("Why does For-loop have no child nodes")
+			}
 		default:
 			panic(fmt.Sprintf("TypecheckStatements: Unknown type %T", node))
 		}
 
 		// Nest scope
-		scope = NewScope(scope)
-		nodeStack = append(nodeStack, nil)
+		if !avoidNestingScopeThisIteration {
+			scope = NewScope(scope)
+			nodeStack = append(nodeStack, nil)
+		}
 
 		// Add children
 		nodes := itNode.Nodes()
 		for i := len(nodes) - 1; i >= 0; i-- {
-			node := nodes[i]
-			nodeStack = append(nodeStack, node)
+			nodeStack = append(nodeStack, nodes[i])
 		}
 	}
 }
