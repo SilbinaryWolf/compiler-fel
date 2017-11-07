@@ -92,7 +92,9 @@ func (p *Parser) typecheckExpression(scope *Scope, expression *ast.Expression) {
 		}
 	}
 
-	for _, itNode := range expression.Nodes() {
+	var leftToken token.Token
+	nodes := expression.Nodes()
+	for i, itNode := range nodes {
 		switch node := itNode.(type) {
 		case *ast.ArrayLiteral:
 			p.typecheckArrayLiteral(scope, node)
@@ -115,6 +117,14 @@ func (p *Parser) typecheckExpression(scope *Scope, expression *ast.Expression) {
 			}
 			p.typecheckHTMLBlock(node, scope)*/
 		case *ast.Token:
+			if node.IsOperator() {
+				continue
+			}
+			var opToken *ast.Token
+			if i+1 < len(nodes) {
+				opToken = nodes[i+1].(*ast.Token)
+			}
+
 			switch node.Kind {
 			case token.String:
 				expectedTypeInfo := types.String()
@@ -122,9 +132,8 @@ func (p *Parser) typecheckExpression(scope *Scope, expression *ast.Expression) {
 					resultTypeInfo = expectedTypeInfo
 				}
 				if !types.Equals(resultTypeInfo, expectedTypeInfo) {
-					p.addErrorToken(fmt.Errorf("Cannot use %s with %s \"%s\"", resultTypeInfo.String(), expectedTypeInfo.String(), node.String()), node.Token)
+					p.addErrorToken(fmt.Errorf("Cannot %s (%s) %s %s (\"%s\"), mismatching types.", resultTypeInfo.String(), leftToken.String(), opToken.String(), expectedTypeInfo.String(), node.String()), node.Token)
 				}
-				continue
 			case token.Number:
 				IntTypeInfo := types.Int()
 				FloatTypeInfo := types.Float()
@@ -138,7 +147,6 @@ func (p *Parser) typecheckExpression(scope *Scope, expression *ast.Expression) {
 				if !types.Equals(resultTypeInfo, IntTypeInfo) && !types.Equals(resultTypeInfo, FloatTypeInfo) {
 					p.addErrorToken(fmt.Errorf("Cannot use %s with number \"%s\"", resultTypeInfo.String(), node.String()), node.Token)
 				}
-				continue
 			case token.KeywordTrue, token.KeywordFalse:
 				expectedTypeInfo := types.Bool()
 				if types.HasNoType(resultTypeInfo) {
@@ -147,7 +155,6 @@ func (p *Parser) typecheckExpression(scope *Scope, expression *ast.Expression) {
 				if !types.Equals(resultTypeInfo, expectedTypeInfo) {
 					p.addErrorToken(fmt.Errorf("Cannot use %s with %s \"%s\"", resultTypeInfo.String(), expectedTypeInfo.String(), node.String()), node.Token)
 				}
-				continue
 			case token.Identifier:
 				name := node.String()
 				variableTypeInfo, ok := scope.Get(name)
@@ -166,12 +173,11 @@ func (p *Parser) typecheckExpression(scope *Scope, expression *ast.Expression) {
 				if !types.Equals(resultTypeInfo, variableTypeInfo) {
 					p.addErrorToken(fmt.Errorf("Identifier \"%s\" must be a %s not %s.", name, resultTypeInfo.String(), variableTypeInfo.String()), node.Token)
 				}
-				continue
+			default:
+				panic(fmt.Sprintf("typecheckExpression: Unhandled token kind: \"%s\" with value: %s", node.Kind.String(), node.String()))
 			}
-			if node.IsOperator() {
-				continue
-			}
-			panic(fmt.Sprintf("typecheckExpression: Unhandled token kind: \"%s\" with value: %s", node.Kind.String(), node.String()))
+			leftToken = node.Token
+			continue
 		}
 		panic(fmt.Sprintf("typecheckExpression: Unhandled type %T", itNode))
 	}
