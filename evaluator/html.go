@@ -71,8 +71,12 @@ func (program *Program) evaluateHTMLNodeChildren(nodes []ast.Node, scope *Scope)
 				resultNodes = append(resultNodes, subResultDataNode)
 				continue
 			}
-			subResultDataNode := program.evaluateHTMLNode(node, scope)
-			resultNodes = append(resultNodes, subResultDataNode)
+			dataNode := program.evaluateHTMLNode(node, scope)
+			if dataNode == nil {
+				resultNodes = append(resultNodes, program.evaluateHTMLNodeChildren(node.Nodes(), scope)...)
+				continue
+			}
+			resultNodes = append(resultNodes, dataNode)
 		case *ast.Expression:
 			resultNodes = program.evaluateHTMLExpression(node, scope, resultNodes)
 		case *ast.CSSDefinition:
@@ -182,6 +186,10 @@ func (program *Program) evaluteHTMLComponent(topNode *ast.HTMLNode, scope *Scope
 				continue
 			}
 			dataNode := program.evaluateHTMLNode(node, componentScope)
+			if dataNode == nil {
+				resultNodes = append(resultNodes, program.evaluateHTMLNodeChildren(node.Nodes(), scope)...)
+				continue
+			}
 			resultNodes = append(resultNodes, dataNode)
 		case *ast.Expression:
 			resultNodes = program.evaluateHTMLExpression(node, scope, resultNodes)
@@ -211,6 +219,14 @@ func (program *Program) evaluateHTMLBlock(node *ast.HTMLBlock, scope *Scope) *da
 }
 
 func (program *Program) evaluateHTMLNode(node *ast.HTMLNode, scope *Scope) *data.HTMLNode {
+	if len(node.IfExpression.ChildNodes) > 0 {
+		iResult := program.evaluateExpression(&node.IfExpression, scope)
+		resultBool := iResult.(*data.Bool)
+		if !resultBool.Value {
+			return nil
+		}
+	}
+
 	resultDataNode := new(data.HTMLNode)
 	resultDataNode.Name = node.Name.String()
 

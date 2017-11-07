@@ -68,8 +68,14 @@ func (p *Parser) expect(thisToken token.Token, expectedList ...interface{}) erro
 	// todo(Jake): switch to using a buffer as that uses less allocations
 	//			   ie. increase speed from 6500ns to 15ns
 	expectedItemsString := ""
-	lengthMinusOne := len(expectedList) - 1
 	for i, expectedItem := range expectedList {
+		if i != 0 {
+			if i == len(expectedList)-1 {
+				expectedItemsString += " or "
+			} else {
+				expectedItemsString += ", "
+			}
+		}
 		switch value := expectedItem.(type) {
 		case token.Kind:
 			switch value {
@@ -84,13 +90,6 @@ func (p *Parser) expect(thisToken token.Token, expectedList ...interface{}) erro
 			expectedItemsString += fmt.Sprintf("keyword \"%s\"", value)
 		default:
 			panic("unhandled type")
-		}
-		if i != 0 {
-			if i < lengthMinusOne {
-				expectedItemsString += ", "
-			} else {
-				expectedItemsString += " or "
-			}
 		}
 		/*switch expectTokenKind {
 		case token.Identifier:

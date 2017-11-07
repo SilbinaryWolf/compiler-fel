@@ -11,24 +11,8 @@
 test := "feyo"
 
 Layout(body_class="HomePage") {
-	testA := [][]string{[]string{"test", "test2"}, []string{"array"}, []string{"of"}, []string{"strings"}}
-	testB := []string{"test", "array", "of", "strings"}
-	for i, str := testA {
-		div(class="top") {
-			for b, itStr := str {
-				div(class=itStr) {
-					a(class=itStr) {
-						i
-						b
-					}
-				}
-			}
-		}
-	}
-	for index, str := []string{"INLINE_BABY", "YAY"} {
-		div(class=str) {
-			index
-		}
+	div(class="only-if-true") if test == "fao" {
+		"Inner text!"
 	}
 	div(class="exists") {
 		"Test"

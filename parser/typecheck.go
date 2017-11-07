@@ -267,6 +267,8 @@ func (p *Parser) typecheckStatements(topNode ast.Node, scope *Scope) {
 			panic("todo(Jake): Remove this if unused.")
 			p.typecheckHTMLBlock(node, scope)
 		case *ast.HTMLNode:
+			p.typecheckExpression(scope, &node.IfExpression)
+
 			for i, _ := range node.Parameters {
 				p.typecheckExpression(scope, &node.Parameters[i].Expression)
 			}

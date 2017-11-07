@@ -58,9 +58,21 @@ Loop:
 					Name: name,
 				}
 				node.Parameters = p.parseParameters()
-				if p.PeekNextToken().Kind == token.BraceOpen {
-					p.GetNextToken()
+				t := p.GetNextToken()
+				switch t.Kind {
+				case token.Newline:
+					// no-op
+				case token.BraceOpen:
 					node.ChildNodes = p.parseStatements()
+				case token.KeywordIf:
+					node.IfExpression.ChildNodes = p.parseExpressionNodes()
+					if t := p.GetNextToken(); t.Kind != token.BraceOpen {
+						p.addErrorToken(p.expect(t, token.BraceOpen), t)
+						return nil
+					}
+					node.ChildNodes = p.parseStatements()
+				default:
+					p.addErrorToken(p.expect(t, token.Newline, token.BraceOpen), t)
 				}
 				p.checkHTMLNode(node)
 				resultNodes = append(resultNodes, node)
