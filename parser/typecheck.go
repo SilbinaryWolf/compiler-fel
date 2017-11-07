@@ -122,7 +122,7 @@ func (p *Parser) typecheckExpression(scope *Scope, expression *ast.Expression) {
 					resultTypeInfo = expectedTypeInfo
 				}
 				if !types.Equals(resultTypeInfo, expectedTypeInfo) {
-					p.addErrorToken(fmt.Errorf("Cannot mix %s \"%s\" with %s", expectedTypeInfo.String(), node.String(), resultTypeInfo.String()), node.Token)
+					p.addErrorToken(fmt.Errorf("Cannot use %s with %s \"%s\"", resultTypeInfo.String(), expectedTypeInfo.String(), node.String()), node.Token)
 				}
 				continue
 			case token.Number:
@@ -136,7 +136,7 @@ func (p *Parser) typecheckExpression(scope *Scope, expression *ast.Expression) {
 					}
 				}
 				if !types.Equals(resultTypeInfo, IntTypeInfo) && !types.Equals(resultTypeInfo, FloatTypeInfo) {
-					p.addErrorToken(fmt.Errorf("Cannot mix number \"%s\" with %s", node.String(), resultTypeInfo.String()), node.Token)
+					p.addErrorToken(fmt.Errorf("Cannot use %s with number \"%s\"", resultTypeInfo.String(), node.String()), node.Token)
 				}
 				continue
 			case token.KeywordTrue, token.KeywordFalse:
@@ -145,7 +145,7 @@ func (p *Parser) typecheckExpression(scope *Scope, expression *ast.Expression) {
 					resultTypeInfo = expectedTypeInfo
 				}
 				if !types.Equals(resultTypeInfo, expectedTypeInfo) {
-					p.addErrorToken(fmt.Errorf("Cannot mix %s \"%s\" with %s", expectedTypeInfo.String(), node.String(), resultTypeInfo.String()), node.Token)
+					p.addErrorToken(fmt.Errorf("Cannot use %s with %s \"%s\"", resultTypeInfo.String(), expectedTypeInfo.String(), node.String()), node.Token)
 				}
 				continue
 			case token.Identifier:
@@ -318,6 +318,30 @@ func (p *Parser) typecheckStatements(topNode ast.Node, scope *Scope) {
 			continue
 		case *ast.Expression:
 			p.typecheckExpression(scope, node)
+			continue
+		case *ast.If:
+			expr := &node.Condition
+			//expr.TypeInfo = types.Bool()
+			p.typecheckExpression(scope, expr)
+
+			scope = NewScope(scope)
+			nodeStack = append(nodeStack, nil)
+			avoidNestingScopeThisIteration = true
+
+			// Add if true children
+			{
+				nodes := node.Nodes()
+				for i := len(nodes) - 1; i >= 0; i-- {
+					nodeStack = append(nodeStack, nodes[i])
+				}
+			}
+			{
+				// Add else children
+				nodes := node.ElseNodes
+				for i := len(nodes) - 1; i >= 0; i-- {
+					nodeStack = append(nodeStack, nodes[i])
+				}
+			}
 			continue
 		case *ast.For:
 			if !node.IsDeclareSet {

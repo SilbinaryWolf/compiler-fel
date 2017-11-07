@@ -8,7 +8,22 @@
 	}
 }
 
+test := true
+
 Layout(body_class="HomePage") {
+	if test == "heyono" || test == "feyo" {
+		div(class="booyah") {
+			div {}
+		}
+	} else if test == "aeyo" {
+		div(class="nah!") {
+
+		}
+	} else if test == "heyo" {
+		div(class="finally!") {
+			"Boyo!"
+		}
+	}
 	testA := [][]string{[]string{"test", "test2"}, []string{"array"}, []string{"of"}, []string{"strings"}}
 	testB := []string{"test", "array", "of", "strings"}
 	for str := testA {
@@ -20,6 +35,11 @@ Layout(body_class="HomePage") {
 					}
 				}
 			}
+		}
+	}
+	for str := []string{"INLINE_BABY", "YAY"} {
+		div(class=str) {
+
 		}
 	}
 	div(class="exists") {

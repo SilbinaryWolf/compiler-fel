@@ -21,7 +21,7 @@ func (program *Program) evaluateExpression(expressionNode *ast.Expression, scope
 	}
 
 	typeInfo := expressionNode.TypeInfo
-	isStringExpr := types.Equals(typeInfo, types.String())
+	//isStringExpr := types.Equals(typeInfo, types.String())
 
 	// todo(Jake): Rewrite string concat to use `var stringBuffer bytes.Buffer` and see if
 	//			   there is a speedup
@@ -71,28 +71,60 @@ func (program *Program) evaluateExpression(expressionNode *ast.Expression, scope
 					leftValue := stack[len(stack)-1]
 					stack = stack[:len(stack)-1]
 
-					// Handle concat of strings
-					if isStringExpr {
-						rightTypeString, ok := rightValue.(*data.String)
-						if !ok {
-							panic(fmt.Sprintf("evaluateExpression(): Unexpected error, expression type was string but right-value inside weren't."))
+					// Handle string
+					rightTypeString, rValueIsString := rightValue.(*data.String)
+					leftTypeString, lValueIsString := leftValue.(*data.String)
+					if lValueIsString && rValueIsString {
+						/*rightTypeString, ok := rightValue.(*data.String)
+							if !ok {
+								panic(fmt.Sprintf("evaluateExpression(): Unexpected error, expression type was string but right-value inside weren't. Left: %s, Right: %s", leftValue.String(), rightValue.String()))
+							}
+							leftTypeString, ok := leftValue.(*data.String)
+							if !ok {
+								panic(fmt.Sprintf("evaluateExpression(): Unexpected error, expression type was string but left-value inside weren't."))
+						}*/
+						switch node.Kind {
+						case token.Add:
+							result := &data.String{
+								Value: leftTypeString.Value + rightTypeString.Value,
+							}
+							stack = append(stack, result)
+							continue
+						case token.ConditionalEqual:
+							result := &data.Bool{
+								Value: leftTypeString.Value == rightTypeString.Value,
+							}
+							stack = append(stack, result)
+							continue
 						}
-						leftTypeString, ok := leftValue.(*data.String)
-						if !ok {
-							panic(fmt.Sprintf("evaluateExpression(): Unexpected error, expression type was string but left-value inside weren't."))
-						}
-						if node.Kind != token.Add {
-							panic(fmt.Sprintf("evaluateExpression(): Can only + strings together.", node.Kind.String()))
-						}
-
-						result := &data.String{
-							Value: leftTypeString.String() + rightTypeString.String(),
-						}
-						stack = append(stack, result)
-						continue
+						panic(fmt.Sprintf("evaluateExpression(): Invalid operation %s with string data types.", node.Kind.String()))
 					}
 
-					panic("todo(Jake): Handle adding numbers together. (Only strings supported currently)")
+					//
+					rightTypeBool, rValueIsBool := rightValue.(*data.Bool)
+					leftTypeBool, lValueIsBool := leftValue.(*data.Bool)
+					if lValueIsBool && rValueIsBool {
+						switch node.Kind {
+						case token.ConditionalEqual:
+							stack = append(stack, &data.Bool{
+								Value: leftTypeBool.Value == rightTypeBool.Value,
+							})
+							continue
+						case token.ConditionalAnd:
+							stack = append(stack, &data.Bool{
+								Value: leftTypeBool.Value && rightTypeBool.Value,
+							})
+							continue
+						case token.ConditionalOr:
+							stack = append(stack, &data.Bool{
+								Value: leftTypeBool.Value || rightTypeBool.Value,
+							})
+							continue
+						}
+						panic(fmt.Sprintf("evaluateExpression(): Invalid operation %s with bool data types.", node.Kind.String()))
+					}
+
+					panic(fmt.Sprintf("todo(Jake): Handle %s numbers together. (Only strings supported currently)", node.Kind.String()))
 				}
 				panic(fmt.Sprintf("Evaluator::evaluateExpression(): Unhandled *.astToken kind: %s", node.Kind.String()))
 			}

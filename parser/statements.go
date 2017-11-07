@@ -113,8 +113,40 @@ Loop:
 			// no-op
 			p.GetNextToken()
 		case token.KeywordIf:
-			p.fatalErrorToken(fmt.Errorf("If statements aren't implemented."), t)
-			return nil
+			p.GetNextToken()
+			exprNodes := p.parseExpressionNodes()
+			if t := p.GetNextToken(); t.Kind != token.BraceOpen {
+				p.addErrorToken(p.expect(t, token.BraceOpen), t)
+				return nil
+			}
+			node := new(ast.If)
+			node.Condition.ChildNodes = exprNodes
+			node.ChildNodes = p.parseStatements()
+			resultNodes = append(resultNodes, node)
+			// Eat newlines
+			for {
+				t := p.PeekNextToken()
+				if t.Kind == token.Newline {
+					p.GetNextToken()
+					continue
+				}
+				break
+			}
+			t = p.PeekNextToken()
+			if t.Kind == token.KeywordElse {
+				p.GetNextToken()
+				t := p.PeekNextToken()
+				switch t.Kind {
+				case token.KeywordIf:
+					// no-op
+				case token.BraceOpen:
+					p.GetNextToken()
+				default:
+					p.addErrorToken(p.expect(t, token.BraceOpen, token.KeywordIf), t)
+					return nil
+				}
+				node.ElseNodes = p.parseStatements()
+			}
 		case token.KeywordFor:
 			p.GetNextToken()
 			varName := p.GetNextToken()

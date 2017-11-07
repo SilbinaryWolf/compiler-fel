@@ -32,9 +32,9 @@ type File struct {
 	Base
 }
 
-type Block struct {
+/*type Block struct {
 	Base
-}
+}*/
 
 type Type struct {
 	Name       token.Token
@@ -56,6 +56,12 @@ type For struct {
 	Array        Expression
 	IsDeclareSet bool
 	Base
+}
+
+type If struct {
+	Condition Expression
+	Base
+	ElseNodes []Node
 }
 
 type ArrayLiteral struct {
