@@ -36,10 +36,9 @@ func (program *Program) evaluateHTMLExpression(node *ast.Expression, scope *Scop
 	valueInterface := program.evaluateExpression(node, scope)
 	switch value := valueInterface.(type) {
 	case *data.String:
-		subResultDataNode := &data.HTMLText{
+		resultNodes = append(resultNodes, &data.HTMLText{
 			Value: value.String(),
-		}
-		resultNodes = append(resultNodes, subResultDataNode)
+		})
 	case *data.Array:
 		_, ok := value.Type().(*data.HTMLComponentNode)
 		if !ok {
@@ -50,6 +49,10 @@ func (program *Program) evaluateHTMLExpression(node *ast.Expression, scope *Scop
 		if value != nil {
 			resultNodes = append(resultNodes, value)
 		}
+	case *data.Integer64:
+		resultNodes = append(resultNodes, &data.HTMLText{
+			Value: value.String(),
+		})
 	default:
 		panic(fmt.Sprintf("evaluateHTMLNodeChildren: Unhandled value result in HTMLNode: %T", value))
 	}
@@ -87,7 +90,6 @@ func (program *Program) evaluateHTMLNodeChildren(nodes []ast.Node, scope *Scope)
 					resultNodes = append(resultNodes, program.evaluateHTMLNodeChildren(node.ElseNodes, scope)...)
 				}
 			}
-
 			scope = scope.parent
 		case *ast.For:
 			//program.evaluateFor(node, scope)
@@ -96,10 +98,18 @@ func (program *Program) evaluateHTMLNodeChildren(nodes []ast.Node, scope *Scope)
 
 			scope = NewScope(scope)
 			{
-				name := node.RecordName.String()
+				indexName := node.IndexName.String()
+				indexVal := &data.Integer64{}
+				scope.Set(indexName, indexVal)
+
+				recordName := node.RecordName.String()
+
 				nodes := node.Nodes()
-				for _, val := range value.Elements {
-					scope.Set(name, val)
+				for i, val := range value.Elements {
+					if len(indexName) > 0 {
+						indexVal.Value = int64(i)
+					}
+					scope.Set(recordName, val)
 					resultNodes = append(resultNodes, program.evaluateHTMLNodeChildren(nodes, scope)...)
 				}
 			}
@@ -108,6 +118,7 @@ func (program *Program) evaluateHTMLNodeChildren(nodes []ast.Node, scope *Scope)
 			program.evaluateStatement(itNode, scope)
 		}
 	}
+	scope = scope.parent
 	return resultNodes
 }
 

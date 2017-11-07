@@ -372,6 +372,17 @@ func (p *Parser) typecheckStatements(topNode ast.Node, scope *Scope) {
 				avoidNestingScopeThisIteration = true
 			}
 
+			// Add "i" to scope if used
+			if node.IndexName.Kind != token.Unknown {
+				indexName := node.IndexName.String()
+				_, ok = scope.GetFromThisScope(indexName)
+				if ok {
+					p.addErrorToken(fmt.Errorf("Cannot redeclare \"%s\" in for-loop.", indexName), node.IndexName)
+					continue
+				}
+				scope.Set(indexName, types.Int())
+			}
+
 			// Set left-hand value type
 			name := node.RecordName.String()
 			_, ok = scope.GetFromThisScope(name)
@@ -380,9 +391,6 @@ func (p *Parser) typecheckStatements(topNode ast.Node, scope *Scope) {
 				continue
 			}
 			scope.Set(name, typeInfo.Underlying())
-			if len(node.Nodes()) == 0 {
-				panic("Why does For-loop have no child nodes")
-			}
 		default:
 			panic(fmt.Sprintf("TypecheckStatements: Unknown type %T", node))
 		}
