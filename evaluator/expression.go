@@ -2,6 +2,8 @@ package evaluator
 
 import (
 	"fmt"
+	"strconv"
+	"strings"
 
 	"github.com/silbinarywolf/compiler-fel/ast"
 	"github.com/silbinarywolf/compiler-fel/data"
@@ -48,6 +50,27 @@ func (program *Program) evaluateExpression(expressionNode *ast.Expression, scope
 			case token.String:
 				value := &data.String{Value: node.String()}
 				stack = append(stack, value)
+			case token.Number:
+				//
+				// todo(Jake): Handle this string conversion at parser time.
+				//				ie. ast.IntLiteral, ast.FloatLiteral
+				//
+				str := node.String()
+				if strings.Contains(str, ".") {
+					float, err := strconv.ParseFloat(node.String(), 10)
+					if err != nil {
+						panic(fmt.Errorf("Failed to parse float value from string: %s", err))
+					}
+					value := &data.Float64{Value: float}
+					stack = append(stack, value)
+					continue
+				}
+				intVal, err := strconv.ParseInt(node.String(), 10, 0)
+				if err != nil {
+					panic(fmt.Errorf("Failed to parse int value from string: %s", err))
+				}
+				value := &data.Integer64{Value: intVal}
+				stack = append(stack, value)
 			case token.Identifier:
 				name := node.String()
 				value, exists := scope.Get(name)
@@ -56,11 +79,9 @@ func (program *Program) evaluateExpression(expressionNode *ast.Expression, scope
 				}
 				stack = append(stack, value)
 			case token.KeywordTrue:
-				value := &data.Bool{Value: true}
-				stack = append(stack, value)
+				stack = append(stack, data.NewBool(true))
 			case token.KeywordFalse:
-				value := &data.Bool{Value: false}
-				stack = append(stack, value)
+				stack = append(stack, data.NewBool(false))
 			default:
 				if node.IsOperator() {
 					rightValue := stack[len(stack)-1]
@@ -85,43 +106,56 @@ func (program *Program) evaluateExpression(expressionNode *ast.Expression, scope
 						}*/
 						switch node.Kind {
 						case token.Add:
-							result := &data.String{
+							stack = append(stack, &data.String{
 								Value: leftTypeString.Value + rightTypeString.Value,
-							}
-							stack = append(stack, result)
+							})
 							continue
 						case token.ConditionalEqual:
-							result := &data.Bool{
-								Value: leftTypeString.Value == rightTypeString.Value,
-							}
-							stack = append(stack, result)
+							stack = append(stack, data.NewBool(leftTypeString.Value == rightTypeString.Value))
+							continue
+						case token.ConditionalNotEqual:
+							stack = append(stack, data.NewBool(leftTypeString.Value != rightTypeString.Value))
 							continue
 						}
 						panic(fmt.Sprintf("evaluateExpression(): Invalid operation %s with string data types.", node.Kind.String()))
 					}
 
-					//
+					// Handle bool
 					rightTypeBool, rValueIsBool := rightValue.(*data.Bool)
 					leftTypeBool, lValueIsBool := leftValue.(*data.Bool)
 					if lValueIsBool && rValueIsBool {
 						switch node.Kind {
+						case token.ConditionalNotEqual:
+							stack = append(stack, data.NewBool(leftTypeBool.Value() != rightTypeBool.Value()))
+							continue
 						case token.ConditionalEqual:
-							stack = append(stack, &data.Bool{
-								Value: leftTypeBool.Value == rightTypeBool.Value,
-							})
+							stack = append(stack, data.NewBool(leftTypeBool.Value() == rightTypeBool.Value()))
 							continue
 						case token.ConditionalAnd:
-							stack = append(stack, &data.Bool{
-								Value: leftTypeBool.Value && rightTypeBool.Value,
-							})
+							stack = append(stack, data.NewBool(leftTypeBool.Value() && rightTypeBool.Value()))
 							continue
 						case token.ConditionalOr:
-							stack = append(stack, &data.Bool{
-								Value: leftTypeBool.Value || rightTypeBool.Value,
-							})
+							stack = append(stack, data.NewBool(leftTypeBool.Value() || rightTypeBool.Value()))
 							continue
 						}
 						panic(fmt.Sprintf("evaluateExpression(): Invalid operation %s with bool data types.", node.Kind.String()))
+					}
+
+					{
+						rightType, rOk := rightValue.(*data.Integer64)
+						leftType, lOk := leftValue.(*data.Integer64)
+						if lOk && rOk {
+							switch node.Kind {
+							case token.ConditionalNotEqual:
+								stack = append(stack, data.NewBool(leftTypeString.Value != rightTypeString.Value))
+								continue
+							case token.Add:
+								stack = append(stack, &data.Integer64{Value: leftType.Value + rightType.Value})
+								continue
+							case token.Equal:
+								panic(fmt.Sprintf("Line %d - Invalid expression, got = inside it.", node.Line))
+							}
+						}
 					}
 
 					panic(fmt.Sprintf("todo(Jake): Handle %s numbers together. (Only strings supported currently)", node.Kind.String()))

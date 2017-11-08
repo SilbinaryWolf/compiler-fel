@@ -50,37 +50,40 @@ const (
 
 	operator_begin
 	// Operators and delimiters
-	Add              // +
-	Subtract         // -
-	Divide           // /
-	Multiply         // *
-	Modulo           // %
-	Ternary          // ?
-	Equal            // =
-	Power            // ^
-	PowerEqual       // ^=
-	And              // &
-	Or               // |
-	Not              // !
-	ConditionalEqual // ==
-	ConditionalAnd   // &&
-	ConditionalOr    // ||
-	GreaterThan      // >
-	LessThan         // <
+	Add                 // +
+	AddEqual            // +=
+	Subtract            // -
+	Divide              // /
+	Multiply            // *
+	Modulo              // %
+	Ternary             // ?
+	Equal               // =
+	Power               // ^
+	PowerEqual          // ^=
+	And                 // &
+	Or                  // |
+	Not                 // !
+	ConditionalNotEqual // !=
+	ConditionalEqual    // ==
+	ConditionalAnd      // &&
+	ConditionalOr       // ||
+	GreaterThan         // >
+	LessThan            // <
 	operator_end
 )
 
 var precedence = []int{
-	Unknown:          0,
-	ParenOpen:        1,
-	ParenClose:       1,
-	ConditionalOr:    2,
-	ConditionalAnd:   2,
-	ConditionalEqual: 3,
-	Add:              4,
-	Subtract:         4,
-	Divide:           4,
-	Multiply:         4,
+	Unknown:             0,
+	ParenOpen:           1,
+	ParenClose:          1,
+	ConditionalOr:       2,
+	ConditionalAnd:      2,
+	ConditionalEqual:    3,
+	ConditionalNotEqual: 3, // NOTE(Jake): Didn't check this against other langs
+	Add:                 4,
+	Subtract:            4,
+	Divide:              4,
+	Multiply:            4,
 }
 
 var kindToString = []string{
@@ -125,21 +128,23 @@ var kindToString = []string{
 	//KeywordHTML:   "html",
 
 	// Operators and delimiters
-	Add:              "+",
-	Subtract:         "-",
-	Divide:           "/",
-	Multiply:         "*",
-	Modulo:           "%",
-	Equal:            "=",
-	Power:            "^",
-	PowerEqual:       "^=",
-	And:              "&",
-	Or:               "|",
-	ConditionalEqual: "==",
-	ConditionalAnd:   "&&",
-	ConditionalOr:    "||",
-	GreaterThan:      ">",
-	LessThan:         "<",
+	Add:                 "+",
+	AddEqual:            "+=",
+	Subtract:            "-",
+	Divide:              "/",
+	Multiply:            "*",
+	Modulo:              "%",
+	Equal:               "=",
+	Power:               "^",
+	PowerEqual:          "^=",
+	And:                 "&",
+	Or:                  "|",
+	ConditionalNotEqual: "!=",
+	ConditionalEqual:    "==",
+	ConditionalAnd:      "&&",
+	ConditionalOr:       "||",
+	GreaterThan:         ">",
+	LessThan:            "<",
 }
 
 type Token struct {

@@ -76,6 +76,11 @@ type Expression struct {
 	Base
 }
 
+type SetStatement struct {
+	Name token.Token
+	Expression
+}
+
 type DeclareStatement struct {
 	Name token.Token
 	Expression

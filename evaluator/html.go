@@ -85,7 +85,8 @@ func (program *Program) evaluateHTMLNodeChildren(nodes []ast.Node, scope *Scope)
 			}
 		case *ast.If:
 			iValue := program.evaluateExpression(&node.Condition, scope)
-			isTrue := iValue.(*data.Bool).Value
+			isTrue := iValue.(*data.Bool).Value()
+
 			scope = NewScope(scope)
 			if isTrue {
 				resultNodes = append(resultNodes, program.evaluateHTMLNodeChildren(node.Nodes(), scope)...)
@@ -222,7 +223,7 @@ func (program *Program) evaluateHTMLNode(node *ast.HTMLNode, scope *Scope) *data
 	if len(node.IfExpression.ChildNodes) > 0 {
 		iResult := program.evaluateExpression(&node.IfExpression, scope)
 		resultBool := iResult.(*data.Bool)
-		if !resultBool.Value {
+		if !resultBool.Value() {
 			return nil
 		}
 	}

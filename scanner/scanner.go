@@ -389,6 +389,12 @@ func (scanner *Scanner) _getNextToken() token.Token {
 	// Operators
 	case '+':
 		t.Kind = token.Add
+		switch lastIndex := scanner.index; scanner.nextRune() {
+		case '=':
+			t.Kind = token.AddEqual
+		default:
+			scanner.index = lastIndex
+		}
 	// todo(Jake): Handle subtract again (identifiers have '-' so needs extra work)
 	//case '-':
 	///./.;'>">">'	t.Kind = token.Subtract
@@ -398,6 +404,12 @@ func (scanner *Scanner) _getNextToken() token.Token {
 		t.Kind = token.Multiply
 	case '!':
 		t.Kind = token.Not
+		switch lastIndex := scanner.index; scanner.nextRune() {
+		case '=':
+			t.Kind = token.ConditionalNotEqual
+		default:
+			scanner.index = lastIndex
+		}
 	case '^':
 		t.Kind = token.Power
 		switch lastIndex := scanner.index; scanner.nextRune() {

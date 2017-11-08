@@ -15,15 +15,29 @@ func (s *String) String() string {
 }
 
 // Boolean
+var boolFalse = &Bool{value: false}
+var boolTrue = &Bool{value: true}
+
 type Bool struct {
-	Value bool
+	value bool
 }
 
-func (i *Bool) String() string {
-	if i.Value {
+func NewBool(value bool) *Bool {
+	if value {
+		return boolTrue
+	}
+	return boolFalse
+}
+
+func (b *Bool) String() string {
+	if b.value {
 		return "true"
 	}
 	return "false"
+}
+
+func (b *Bool) Value() bool {
+	return b.value
 }
 
 // Integer64

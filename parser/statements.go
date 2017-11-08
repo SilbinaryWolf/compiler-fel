@@ -31,6 +31,12 @@ Loop:
 			case token.DeclareSet:
 				node := p.NewDeclareStatement(name, ast.Type{}, p.parseExpressionNodes())
 				resultNodes = append(resultNodes, node)
+			// myVar = {Expression} \n
+			//
+			case token.Equal:
+				panic("todo(Jake): Add set ast")
+				node := p.NewSetStatement(name, ast.Type{}, p.parseExpressionNodes())
+				resultNodes = append(resultNodes, node)
 			// myVar : string \n
 			case token.Colon:
 				typeName := p.parseType()
