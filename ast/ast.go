@@ -94,3 +94,19 @@ type Token struct {
 func (node *Token) Nodes() []Node {
 	return nil
 }
+
+type Struct struct {
+	Name   token.Token
+	Fields []StructField
+}
+
+func (node *Struct) Nodes() []Node {
+	return nil
+}
+
+type StructField struct {
+	Name           token.Token
+	TypeIdentifier Type
+	TypeInfo       types.TypeInfo
+	DefaultValue   Expression
+}

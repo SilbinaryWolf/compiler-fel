@@ -30,18 +30,28 @@ func (p *Parser) parseDefinition(name token.Token) ast.Node {
 			p.addError(p.expect(t, token.BraceOpen))
 			return nil
 		}
+		//
+		//
 		childNodes := p.parseStatements()
-		propertiesNode := new(ast.HTMLProperties)
-		propertiesNode.Statements = make([]*ast.DeclareStatement, 0, len(childNodes))
+		fields := make([]ast.StructField, 0, len(childNodes))
+		// NOTE(Jake): A bit of a hack, we should have a 'parseStruct' function
 		for _, itNode := range childNodes {
 			switch node := itNode.(type) {
 			case *ast.DeclareStatement:
-				propertiesNode.Statements = append(propertiesNode.Statements, node)
+				field := ast.StructField{}
+				field.Name = node.Name
+				field.TypeIdentifier = node.Expression.TypeIdentifier
+				field.DefaultValue = node.Expression
+				fields = append(fields, field)
 			default:
-				panic(fmt.Sprintf("parseDefinition(): Unhandled node type %T in :: properties block", node))
+				p.addErrorToken(fmt.Errorf("Expected statement, instead got %T.", itNode), name)
+				return nil
 			}
 		}
-		return propertiesNode
+		node := new(ast.Struct)
+		node.Name = name
+		node.Fields = fields
+		return node
 	case "html":
 		if t := p.GetNextToken(); t.Kind != token.BraceOpen {
 			p.addError(p.expect(t, token.BraceOpen))
@@ -75,16 +85,16 @@ func (p *Parser) parseDefinition(name token.Token) ast.Node {
 		if name.Kind != token.Unknown {
 			// Retrieve properties block
 			var cssDef *ast.CSSDefinition
-			var properties *ast.HTMLProperties
+			var structure *ast.Struct
 		RetrievePropertyDefinitionLoop:
 			for _, itNode := range childNodes {
 				switch node := itNode.(type) {
-				case *ast.HTMLProperties:
-					if properties != nil {
+				case *ast.Struct:
+					if structure != nil {
 						p.addError(fmt.Errorf("Cannot declare \":: struct\" twice in the same HTML component."))
 						break RetrievePropertyDefinitionLoop
 					}
-					properties = node
+					structure = node
 				case *ast.CSSDefinition:
 					if cssDef != nil {
 						p.addError(fmt.Errorf("Cannot declare \":: css\" twice in the same HTML component."))
@@ -97,7 +107,7 @@ func (p *Parser) parseDefinition(name token.Token) ast.Node {
 			// Component
 			node := new(ast.HTMLComponentDefinition)
 			node.Name = name
-			node.Properties = properties
+			node.Properties = structure
 			node.CSSDefinition = cssDef
 			node.ChildNodes = childNodes
 

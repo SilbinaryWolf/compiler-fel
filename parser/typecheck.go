@@ -211,9 +211,9 @@ func (p *Parser) typecheckHTMLDefinition(htmlDefinition *ast.HTMLComponentDefini
 	scope.Set("children", types.HTMLNode())
 
 	if htmlDefinition.Properties != nil {
-		for i, _ := range htmlDefinition.Properties.Statements {
-			var propertyNode *ast.DeclareStatement = htmlDefinition.Properties.Statements[i]
-			p.typecheckExpression(scope, &propertyNode.Expression)
+		for i, _ := range htmlDefinition.Properties.Fields {
+			var propertyNode *ast.StructField = &htmlDefinition.Properties.Fields[i]
+			p.typecheckExpression(scope, &propertyNode.DefaultValue)
 			name := propertyNode.Name.String()
 			_, ok := scope.Get(name)
 			if ok {
@@ -260,7 +260,7 @@ func (p *Parser) typecheckStatements(topNode ast.Node, scope *Scope) {
 		case *ast.CSSDefinition,
 			*ast.CSSConfigDefinition,
 			*ast.HTMLComponentDefinition,
-			*ast.HTMLProperties:
+			*ast.Struct:
 			// Skip nodes and child nodes
 			continue
 		case *ast.HTMLBlock:
@@ -298,10 +298,10 @@ func (p *Parser) typecheckStatements(topNode ast.Node, scope *Scope) {
 				for i, _ := range node.Parameters {
 					parameterNode := &node.Parameters[i]
 					paramName := parameterNode.Name.String()
-					for _, componentParamNode := range node.HTMLDefinition.Properties.Statements {
-						if paramName == componentParamNode.Name.String() {
+					for _, field := range node.HTMLDefinition.Properties.Fields {
+						if paramName == field.Name.String() {
 							parameterType := parameterNode.TypeInfo
-							componentStructType := componentParamNode.TypeInfo
+							componentStructType := field.TypeInfo
 							if parameterType != componentStructType {
 								p.addErrorToken(fmt.Errorf("\"%s\" must be of type %s, not %s", paramName, componentStructType.String(), parameterType.String()), parameterNode.Name)
 							}

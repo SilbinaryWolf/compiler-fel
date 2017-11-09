@@ -140,14 +140,14 @@ func (program *Program) evaluteHTMLComponent(topNode *ast.HTMLNode, scope *Scope
 
 	// Get valid parameters
 	if properties := topNode.HTMLDefinition.Properties; properties != nil {
-		if propertySet := properties.Statements; propertySet != nil {
-			for _, decl := range propertySet {
-				name := decl.Name.String()
-				if len(decl.ChildNodes) == 0 {
-					componentScope.DeclareSet(name, decl.TypeInfo.Create())
-				} else {
-					componentScope.DeclareSet(name, program.evaluateExpression(&decl.Expression, nil))
-				}
+		fieldList := properties.Fields
+		for _, decl := range fieldList {
+			name := decl.Name.String()
+			defaultValueExpr := &decl.DefaultValue
+			if len(defaultValueExpr.ChildNodes) == 0 {
+				componentScope.DeclareSet(name, decl.TypeInfo.Create())
+			} else {
+				componentScope.DeclareSet(name, program.evaluateExpression(defaultValueExpr, nil))
 			}
 		}
 	}
@@ -194,7 +194,7 @@ func (program *Program) evaluteHTMLComponent(topNode *ast.HTMLNode, scope *Scope
 			resultNodes = append(resultNodes, dataNode)
 		case *ast.Expression:
 			resultNodes = program.evaluateHTMLExpression(node, scope, resultNodes)
-		case *ast.HTMLProperties, *ast.CSSDefinition:
+		case *ast.Struct, *ast.CSSDefinition:
 			// ignore
 		default:
 			program.evaluateStatement(node, componentScope)
