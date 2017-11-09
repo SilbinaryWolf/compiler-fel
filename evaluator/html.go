@@ -105,7 +105,7 @@ func (program *Program) evaluateHTMLNodeChildren(nodes []ast.Node, scope *Scope)
 			{
 				indexName := node.IndexName.String()
 				indexVal := &data.Integer64{}
-				scope.Set(indexName, indexVal)
+				scope.DeclareSet(indexName, indexVal)
 
 				recordName := node.RecordName.String()
 
@@ -114,7 +114,7 @@ func (program *Program) evaluateHTMLNodeChildren(nodes []ast.Node, scope *Scope)
 					if len(indexName) > 0 {
 						indexVal.Value = int64(i)
 					}
-					scope.Set(recordName, val)
+					scope.DeclareSet(recordName, val)
 					resultNodes = append(resultNodes, program.evaluateHTMLNodeChildren(nodes, scope)...)
 				}
 			}
@@ -144,9 +144,9 @@ func (program *Program) evaluteHTMLComponent(topNode *ast.HTMLNode, scope *Scope
 			for _, decl := range propertySet {
 				name := decl.Name.String()
 				if len(decl.ChildNodes) == 0 {
-					componentScope.Set(name, decl.TypeInfo.Create())
+					componentScope.DeclareSet(name, decl.TypeInfo.Create())
 				} else {
-					componentScope.Set(name, program.evaluateExpression(&decl.Expression, nil))
+					componentScope.DeclareSet(name, program.evaluateExpression(&decl.Expression, nil))
 				}
 			}
 		}
@@ -161,7 +161,7 @@ func (program *Program) evaluteHTMLComponent(topNode *ast.HTMLNode, scope *Scope
 				panic(fmt.Sprintf("Cannot pass \"%s\" as parameter as it's not a defined property on \"%s\".", name, topNode.Name))
 			}
 			value := program.evaluateExpression(&parameter.Expression, scope)
-			componentScope.Set(name, value)
+			componentScope.DeclareSet(name, value)
 		}
 	}
 
@@ -169,9 +169,9 @@ func (program *Program) evaluteHTMLComponent(topNode *ast.HTMLNode, scope *Scope
 	array := data.NewArray(&data.HTMLComponentNode{})
 	if len(childNodes) > 0 {
 		array.Elements = childNodes
-		componentScope.Set("children", array)
+		componentScope.DeclareSet("children", array)
 	} else {
-		componentScope.Set("children", array)
+		componentScope.DeclareSet("children", array)
 	}
 
 	// Get resultDataNode

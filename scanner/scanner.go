@@ -535,6 +535,9 @@ func (scanner *Scanner) _getNextToken() token.Token {
 	if len(t.Data) == 0 && t.HasUniqueData() {
 		t.Data = string(scanner.filecontents[t.Start:t.End])
 	}
+	//if t.Kind == token.Identifier && len(t.Data) > 0 && t.Data[len(t.Data)-1] == '-' {
+	//	scanner.setError(fmt.Errorf("Cannot end identifier in -."))
+	//}
 	if scanner.Error != nil {
 		t.Kind = token.Illegal
 	}

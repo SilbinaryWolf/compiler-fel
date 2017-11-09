@@ -76,8 +76,9 @@ type Expression struct {
 	Base
 }
 
-type SetStatement struct {
-	Name token.Token
+type OpStatement struct {
+	Name     token.Token
+	Operator token.Token
 	Expression
 }
 

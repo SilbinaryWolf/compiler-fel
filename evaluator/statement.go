@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/silbinarywolf/compiler-fel/ast"
+	"github.com/silbinarywolf/compiler-fel/token"
 )
 
 func (program *Program) evaluateDeclareSet(node *ast.DeclareStatement, scope *Scope) {
@@ -12,13 +13,26 @@ func (program *Program) evaluateDeclareSet(node *ast.DeclareStatement, scope *Sc
 		panic(fmt.Sprintf("Cannot redeclare %v in same scope.", name))
 	}
 	value := program.evaluateExpression(&node.Expression, scope)
-	scope.Set(name, value)
+	scope.DeclareSet(name, value)
 }
 
 func (program *Program) evaluateStatement(topNode ast.Node, scope *Scope) {
 	switch node := topNode.(type) {
 	case *ast.DeclareStatement:
 		program.evaluateDeclareSet(node, scope)
+	case *ast.OpStatement:
+		name := node.Name.String()
+		_, exists := scope.Get(name)
+		if !exists {
+			panic(fmt.Sprintf("evaluateStatement(): Typechecker missed undeclared variable \"%s\".", name))
+		}
+		value := program.evaluateExpression(&node.Expression, scope)
+		switch node.Operator.Kind {
+		case token.Equal:
+			scope.Set(name, value)
+		default:
+			panic(fmt.Sprintf("evaluateStatement(): Unhandled set-operator: %s", node.Operator.Kind))
+		}
 	case *ast.HTMLBlock, *ast.HTMLComponentDefinition:
 		// ignore
 	case *ast.CSSDefinition:

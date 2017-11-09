@@ -312,7 +312,15 @@ func (p *Parser) typecheckStatements(topNode ast.Node, scope *Scope) {
 					continue
 				}
 			}
-
+		case *ast.OpStatement:
+			p.typecheckExpression(scope, &node.Expression)
+			name := node.Name.String()
+			_, ok := scope.Get(name)
+			if !ok {
+				p.addErrorToken(fmt.Errorf("Undeclared variable \"%s\".", name), node.Name)
+				continue
+			}
+			continue
 		case *ast.DeclareStatement:
 			expr := &node.Expression
 			p.typecheckExpression(scope, expr)

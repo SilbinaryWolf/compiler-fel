@@ -17,8 +17,23 @@ func NewScope(parent *Scope) *Scope {
 	return result
 }
 
-func (scope *Scope) Set(name string, value data.Type) {
+//func (scope *Scope) Set(name string, value data.Type) {
+//	scope.variables[name] = value
+//}
+
+func (scope *Scope) DeclareSet(name string, value data.Type) {
 	scope.variables[name] = value
+}
+
+func (scope *Scope) Set(name string, value data.Type) {
+	for scope.parent != nil {
+		_, ok := scope.variables[name]
+		if ok {
+			scope.variables[name] = value
+			return
+		}
+		scope = scope.parent
+	}
 }
 
 func (scope *Scope) Get(name string) (data.Type, bool) {

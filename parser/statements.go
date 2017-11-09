@@ -12,6 +12,12 @@ func (p *Parser) NewDeclareStatement(name token.Token, typeIdent ast.Type, expre
 	node.Name = name
 	node.TypeIdentifier = typeIdent
 	node.ChildNodes = expressionNodes
+
+	nameString := name.String()
+	if len(nameString) > 0 && nameString[len(nameString)-1] == '-' {
+		p.addErrorToken(fmt.Errorf("Declaring variable name ending with - is illegal."), name)
+	}
+
 	return node
 }
 
@@ -33,9 +39,11 @@ Loop:
 				resultNodes = append(resultNodes, node)
 			// myVar = {Expression} \n
 			//
-			case token.Equal:
-				panic("todo(Jake): Add set ast")
-				node := p.NewSetStatement(name, ast.Type{}, p.parseExpressionNodes())
+			case token.Equal, token.AddEqual:
+				node := new(ast.OpStatement)
+				node.Name = name
+				node.Operator = t
+				node.Expression.ChildNodes = p.parseExpressionNodes()
 				resultNodes = append(resultNodes, node)
 			// myVar : string \n
 			case token.Colon:

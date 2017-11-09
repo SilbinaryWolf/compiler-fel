@@ -11,11 +11,7 @@
 test := "feyo"
 
 Layout(body_class="HomePage") {
-	test := 1
-	
-	test = 1 + 1
 	div(class="only-if-true") {
-		"Inner text!"
 	}
 	div(class="exists") {
 		"Test"
