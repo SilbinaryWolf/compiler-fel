@@ -105,8 +105,6 @@ func (node *Struct) Nodes() []Node {
 }
 
 type StructField struct {
-	Name           token.Token
-	TypeIdentifier Type
-	TypeInfo       types.TypeInfo
-	DefaultValue   Expression
+	Name token.Token
+	Expression
 }

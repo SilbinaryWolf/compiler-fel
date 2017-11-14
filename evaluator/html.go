@@ -143,7 +143,7 @@ func (program *Program) evaluteHTMLComponent(topNode *ast.HTMLNode, scope *Scope
 		fieldList := properties.Fields
 		for _, decl := range fieldList {
 			name := decl.Name.String()
-			defaultValueExpr := &decl.DefaultValue
+			defaultValueExpr := &decl.Expression
 			if len(defaultValueExpr.ChildNodes) == 0 {
 				componentScope.DeclareSet(name, decl.TypeInfo.Create())
 			} else {

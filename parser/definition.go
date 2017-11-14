@@ -40,8 +40,8 @@ func (p *Parser) parseDefinition(name token.Token) ast.Node {
 			case *ast.DeclareStatement:
 				field := ast.StructField{}
 				field.Name = node.Name
-				field.TypeIdentifier = node.Expression.TypeIdentifier
-				field.DefaultValue = node.Expression
+				//field.Expression.TypeIdentifier = node.Expression.TypeIdentifier
+				field.Expression = node.Expression
 				fields = append(fields, field)
 			default:
 				p.addErrorToken(fmt.Errorf("Expected statement, instead got %T.", itNode), name)

@@ -171,6 +171,10 @@ func (p *Parser) typecheckExpression(scope *Scope, expression *ast.Expression) {
 					resultTypeInfo = variableTypeInfo
 				}
 				if !types.Equals(resultTypeInfo, variableTypeInfo) {
+					if types.HasNoType(variableTypeInfo) {
+						p.fatalErrorToken(fmt.Errorf("Unable to determine type, typechecker must have failed."), node.Token)
+						return
+					}
 					p.addErrorToken(fmt.Errorf("Identifier \"%s\" must be a %s not %s.", name, resultTypeInfo.String(), variableTypeInfo.String()), node.Token)
 				}
 			default:
@@ -213,7 +217,7 @@ func (p *Parser) typecheckHTMLDefinition(htmlDefinition *ast.HTMLComponentDefini
 	if htmlDefinition.Properties != nil {
 		for i, _ := range htmlDefinition.Properties.Fields {
 			var propertyNode *ast.StructField = &htmlDefinition.Properties.Fields[i]
-			p.typecheckExpression(scope, &propertyNode.DefaultValue)
+			p.typecheckExpression(scope, &propertyNode.Expression)
 			name := propertyNode.Name.String()
 			_, ok := scope.Get(name)
 			if ok {
