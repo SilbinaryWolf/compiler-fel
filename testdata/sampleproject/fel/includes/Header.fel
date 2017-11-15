@@ -8,7 +8,7 @@ Header :: css {
 	.header {
 		width: 100%
 		height: 60px
-		background-color: blue;
+		background-color: blue
 	}
 
 	.header.is-active {
@@ -18,6 +18,5 @@ Header :: css {
 
 Header :: html {
 	header(class="header") {
-		"Headers"
 	}
 }

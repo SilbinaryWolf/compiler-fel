@@ -11,6 +11,7 @@ type Scope struct {
 	cssDefinitions       map[string]*ast.CSSDefinition
 	cssConfigDefinitions map[string]*ast.CSSConfigDefinition
 	htmlDefinitions      map[string]*ast.HTMLComponentDefinition
+	structDefinitions    map[string]*ast.StructDefinition
 
 	parent *Scope
 }
@@ -22,6 +23,7 @@ func NewScope(parent *Scope) *Scope {
 	result.cssDefinitions = make(map[string]*ast.CSSDefinition)
 	result.cssConfigDefinitions = make(map[string]*ast.CSSConfigDefinition)
 	result.htmlDefinitions = make(map[string]*ast.HTMLComponentDefinition)
+	result.structDefinitions = make(map[string]*ast.StructDefinition)
 
 	result.parent = parent
 	return result
@@ -43,6 +45,14 @@ func (scope *Scope) GetHTMLDefinition(name string) (*ast.HTMLComponentDefinition
 	value, ok := scope.htmlDefinitions[name]
 	if !ok && scope.parent != nil {
 		value, ok = scope.parent.GetHTMLDefinition(name)
+	}
+	return value, ok
+}
+
+func (scope *Scope) GetStructDefinition(name string) (*ast.StructDefinition, bool) {
+	value, ok := scope.structDefinitions[name]
+	if !ok && scope.parent != nil {
+		value, ok = scope.parent.GetStructDefinition(name)
 	}
 	return value, ok
 }

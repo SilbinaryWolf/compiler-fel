@@ -12,7 +12,7 @@ type HTMLBlock struct {
 type HTMLComponentDefinition struct {
 	Name                token.Token
 	Dependencies        map[string]*HTMLNode
-	Properties          *Struct
+	Properties          *StructDefinition
 	CSSDefinition       *CSSDefinition       // optional
 	CSSConfigDefinition *CSSConfigDefinition // optional
 	Base

@@ -70,6 +70,20 @@ type ArrayLiteral struct {
 	Base
 }
 
+type StructLiteral struct {
+	Name   token.Token
+	Fields []StructLiteralField
+}
+
+func (node *StructLiteral) Nodes() []Node {
+	return nil
+}
+
+type StructLiteralField struct {
+	Name token.Token
+	Expression
+}
+
 type Expression struct {
 	TypeInfo       types.TypeInfo
 	TypeIdentifier Type
@@ -95,12 +109,12 @@ func (node *Token) Nodes() []Node {
 	return nil
 }
 
-type Struct struct {
+type StructDefinition struct {
 	Name   token.Token
 	Fields []StructField
 }
 
-func (node *Struct) Nodes() []Node {
+func (node *StructDefinition) Nodes() []Node {
 	return nil
 }
 

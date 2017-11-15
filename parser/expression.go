@@ -27,13 +27,70 @@ Loop:
 	for {
 		t := p.PeekNextToken()
 		switch t.Kind {
-		case token.Identifier, token.KeywordTrue, token.KeywordFalse:
-			p.GetNextToken()
+		case token.Identifier:
+			name := p.GetNextToken()
 			if expectOperator {
 				panic("Expected operator, not identifier.")
 			}
-			if p.PeekNextToken().Kind == token.ParenOpen {
-				panic("parseExpression(): todo: Handle component/function in expression")
+			switch t := p.PeekNextToken(); t.Kind {
+			case token.ParenOpen:
+				p.fatalError(fmt.Errorf("todo: Handle component/function in expression"))
+				return nil
+			case token.BraceOpen:
+				p.GetNextToken()
+
+				if t := p.PeekNextToken(); t.Kind == token.BraceClose {
+					node := new(ast.StructLiteral)
+					node.Name = name
+					expectOperator = true
+					infixNodes = append(infixNodes, node)
+					continue Loop
+				}
+
+				var errorMsgLastToken token.Token
+				fields := make([]ast.StructLiteralField, 10)
+				for i := 0; true; i++ {
+					propertyName := p.GetNextToken()
+					if propertyName.Kind != token.Identifier {
+						if i == 0 {
+							p.addErrorToken(fmt.Errorf("Expected identifier after \"%s{\"", name.String()), propertyName)
+							return nil
+						}
+						p.addErrorToken(fmt.Errorf("Expected identifier after %s", errorMsgLastToken.String()), t)
+						return nil
+					}
+					if t := p.GetNextToken(); t.Kind != token.Colon {
+						if i == 0 {
+							p.addErrorToken(fmt.Errorf("Expected : after \"%s{%s\"", name.String(), propertyName.String()), t)
+							return nil
+						}
+						p.addErrorToken(fmt.Errorf("Expected : after %s", name.String(), propertyName.String()), t)
+						return nil
+					}
+					exprNodes := p.parseExpressionNodes()
+					node := ast.StructLiteralField{}
+					node.Name = propertyName
+					node.ChildNodes = exprNodes
+					fields = append(fields, node)
+					if t := p.GetNextToken(); t.Kind != token.BraceClose {
+						p.addErrorToken(fmt.Errorf("Expected } at the end of struct literal."), t)
+						return nil
+					}
+					errorMsgLastToken = t
+				}
+				node := new(ast.StructLiteral)
+				node.Name = name
+				node.Fields = fields
+				expectOperator = true
+				infixNodes = append(infixNodes, node)
+				continue Loop
+			}
+			expectOperator = true
+			infixNodes = append(infixNodes, &ast.Token{Token: t})
+		case token.KeywordTrue, token.KeywordFalse:
+			p.GetNextToken()
+			if expectOperator {
+				panic("Expected operator, not identifier.")
 			}
 			expectOperator = true
 			infixNodes = append(infixNodes, &ast.Token{Token: t})
@@ -98,8 +155,7 @@ Loop:
 				return nil
 			}
 
-			node := new(ast.ArrayLiteral)
-			node.TypeIdentifier = typeIdent
+			childNodes := make([]ast.Node, 10)
 
 		ArrayLiteralLoop:
 			for i := 0; true; i++ {
@@ -107,10 +163,10 @@ Loop:
 				sep := p.GetNextToken()
 				switch sep.Kind {
 				case token.Comma:
-					node.ChildNodes = append(node.ChildNodes, expr)
+					childNodes = append(childNodes, expr)
 					continue
 				case token.BraceClose:
-					node.ChildNodes = append(node.ChildNodes, expr)
+					childNodes = append(childNodes, expr)
 					break ArrayLiteralLoop
 				case token.EOF:
 					p.addErrorToken(p.unexpected(sep), sep)
@@ -119,6 +175,10 @@ Loop:
 				p.addErrorToken(fmt.Errorf("Expected , or } after array item #%d, not %s.", i, sep.Kind.String()), sep)
 				return nil
 			}
+
+			node := new(ast.ArrayLiteral)
+			node.TypeIdentifier = typeIdent
+			node.ChildNodes = childNodes
 
 			if len(node.ChildNodes) == 0 {
 				p.addErrorToken(fmt.Errorf("Cannot have array literal with zero elements."), node.TypeIdentifier.Name)

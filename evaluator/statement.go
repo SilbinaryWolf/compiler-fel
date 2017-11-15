@@ -33,7 +33,7 @@ func (program *Program) evaluateStatement(topNode ast.Node, scope *Scope) {
 		default:
 			panic(fmt.Sprintf("evaluateStatement(): Unhandled set-operator: %s", node.Operator.Kind))
 		}
-	case *ast.HTMLBlock, *ast.HTMLComponentDefinition:
+	case *ast.HTMLBlock, *ast.HTMLComponentDefinition, *ast.StructDefinition:
 		// ignore
 	case *ast.CSSDefinition:
 		panic("todo(Jake): Handle CSS definition in statement")

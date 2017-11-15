@@ -31,6 +31,34 @@ import (
 // 	}
 // }
 
+func (p *Parser) typecheckStructLiteral(scope *Scope, literal *ast.StructLiteral) {
+	name := literal.Name
+	def, ok := scope.GetStructDefinition(name.String())
+	if !ok {
+		p.addErrorToken(fmt.Errorf("Undeclared struct %s", name.String()), name)
+		return
+	}
+	if len(def.Fields) == 0 && len(literal.Fields) > 0 {
+		p.addErrorToken(fmt.Errorf("Struct %s does not have any fields."), name)
+		return
+	}
+	for _, defField := range def.Fields {
+		defName := defField.Name.String()
+		for i := 0; i < len(literal.Fields); i++ {
+			property := literal.Fields[i]
+			if defName != property.Name.String() {
+				continue
+			}
+			p.typecheckExpression(scope, &property.Expression)
+			defTypeInfo := defField.Expression.TypeInfo
+			litTypeInfo := property.Expression.TypeInfo
+			if litTypeInfo != defTypeInfo {
+				p.addErrorToken(fmt.Errorf("Mismatch type"), property.Name)
+			}
+		}
+	}
+}
+
 func (p *Parser) typecheckArrayLiteral(scope *Scope, literal *ast.ArrayLiteral) {
 	//test := [][]string{
 	//	[]string{"test"}
@@ -96,6 +124,17 @@ func (p *Parser) typecheckExpression(scope *Scope, expression *ast.Expression) {
 	nodes := expression.Nodes()
 	for i, itNode := range nodes {
 		switch node := itNode.(type) {
+		case *ast.StructLiteral:
+			p.typecheckStructLiteral(scope, node)
+			panic("todo(Jake): Handle struct type")
+			/*expectedTypeInfo := node.TypeInfo
+			if types.HasNoType(resultTypeInfo) {
+				resultTypeInfo = expectedTypeInfo
+			}
+			if !types.Equals(resultTypeInfo, expectedTypeInfo) {
+				p.addErrorToken(fmt.Errorf("Cannot mix array literal %s with %s", expectedTypeInfo.String(), resultTypeInfo.String()), node.TypeIdentifier.Name)
+			}*/
+			continue
 		case *ast.ArrayLiteral:
 			p.typecheckArrayLiteral(scope, node)
 			expectedTypeInfo := node.TypeInfo
@@ -264,7 +303,7 @@ func (p *Parser) typecheckStatements(topNode ast.Node, scope *Scope) {
 		case *ast.CSSDefinition,
 			*ast.CSSConfigDefinition,
 			*ast.HTMLComponentDefinition,
-			*ast.Struct:
+			*ast.StructDefinition:
 			// Skip nodes and child nodes
 			continue
 		case *ast.HTMLBlock:
@@ -438,8 +477,27 @@ func (p *Parser) TypecheckAndFinalize(files []*ast.File) {
 			switch node := itNode.(type) {
 			case *ast.HTMLNode, *ast.DeclareStatement, *ast.Expression, *ast.HTMLBlock:
 				// no-op, these are checked in TypecheckFile()
+			case *ast.StructDefinition:
+				if node == nil {
+					p.fatalError(fmt.Errorf("Found nil top-level %T.", node))
+					continue
+				}
+				if node.Name.Kind == token.Unknown {
+					p.addErrorToken(fmt.Errorf("Cannot declare anonymous \":: struct\" block."), node.Name)
+					continue
+				}
+				name := node.Name.String()
+				existingNode, ok := scope.structDefinitions[name]
+				if ok {
+					errorMessage := fmt.Errorf("Cannot declare \"%s :: struct\" more than once in global scope.", name)
+					p.addErrorToken(errorMessage, existingNode.Name)
+					p.addErrorToken(errorMessage, node.Name)
+					continue
+				}
+				scope.structDefinitions[name] = node
 			case *ast.HTMLComponentDefinition:
 				if node == nil {
+					p.fatalError(fmt.Errorf("Found nil top-level %T.", node))
 					continue
 				}
 				if node.Name.Kind == token.Unknown {
@@ -457,6 +515,7 @@ func (p *Parser) TypecheckAndFinalize(files []*ast.File) {
 				scope.htmlDefinitions[name] = node
 			case *ast.CSSDefinition:
 				if node == nil {
+					p.fatalError(fmt.Errorf("Found nil top-level %T.", node))
 					continue
 				}
 				if node.Name.Kind == token.Unknown {
@@ -473,6 +532,7 @@ func (p *Parser) TypecheckAndFinalize(files []*ast.File) {
 				scope.cssDefinitions[name] = node
 			case *ast.CSSConfigDefinition:
 				if node == nil {
+					p.fatalError(fmt.Errorf("Found nil top-level %T.", node))
 					continue
 				}
 				if node.Name.Kind == token.Unknown {

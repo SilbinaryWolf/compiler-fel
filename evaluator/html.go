@@ -194,7 +194,7 @@ func (program *Program) evaluteHTMLComponent(topNode *ast.HTMLNode, scope *Scope
 			resultNodes = append(resultNodes, dataNode)
 		case *ast.Expression:
 			resultNodes = program.evaluateHTMLExpression(node, scope, resultNodes)
-		case *ast.Struct, *ast.CSSDefinition:
+		case *ast.StructDefinition, *ast.CSSDefinition:
 			// ignore
 		default:
 			program.evaluateStatement(node, componentScope)

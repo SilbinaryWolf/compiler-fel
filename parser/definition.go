@@ -48,7 +48,7 @@ func (p *Parser) parseDefinition(name token.Token) ast.Node {
 				return nil
 			}
 		}
-		node := new(ast.Struct)
+		node := new(ast.StructDefinition)
 		node.Name = name
 		node.Fields = fields
 		return node
@@ -85,16 +85,16 @@ func (p *Parser) parseDefinition(name token.Token) ast.Node {
 		if name.Kind != token.Unknown {
 			// Retrieve properties block
 			var cssDef *ast.CSSDefinition
-			var structure *ast.Struct
+			var structDef *ast.StructDefinition
 		RetrievePropertyDefinitionLoop:
 			for _, itNode := range childNodes {
 				switch node := itNode.(type) {
-				case *ast.Struct:
-					if structure != nil {
+				case *ast.StructDefinition:
+					if structDef != nil {
 						p.addError(fmt.Errorf("Cannot declare \":: struct\" twice in the same HTML component."))
 						break RetrievePropertyDefinitionLoop
 					}
-					structure = node
+					structDef = node
 				case *ast.CSSDefinition:
 					if cssDef != nil {
 						p.addError(fmt.Errorf("Cannot declare \":: css\" twice in the same HTML component."))
@@ -107,7 +107,7 @@ func (p *Parser) parseDefinition(name token.Token) ast.Node {
 			// Component
 			node := new(ast.HTMLComponentDefinition)
 			node.Name = name
-			node.Properties = structure
+			node.Properties = structDef
 			node.CSSDefinition = cssDef
 			node.ChildNodes = childNodes
 
