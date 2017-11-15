@@ -13,8 +13,6 @@ MyStruct :: struct {
 	myval: int
 }
 
-test := MyStruct{}
-
 Layout(body_class="HomePage") {
 	div(class="only-if-true") {
 	}
