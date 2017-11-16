@@ -174,7 +174,7 @@ func (p *Parser) typecheckExpression(scope *Scope, expression *ast.Expression) {
 					p.addErrorToken(fmt.Errorf("Cannot %s (%s) %s %s (\"%s\"), mismatching types.", resultTypeInfo.String(), leftToken.String(), opToken.String(), expectedTypeInfo.String(), node.String()), node.Token)
 				}
 			case token.Number:
-				IntTypeInfo := types.Int()
+				IntTypeInfo := p.typeinfo.NewTypeInfoInt()
 				FloatTypeInfo := types.Float()
 
 				if types.HasNoType(resultTypeInfo) {
@@ -433,7 +433,7 @@ func (p *Parser) typecheckStatements(topNode ast.Node, scope *Scope) {
 					p.addErrorToken(fmt.Errorf("Cannot redeclare \"%s\" in for-loop.", indexName), node.IndexName)
 					continue
 				}
-				scope.Set(indexName, types.Int())
+				scope.Set(indexName, p.typeinfo.NewTypeInfoInt())
 			}
 
 			// Set left-hand value type

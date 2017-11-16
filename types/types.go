@@ -27,16 +27,6 @@ func Equals(a TypeInfo, b TypeInfo) bool {
 	return false
 }
 
-// Int
-type Int_ struct{}
-
-func (info *Int_) String() string    { return "int" }
-func (info *Int_) Create() data.Type { return new(data.Integer64) }
-
-var typeInt = new(Int_)
-
-func Int() TypeInfo { return typeInt }
-
 // Float
 type Float_ struct{}
 
@@ -134,7 +124,7 @@ func GetRegisteredType(name string) TypeInfo {
 
 func init() {
 	RegisterType("string", String())
-	RegisterType("int", Int())
+	//RegisterType("int", Int())
 	RegisterType("float", Float())
 	RegisterType("bool", Bool())
 }

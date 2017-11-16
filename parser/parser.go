@@ -12,6 +12,7 @@ import (
 
 type Parser struct {
 	*scanner.Scanner
+	typeinfo                      TypeInfoManager
 	errors                        map[string][]error
 	typecheckHtmlNodeDependencies map[string]*ast.HTMLNode
 }
@@ -19,6 +20,7 @@ type Parser struct {
 func New() *Parser {
 	p := new(Parser)
 	p.errors = make(map[string][]error)
+	p.typeinfo.Init()
 	//p.typecheckHtmlDefinitionDependencies = make(map[string]*ast.HTMLComponentDefinition)
 	//p.typecheckHtmlDefinitionStack = make([]*ast.HTMLComponentDefinition, 0, 20)
 	return p
