@@ -126,13 +126,13 @@ func (p *Parser) typecheckExpression(scope *Scope, expression *ast.Expression) {
 		switch node := itNode.(type) {
 		case *ast.StructLiteral:
 			p.typecheckStructLiteral(scope, node)
-			panic("todo(Jake): Handle struct type")
+			panic("todo(Jake): Add TypeInfo to struct, check for empty typeinfo incase.")
 			/*expectedTypeInfo := node.TypeInfo
 			if types.HasNoType(resultTypeInfo) {
 				resultTypeInfo = expectedTypeInfo
 			}
 			if !types.Equals(resultTypeInfo, expectedTypeInfo) {
-				p.addErrorToken(fmt.Errorf("Cannot mix array literal %s with %s", expectedTypeInfo.String(), resultTypeInfo.String()), node.TypeIdentifier.Name)
+				p.addErrorToken(fmt.Errorf("Cannot mix struct literal %s with %s", expectedTypeInfo.String(), resultTypeInfo.String()), node.Name)
 			}*/
 			continue
 		case *ast.ArrayLiteral:

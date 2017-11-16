@@ -27,6 +27,13 @@ func (manager *TypeInfoManager) Init() {
 	manager.register("bool", types.Bool())
 }
 
+func (manager *TypeInfoManager) Clear() {
+	if manager.registeredTypes == nil {
+		panic("Cannot clear TypeInfoManager if it's already cleared..")
+	}
+	manager.registeredTypes = nil
+}
+
 func (manager *TypeInfoManager) register(name string, typeInfo TypeInfo) {
 	_, ok := manager.registeredTypes[name]
 	if ok {
@@ -52,6 +59,22 @@ func (info *TypeInfo_Int) Create() data.Type { return new(data.Integer64) }
 
 func (manager *TypeInfoManager) NewTypeInfoInt() *TypeInfo_Int {
 	return &manager.intInfo
+}
+
+// Struct
+type TypeInfo_Struct struct {
+	name       string
+	definition *ast.HTMLComponentDefinition
+}
+
+func (info *TypeInfo_Struct) String() string    { return info.name }
+func (info *TypeInfo_Struct) Create() data.Type { panic("todo(Jake): This"); return nil }
+
+func NewStructInfo(definiton *ast.HTMLComponentDefinition) TypeInfo {
+	result := new(TypeInfo_Struct)
+	result.name = definiton.Name.String()
+	result.definition = definiton
+	return result
 }
 
 // Functions

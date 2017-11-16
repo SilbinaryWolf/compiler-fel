@@ -86,25 +86,6 @@ func Array(underlying TypeInfo) TypeInfo {
 	return result
 }
 
-// Struct
-var structUID int
-
-type Struct_ struct {
-	uid  int
-	name string
-}
-
-func (info *Struct_) String() string    { return info.name }
-func (info *Struct_) Create() data.Type { panic("todo(Jake): This"); return nil }
-
-func Struct(name string) TypeInfo {
-	structUID++
-	result := new(Struct_)
-	result.uid = structUID
-	result.name = name
-	return result
-}
-
 //
 // Initialization
 //
