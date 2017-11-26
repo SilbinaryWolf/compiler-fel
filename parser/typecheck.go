@@ -42,6 +42,13 @@ func (p *Parser) typecheckStructLiteral(scope *Scope, literal *ast.StructLiteral
 		p.addErrorToken(fmt.Errorf("Struct %s does not have any fields."), literal.Name)
 		return
 	}
+	literal.TypeInfo = p.typeinfo.get(name)
+	if types.HasNoType(literal.TypeInfo) {
+		p.fatalErrorToken(fmt.Errorf("Missing typeinfo for \"%s :: struct\"."), literal.Name)
+		return
+	}
+
+	// Check literal against definition
 	for _, defField := range def.Fields {
 		defTypeInfo := defField.Expression.TypeInfo
 		if types.HasNoType(defTypeInfo) {
@@ -62,20 +69,16 @@ func (p *Parser) typecheckStructLiteral(scope *Scope, literal *ast.StructLiteral
 		}
 	}
 
-	// Check to see if trying to use fieldname that doesnt exist on StructDefinition
-	/*for _, property := range literal.Fields {
+	for _, property := range literal.Fields {
 		propertyName := property.Name.String()
-		hasMatch := false
+		hasFieldNameOnDef := false
 		for _, defField := range def.Fields {
-			hasMatch = hasMatch || defField.Name.String() == propertyName
+			hasFieldNameOnDef = hasFieldNameOnDef || defField.Name.String() == propertyName
 		}
-		if !hasMatch {
-			panic("Bad field, this code doesnt work")
+		if !hasFieldNameOnDef {
+			p.addErrorToken(fmt.Errorf("Field \"%s\" does not exist on \"%s :: struct\"", propertyName, name), property.Name)
 		}
-	}*/
-
-	literal.TypeInfo = p.typeinfo.get(literal.Name.String())
-	panic("todo(Jake): Typecheck and disallow non-existent fields")
+	}
 }
 
 func (p *Parser) typecheckArrayLiteral(scope *Scope, literal *ast.ArrayLiteral) {

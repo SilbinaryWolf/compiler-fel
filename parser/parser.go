@@ -363,7 +363,7 @@ Loop:
 				}
 
 				var errorMsgLastToken token.Token
-				fields := make([]ast.StructLiteralField, 10)
+				fields := make([]ast.StructLiteralField, 0, 10)
 			StructLiteralLoop:
 				for i := 0; true; i++ {
 					propertyName := p.GetNextToken()
