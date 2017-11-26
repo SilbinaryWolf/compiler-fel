@@ -74,6 +74,14 @@ func (p *Parser) NewDeclareStatement(name token.Token, typeIdent ast.Type, expre
 	return node
 }
 
+func (p *Parser) eatNewlines() {
+	t := p.PeekNextToken()
+	for t.Kind == token.Newline {
+		p.GetNextToken()
+		t = p.PeekNextToken()
+	}
+}
+
 func (p *Parser) parseStatements() []ast.Node {
 	resultNodes := make([]ast.Node, 0, 10)
 
@@ -356,14 +364,18 @@ Loop:
 
 				var errorMsgLastToken token.Token
 				fields := make([]ast.StructLiteralField, 10)
+			StructLiteralLoop:
 				for i := 0; true; i++ {
 					propertyName := p.GetNextToken()
+					for propertyName.Kind == token.Newline {
+						propertyName = p.GetNextToken()
+					}
 					if propertyName.Kind != token.Identifier {
 						if i == 0 {
-							p.addErrorToken(fmt.Errorf("Expected identifier after \"%s{\"", name.String()), propertyName)
+							p.addErrorToken(fmt.Errorf("Expected identifier after %s{ not %s", name, t.Kind.String()), t)
 							return nil
 						}
-						p.addErrorToken(fmt.Errorf("Expected identifier after %s", errorMsgLastToken.String()), t)
+						p.addErrorToken(fmt.Errorf("Expected identifier after \"%s\" not %s", errorMsgLastToken, t.Kind.String()), t)
 						return nil
 					}
 					if t := p.GetNextToken(); t.Kind != token.Colon {
@@ -371,7 +383,7 @@ Loop:
 							p.addErrorToken(fmt.Errorf("Expected : after \"%s{%s\"", name.String(), propertyName.String()), t)
 							return nil
 						}
-						p.addErrorToken(fmt.Errorf("Expected : after %s", name.String(), propertyName.String()), t)
+						p.addErrorToken(fmt.Errorf("Expected : after property \"%s\"", propertyName.String()), t)
 						return nil
 					}
 					exprNodes := p.parseExpressionNodes()
@@ -379,11 +391,22 @@ Loop:
 					node.Name = propertyName
 					node.ChildNodes = exprNodes
 					fields = append(fields, node)
-					if t := p.GetNextToken(); t.Kind != token.BraceClose {
-						p.addErrorToken(fmt.Errorf("Expected } at the end of struct literal."), t)
+					switch t := p.GetNextToken(); t.Kind {
+					case token.BraceClose:
+						break StructLiteralLoop
+					case token.Comma:
+						// OK
+					default:
+						p.addErrorToken(p.expect(t, token.BraceClose, token.Comma), t)
 						return nil
 					}
-					errorMsgLastToken = t
+					p.eatNewlines()
+					if t := p.PeekNextToken(); t.Kind == token.BraceClose {
+						// Allow for trailing comma
+						p.GetNextToken()
+						break StructLiteralLoop
+					}
+					errorMsgLastToken = propertyName
 				}
 				node := new(ast.StructLiteral)
 				node.Name = name

@@ -7,6 +7,7 @@ import (
 
 	"github.com/silbinarywolf/compiler-fel/ast"
 	"github.com/silbinarywolf/compiler-fel/data"
+	"github.com/silbinarywolf/compiler-fel/parser"
 	"github.com/silbinarywolf/compiler-fel/token"
 	"github.com/silbinarywolf/compiler-fel/types"
 )
@@ -14,12 +15,12 @@ import (
 func (program *Program) evaluateExpression(expressionNode *ast.Expression, scope *Scope) data.Type {
 	var stack []data.Type
 
+	if types.HasNoType(expressionNode.TypeInfo) {
+		panic(fmt.Sprintf("evaluateExpression: Expression node has not been type-checked. Type Token: %v\nExpression Node Data:\n%v", expressionNode.TypeIdentifier, expressionNode))
+	}
 	nodes := expressionNode.Nodes()
 	if len(nodes) == 0 {
 		panic(fmt.Sprintf("evaluateExpression: Expression node is missing nodes."))
-	}
-	if types.HasNoType(expressionNode.TypeInfo) {
-		panic(fmt.Sprintf("evaluateExpression: Expression node has not been type-checked. Type Token: %v\nExpression Node Data:\n%v", expressionNode.TypeIdentifier, expressionNode))
 	}
 
 	typeInfo := expressionNode.TypeInfo
@@ -30,6 +31,40 @@ func (program *Program) evaluateExpression(expressionNode *ast.Expression, scope
 	for _, itNode := range nodes {
 
 		switch node := itNode.(type) {
+		case *ast.StructLiteral:
+			typeinfo := node.TypeInfo.(*parser.TypeInfo_Struct)
+			structDef := typeinfo.Definition()
+
+			resultValue := new(data.Struct)
+			resultValue.Fields = make([]data.Type, 0, len(structDef.Fields))
+
+			for _, structField := range structDef.Fields {
+				name := structField.Name.String()
+
+				exprNode := &structField.Expression
+				hasField := false
+				for _, literalField := range node.Fields {
+					if name == literalField.Name.String() {
+						exprNode = &literalField.Expression
+						hasField = true
+						break
+					}
+				}
+				typeinfo := exprNode.TypeInfo
+				if typeinfo == nil {
+					panic(fmt.Sprintf("evaluateExpression: Missing typeinfo on property for \"%s :: struct { %s }\"", structDef.Name, structField.Name))
+				}
+				var value data.Type
+				if hasField {
+					value = program.evaluateExpression(exprNode, scope)
+
+				} else {
+					value = typeinfo.Create()
+				}
+				resultValue.Fields = append(resultValue.Fields, value)
+			}
+			stack = append(stack, resultValue)
+			//panic(fmt.Sprintf("Debug struct literal data: %T, %s", typeinfo, resultValue))
 		case *ast.ArrayLiteral:
 			resultValue := data.NewArray(typeInfo.Create())
 			for _, itNode := range node.ChildNodes {

@@ -32,31 +32,50 @@ import (
 // }
 
 func (p *Parser) typecheckStructLiteral(scope *Scope, literal *ast.StructLiteral) {
-	name := literal.Name
-	def, ok := scope.GetStructDefinition(name.String())
+	name := literal.Name.String()
+	def, ok := scope.GetStructDefinition(name)
 	if !ok {
-		p.addErrorToken(fmt.Errorf("Undeclared struct %s", name.String()), name)
+		p.addErrorToken(fmt.Errorf("Undeclared \"%s :: struct\"", name), literal.Name)
 		return
 	}
 	if len(def.Fields) == 0 && len(literal.Fields) > 0 {
-		p.addErrorToken(fmt.Errorf("Struct %s does not have any fields."), name)
+		p.addErrorToken(fmt.Errorf("Struct %s does not have any fields."), literal.Name)
 		return
 	}
 	for _, defField := range def.Fields {
+		defTypeInfo := defField.Expression.TypeInfo
+		if types.HasNoType(defTypeInfo) {
+			p.fatalErrorToken(fmt.Errorf("Missing type info from field \"%s\" on \"%s :: struct\".", defField.Name.String(), name), defField.Name)
+			return
+		}
 		defName := defField.Name.String()
 		for i := 0; i < len(literal.Fields); i++ {
-			property := literal.Fields[i]
+			property := &literal.Fields[i]
 			if defName != property.Name.String() {
 				continue
 			}
 			p.typecheckExpression(scope, &property.Expression)
-			defTypeInfo := defField.Expression.TypeInfo
 			litTypeInfo := property.Expression.TypeInfo
 			if litTypeInfo != defTypeInfo {
-				p.addErrorToken(fmt.Errorf("Mismatch type"), property.Name)
+				p.addErrorToken(fmt.Errorf("Mismatching type, expected \"%s\" but got \"%s\"", defField.TypeIdentifier.Name.String(), property.Expression.TypeInfo.String()), property.Name)
 			}
 		}
 	}
+
+	// Check to see if trying to use fieldname that doesnt exist on StructDefinition
+	/*for _, property := range literal.Fields {
+		propertyName := property.Name.String()
+		hasMatch := false
+		for _, defField := range def.Fields {
+			hasMatch = hasMatch || defField.Name.String() == propertyName
+		}
+		if !hasMatch {
+			panic("Bad field, this code doesnt work")
+		}
+	}*/
+
+	literal.TypeInfo = p.typeinfo.get(literal.Name.String())
+	panic("todo(Jake): Typecheck and disallow non-existent fields")
 }
 
 func (p *Parser) typecheckArrayLiteral(scope *Scope, literal *ast.ArrayLiteral) {
@@ -126,14 +145,17 @@ func (p *Parser) typecheckExpression(scope *Scope, expression *ast.Expression) {
 		switch node := itNode.(type) {
 		case *ast.StructLiteral:
 			p.typecheckStructLiteral(scope, node)
-			panic("todo(Jake): Add TypeInfo to struct, check for empty typeinfo incase.")
-			/*expectedTypeInfo := node.TypeInfo
+			expectedTypeInfo := node.TypeInfo
+			if types.HasNoType(expectedTypeInfo) {
+				p.fatalError(fmt.Errorf("Missing type info for \"%s :: struct\".", node.Name.String()))
+				continue
+			}
 			if types.HasNoType(resultTypeInfo) {
 				resultTypeInfo = expectedTypeInfo
 			}
 			if !types.Equals(resultTypeInfo, expectedTypeInfo) {
 				p.addErrorToken(fmt.Errorf("Cannot mix struct literal %s with %s", expectedTypeInfo.String(), resultTypeInfo.String()), node.Name)
-			}*/
+			}
 			continue
 		case *ast.ArrayLiteral:
 			p.typecheckArrayLiteral(scope, node)
@@ -462,6 +484,25 @@ func (p *Parser) typecheckStatements(topNode ast.Node, scope *Scope) {
 	}
 }
 
+func (p *Parser) typecheckStruct(node *ast.StructDefinition, scope *Scope) {
+	// Add typeinfo to each struct field
+	for i := 0; i < len(node.Fields); i++ {
+		structField := &node.Fields[i]
+		typeIdent := structField.TypeIdentifier.Name
+		if typeIdent.Kind == token.Unknown {
+			p.addErrorToken(fmt.Errorf("Missing type identifier on \"%s :: struct\" field \"%s\"", structField.Name, node.Name.String()), structField.Name)
+			continue
+		}
+		typeIdentString := typeIdent.String()
+		resultTypeInfo := p.DetermineType(&structField.TypeIdentifier)
+		if types.HasNoType(resultTypeInfo) {
+			p.addErrorToken(fmt.Errorf("Undeclared type %s", typeIdentString), typeIdent)
+			return
+		}
+		structField.TypeInfo = resultTypeInfo
+	}
+}
+
 func (p *Parser) TypecheckFile(file *ast.File, globalScope *Scope) {
 	scope := NewScope(globalScope)
 	p.typecheckStatements(file, scope)
@@ -494,7 +535,12 @@ func (p *Parser) TypecheckAndFinalize(files []*ast.File) {
 					p.addErrorToken(errorMessage, node.Name)
 					continue
 				}
+
+				p.typecheckStruct(node, scope)
+
 				scope.structDefinitions[name] = node
+				typeinfo := p.typeinfo.NewStructInfo(node)
+				p.typeinfo.register(name, typeinfo)
 			case *ast.HTMLComponentDefinition:
 				if node == nil {
 					p.fatalError(fmt.Errorf("Found nil top-level %T.", node))

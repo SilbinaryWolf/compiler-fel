@@ -64,13 +64,16 @@ func (manager *TypeInfoManager) NewTypeInfoInt() *TypeInfo_Int {
 // Struct
 type TypeInfo_Struct struct {
 	name       string
-	definition *ast.HTMLComponentDefinition
+	definition *ast.StructDefinition
 }
 
-func (info *TypeInfo_Struct) String() string    { return info.name }
-func (info *TypeInfo_Struct) Create() data.Type { panic("todo(Jake): This"); return nil }
+func (info *TypeInfo_Struct) String() string { return info.name }
+func (info *TypeInfo_Struct) Create() data.Type {
+	panic("Handled by `evaluator`")
+}
+func (info *TypeInfo_Struct) Definition() *ast.StructDefinition { return info.definition }
 
-func NewStructInfo(definiton *ast.HTMLComponentDefinition) TypeInfo {
+func (manager *TypeInfoManager) NewStructInfo(definiton *ast.StructDefinition) TypeInfo {
 	result := new(TypeInfo_Struct)
 	result.name = definiton.Name.String()
 	result.definition = definiton

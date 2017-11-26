@@ -20,6 +20,10 @@ func NewScope(parent *Scope) *Scope {
 	result := new(Scope)
 
 	result.identifiers = make(map[string]types.TypeInfo)
+
+	// todo(jake): Refactor this so they all just go into "result.identifiers".
+	//			   Will need some kind of system so that " :: html", " :: css" etc
+	//			   blocks with the same name be stored in the same key.
 	result.cssDefinitions = make(map[string]*ast.CSSDefinition)
 	result.cssConfigDefinitions = make(map[string]*ast.CSSConfigDefinition)
 	result.htmlDefinitions = make(map[string]*ast.HTMLComponentDefinition)

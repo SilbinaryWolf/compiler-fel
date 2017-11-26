@@ -13,7 +13,11 @@ MyStruct :: struct {
 	myval: int
 }
 
-test := MyStruct{}
+test := MyStruct{
+	color: "Test ",
+	myval: 3 + 3,
+	test: "sga"
+}
 
 Layout(body_class="HomePage") {
 	div(class="only-if-true") {

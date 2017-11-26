@@ -71,8 +71,9 @@ type ArrayLiteral struct {
 }
 
 type StructLiteral struct {
-	Name   token.Token
-	Fields []StructLiteralField
+	Name     token.Token
+	Fields   []StructLiteralField
+	TypeInfo types.TypeInfo
 }
 
 func (node *StructLiteral) Nodes() []Node {
