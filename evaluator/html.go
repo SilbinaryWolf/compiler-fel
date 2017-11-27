@@ -139,9 +139,8 @@ func (program *Program) evaluteHTMLComponent(topNode *ast.HTMLNode, scope *Scope
 	}()
 
 	// Get valid parameters
-	if properties := topNode.HTMLDefinition.Properties; properties != nil {
-		fieldList := properties.Fields
-		for _, decl := range fieldList {
+	if structDef := topNode.HTMLDefinition.Struct; structDef != nil {
+		for _, decl := range structDef.Fields {
 			name := decl.Name.String()
 			defaultValueExpr := &decl.Expression
 			if len(defaultValueExpr.ChildNodes) == 0 {

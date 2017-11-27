@@ -13,11 +13,34 @@ MyStruct :: struct {
 	myval: int
 }
 
-test := MyStruct{
-	color: "Test ",
+val := MyStruct{
+	color: "Test",
 	myval: 3 + 3,
-	test: "sga"
 }
+
+// Idea for component syntax that ties into how
+// struct literals work.
+//
+// MyStruct{color:"Test", myval:3 + 3} {
+//
+// }
+//
+// or
+//
+// MyStruct{color="test", myval=3+3} {
+//			
+// }
+//
+// or
+//
+// val := MyStruct{
+//   color: "Test",
+//   myval: 3 + 3,
+// }
+// Layout(...val) {
+//	
+// }
+//
 
 Layout(body_class="HomePage") {
 	div(class="only-if-true") {

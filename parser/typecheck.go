@@ -278,9 +278,10 @@ func (p *Parser) typecheckHTMLDefinition(htmlDefinition *ast.HTMLComponentDefini
 	scope := NewScope(&globalScopeNoVariables)
 	scope.Set("children", types.HTMLNode())
 
-	if htmlDefinition.Properties != nil {
-		for i, _ := range htmlDefinition.Properties.Fields {
-			var propertyNode *ast.StructField = &htmlDefinition.Properties.Fields[i]
+	structDef := htmlDefinition.Struct
+	if structDef != nil {
+		for i, _ := range structDef.Fields {
+			var propertyNode *ast.StructField = &structDef.Fields[i]
 			p.typecheckExpression(scope, &propertyNode.Expression)
 			name := propertyNode.Name.String()
 			_, ok := scope.Get(name)
@@ -361,23 +362,26 @@ func (p *Parser) typecheckStatements(topNode ast.Node, scope *Scope) {
 					p.typecheckHtmlNodeDependencies[name] = node
 				}
 				node.HTMLDefinition = htmlComponentDefinition
-				// Check if parameters exist
-			ParameterCheckLoop:
-				for i, _ := range node.Parameters {
-					parameterNode := &node.Parameters[i]
-					paramName := parameterNode.Name.String()
-					for _, field := range node.HTMLDefinition.Properties.Fields {
-						if paramName == field.Name.String() {
-							parameterType := parameterNode.TypeInfo
-							componentStructType := field.TypeInfo
-							if parameterType != componentStructType {
-								p.addErrorToken(fmt.Errorf("\"%s\" must be of type %s, not %s", paramName, componentStructType.String(), parameterType.String()), parameterNode.Name)
+				structDef := node.HTMLDefinition.Struct
+				if structDef != nil && len(structDef.Fields) > 0 {
+					// Check if parameters exist
+				ParameterCheckLoop:
+					for i, _ := range node.Parameters {
+						parameterNode := &node.Parameters[i]
+						paramName := parameterNode.Name.String()
+						for _, field := range structDef.Fields {
+							if paramName == field.Name.String() {
+								parameterType := parameterNode.TypeInfo
+								componentStructType := field.TypeInfo
+								if parameterType != componentStructType {
+									p.addErrorToken(fmt.Errorf("\"%s\" must be of type %s, not %s", paramName, componentStructType.String(), parameterType.String()), parameterNode.Name)
+								}
+								continue ParameterCheckLoop
 							}
-							continue ParameterCheckLoop
 						}
+						p.addErrorToken(fmt.Errorf("\"%s\" is not a property on \"%s :: html\"", paramName, name), parameterNode.Name)
+						continue
 					}
-					p.addErrorToken(fmt.Errorf("\"%s\" is not a property on \"%s :: html\"", paramName, name), parameterNode.Name)
-					continue
 				}
 			}
 		case *ast.OpStatement:

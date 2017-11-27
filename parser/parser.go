@@ -661,7 +661,7 @@ func (p *Parser) parseDefinition(name token.Token) ast.Node {
 			// Component
 			node := new(ast.HTMLComponentDefinition)
 			node.Name = name
-			node.Properties = structDef
+			node.Struct = structDef
 			node.CSSDefinition = cssDef
 			node.ChildNodes = childNodes
 

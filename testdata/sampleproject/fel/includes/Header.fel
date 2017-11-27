@@ -4,6 +4,10 @@ Header :: css_config {
 	}
 }
 
+Header :: struct {
+	isBlue: bool
+}
+
 Header :: css {
 	.header {
 		width: 100%
