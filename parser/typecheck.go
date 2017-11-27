@@ -261,15 +261,23 @@ func (p *Parser) typecheckHTMLBlock(htmlBlock *ast.HTMLBlock, scope *Scope) {
 func (p *Parser) typecheckHTMLDefinition(htmlDefinition *ast.HTMLComponentDefinition, parentScope *Scope) {
 	// Attach CSSDefinition if found
 	name := htmlDefinition.Name.String()
-	cssDefinition, ok := parentScope.GetCSSDefinition(name)
-	if ok {
+	if cssDefinition, ok := parentScope.GetCSSDefinition(name); ok {
 		htmlDefinition.CSSDefinition = cssDefinition
 	}
 
 	// Attach CSSConfigDefinition if found
-	cssConfigDefinition, ok := parentScope.GetCSSConfigDefinition(name)
-	if ok {
+	if cssConfigDefinition, ok := parentScope.GetCSSConfigDefinition(name); ok {
 		htmlDefinition.CSSConfigDefinition = cssConfigDefinition
+	}
+
+	// Attach StructDefinition if found
+	if structDef, ok := parentScope.GetStructDefinition(name); ok {
+		if htmlDefinition.Struct != nil {
+			anonymousStructDef := htmlDefinition.Struct
+			p.addErrorToken(fmt.Errorf("Cannot have  \"%s :: struct\" and embedded \":: struct\" inside \"%s :: html\"", structDef.Name.String(), htmlDefinition.Name.String()), anonymousStructDef.Name)
+		} else {
+			htmlDefinition.Struct = structDef
+		}
 	}
 
 	//
@@ -278,8 +286,7 @@ func (p *Parser) typecheckHTMLDefinition(htmlDefinition *ast.HTMLComponentDefini
 	scope := NewScope(&globalScopeNoVariables)
 	scope.Set("children", types.HTMLNode())
 
-	structDef := htmlDefinition.Struct
-	if structDef != nil {
+	if structDef := htmlDefinition.Struct; structDef != nil {
 		for i, _ := range structDef.Fields {
 			var propertyNode *ast.StructField = &structDef.Fields[i]
 			p.typecheckExpression(scope, &propertyNode.Expression)
@@ -374,6 +381,10 @@ func (p *Parser) typecheckStatements(topNode ast.Node, scope *Scope) {
 								parameterType := parameterNode.TypeInfo
 								componentStructType := field.TypeInfo
 								if parameterType != componentStructType {
+									if types.HasNoType(field.TypeInfo) {
+										p.fatalError(fmt.Errorf("Struct field \"%s\" is missing type info.", paramName))
+										return
+									}
 									p.addErrorToken(fmt.Errorf("\"%s\" must be of type %s, not %s", paramName, componentStructType.String(), parameterType.String()), parameterNode.Name)
 								}
 								continue ParameterCheckLoop
