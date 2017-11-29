@@ -83,7 +83,7 @@ func (program *Program) evaluateHTMLNodeChildren(nodes []ast.Node, scope *Scope)
 			if node.Name.Kind == token.Unknown {
 				program.anonymousCSSDefinitionsUsed = append(program.anonymousCSSDefinitionsUsed, node)
 			}
-		case *ast.If:
+		/*case *ast.If:
 			iValue := program.evaluateExpression(&node.Condition, scope)
 			isTrue := iValue.(*data.Bool).Value()
 
@@ -118,7 +118,7 @@ func (program *Program) evaluateHTMLNodeChildren(nodes []ast.Node, scope *Scope)
 					resultNodes = append(resultNodes, program.evaluateHTMLNodeChildren(nodes, scope)...)
 				}
 			}
-			scope = scope.parent
+			scope = scope.parent*/
 		default:
 			program.evaluateStatement(itNode, scope)
 		}
@@ -197,7 +197,7 @@ func (program *Program) evaluteHTMLComponent(topNode *ast.HTMLNode, scope *Scope
 			// ignore
 		default:
 			program.evaluateStatement(node, componentScope)
-			panic(fmt.Sprintf("evaluteHTMLComponent(): Unhandled type %T", node))
+			//panic(fmt.Sprintf("evaluteHTMLComponent(): Unhandled type %T", node))
 		}
 	}
 	resultDataNode.SetNodes(resultNodes)

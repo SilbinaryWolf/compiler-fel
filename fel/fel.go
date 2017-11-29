@@ -6,6 +6,10 @@ import (
 	"github.com/silbinarywolf/compiler-fel/evaluator"
 )
 
+type Test struct {
+	test int
+}
+
 func main() {
 	/*{
 		ctx := duktape.New()

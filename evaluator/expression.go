@@ -15,12 +15,12 @@ import (
 func (program *Program) evaluateExpression(expressionNode *ast.Expression, scope *Scope) data.Type {
 	var stack []data.Type
 
-	if types.HasNoType(expressionNode.TypeInfo) {
-		panic(fmt.Sprintf("evaluateExpression: Expression node has not been type-checked. Type Token: %v\nExpression Node Data:\n%v", expressionNode.TypeIdentifier, expressionNode))
-	}
 	nodes := expressionNode.Nodes()
 	if len(nodes) == 0 {
 		panic(fmt.Sprintf("evaluateExpression: Expression node is missing nodes."))
+	}
+	if types.HasNoType(expressionNode.TypeInfo) {
+		panic(fmt.Sprintf("evaluateExpression: Expression node has not been type-checked. Type Token: %v\nExpression Node Data:\n%v", expressionNode.TypeIdentifier, expressionNode))
 	}
 
 	typeInfo := expressionNode.TypeInfo

@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/silbinarywolf/compiler-fel/ast"
+	"github.com/silbinarywolf/compiler-fel/data"
 	"github.com/silbinarywolf/compiler-fel/token"
 )
 
@@ -37,6 +38,42 @@ func (program *Program) evaluateStatement(topNode ast.Node, scope *Scope) {
 		// ignore
 	case *ast.CSSDefinition:
 		panic("todo(Jake): Handle CSS definition in statement")
+	case *ast.If:
+		iValue := program.evaluateExpression(&node.Condition, scope)
+		isTrue := iValue.(*data.Bool).Value()
+
+		scope = NewScope(scope)
+		if isTrue {
+			program.evaluateHTMLNodeChildren(node.Nodes(), scope)
+		} else {
+			if len(node.ElseNodes) > 0 {
+				program.evaluateHTMLNodeChildren(node.ElseNodes, scope)
+			}
+		}
+		scope = scope.parent
+	case *ast.For:
+		//program.evaluateFor(node, scope)
+		iValue := program.evaluateExpression(&node.Array, scope)
+		value := iValue.(*data.Array)
+
+		scope = NewScope(scope)
+		{
+			indexName := node.IndexName.String()
+			indexVal := &data.Integer64{}
+			scope.DeclareSet(indexName, indexVal)
+
+			recordName := node.RecordName.String()
+
+			nodes := node.Nodes()
+			for i, val := range value.Elements {
+				if len(indexName) > 0 {
+					indexVal.Value = int64(i)
+				}
+				scope.DeclareSet(recordName, val)
+				program.evaluateHTMLNodeChildren(nodes, scope)
+			}
+		}
+		scope = scope.parent
 	default:
 		panic(fmt.Sprintf("evaluateStatement(): Unhandled type: %T.", node))
 	}

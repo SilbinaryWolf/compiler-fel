@@ -96,7 +96,7 @@ Loop:
 			// myVar := {Expression} \n
 			//
 			case token.DeclareSet:
-				node := p.NewDeclareStatement(name, ast.Type{}, p.parseExpressionNodes())
+				node := p.NewDeclareStatement(name, ast.Type{}, p.parseExpressionNodes(false))
 				resultNodes = append(resultNodes, node)
 			// myVar = {Expression} \n
 			//
@@ -104,7 +104,7 @@ Loop:
 				node := new(ast.OpStatement)
 				node.Name = name
 				node.Operator = t
-				node.Expression.ChildNodes = p.parseExpressionNodes()
+				node.Expression.ChildNodes = p.parseExpressionNodes(false)
 				resultNodes = append(resultNodes, node)
 			// myVar : string \n
 			case token.Colon:
@@ -113,10 +113,27 @@ Loop:
 				var expressionNodes []ast.Node
 				if p.PeekNextToken().Kind == token.Equal {
 					p.GetNextToken()
-					expressionNodes = p.parseExpressionNodes()
+					expressionNodes = p.parseExpressionNodes(false)
 				}
 				node := p.NewDeclareStatement(name, typeName, expressionNodes)
 				resultNodes = append(resultNodes, node)
+			// div if {expr} {
+			//     ^
+			case token.KeywordIf:
+				node := &ast.HTMLNode{
+					Name: name,
+				}
+				node.IfExpression.ChildNodes = p.parseExpressionNodes(true)
+				if t := p.GetNextToken(); t.Kind != token.BraceOpen {
+					p.addErrorToken(p.expect(t, token.BraceOpen), t)
+					return nil
+				}
+				if t := p.GetNextToken(); t.Kind == token.BraceOpen {
+					p.expect(t, token.BraceOpen)
+					return nil
+				}
+				p.GetNextToken()
+				node.ChildNodes = p.parseStatements()
 			// div {
 			//     ^
 			case token.BraceOpen:
@@ -126,8 +143,8 @@ Loop:
 				node.ChildNodes = p.parseStatements()
 				p.checkHTMLNode(node)
 				resultNodes = append(resultNodes, node)
-			// div(class="hey")
-			//    ^
+			// div(class="hey")  -or-  div(class="hey") if expr {
+			//    ^						  ^
 			case token.ParenOpen:
 				node := &ast.HTMLNode{
 					Name: name,
@@ -140,7 +157,7 @@ Loop:
 				case token.BraceOpen:
 					node.ChildNodes = p.parseStatements()
 				case token.KeywordIf:
-					node.IfExpression.ChildNodes = p.parseExpressionNodes()
+					node.IfExpression.ChildNodes = p.parseExpressionNodes(true)
 					if t := p.GetNextToken(); t.Kind != token.BraceOpen {
 						p.addErrorToken(p.expect(t, token.BraceOpen), t)
 						return nil
@@ -155,7 +172,7 @@ Loop:
 			// ^
 			case token.Newline:
 				p.SetScannerState(storeScannerState)
-				node := p.parseExpression()
+				node := p.parseExpression(false)
 				resultNodes = append(resultNodes, node)
 			// Normalize :: css {
 			//			 ^
@@ -168,7 +185,7 @@ Loop:
 			default:
 				if t.IsOperator() {
 					p.SetScannerState(storeScannerState)
-					node := p.parseExpression()
+					node := p.parseExpression(false)
 					resultNodes = append(resultNodes, node)
 					continue
 				}
@@ -191,7 +208,7 @@ Loop:
 			}
 			resultNodes = append(resultNodes, node)
 		case token.String:
-			node := p.parseExpression()
+			node := p.parseExpression(false)
 			resultNodes = append(resultNodes, node)
 		case token.BraceClose:
 			p.GetNextToken()
@@ -201,7 +218,13 @@ Loop:
 			p.GetNextToken()
 		case token.KeywordIf:
 			p.GetNextToken()
-			exprNodes := p.parseExpressionNodes()
+			// NOTE(Jake): Disable struct literal in if-statement as
+			//			   the parser needs to understand '{' is the
+			//			   start of the if-block when testing boolean exxpressions
+			//
+			//			   ie. "if myBool {" vs "if myStructLit{val:3} {"
+			//
+			exprNodes := p.parseExpressionNodes(true)
 			if t := p.GetNextToken(); t.Kind != token.BraceOpen {
 				p.addErrorToken(p.expect(t, token.BraceOpen), t)
 				return nil
@@ -249,7 +272,7 @@ Loop:
 				node = new(ast.For)
 				node.IsDeclareSet = true
 				node.RecordName = varName
-				node.Array.ChildNodes = p.parseExpressionNodes()
+				node.Array.ChildNodes = p.parseExpressionNodes(false)
 			case token.Comma:
 				secondVarName := p.GetNextToken()
 				if secondVarName.Kind != token.Identifier {
@@ -265,7 +288,7 @@ Loop:
 				node.IsDeclareSet = true
 				node.IndexName = varName
 				node.RecordName = secondVarName
-				node.Array.ChildNodes = p.parseExpressionNodes()
+				node.Array.ChildNodes = p.parseExpressionNodes(false)
 			default:
 				p.addErrorToken(p.expect(t, token.DeclareSet, token.Comma), t)
 				return nil
@@ -302,7 +325,7 @@ Loop:
 			if t.Kind != token.Equal {
 				p.addError(p.expect(t, token.Equal))
 			}
-			node.ChildNodes = p.parseExpressionNodes()
+			node.ChildNodes = p.parseExpressionNodes(false)
 			t = p.GetNextToken()
 			if t.Kind != token.Comma && t.Kind != token.ParenClose {
 				p.addError(p.expect(t, token.Comma, token.ParenClose))
@@ -322,13 +345,13 @@ Loop:
 	return resultNodes
 }
 
-func (p *Parser) parseExpression() *ast.Expression {
+func (p *Parser) parseExpression(disableStructLiteral bool) *ast.Expression {
 	node := new(ast.Expression)
-	node.ChildNodes = p.parseExpressionNodes()
+	node.ChildNodes = p.parseExpressionNodes(disableStructLiteral)
 	return node
 }
 
-func (p *Parser) parseExpressionNodes() []ast.Node {
+func (p *Parser) parseExpressionNodes(disableStructLiteral bool) []ast.Node {
 	parenOpenCount := 0
 	parenCloseCount := 0
 
@@ -352,6 +375,11 @@ Loop:
 				p.fatalError(fmt.Errorf("todo: Handle component/function in expression"))
 				return nil
 			case token.BraceOpen:
+				if disableStructLiteral {
+					// Dont parse struct literal and use identifier as-is
+					// (ie. "if isBool {")
+					break
+				}
 				p.GetNextToken()
 
 				if t := p.PeekNextToken(); t.Kind == token.BraceClose {
@@ -386,7 +414,7 @@ Loop:
 						p.addErrorToken(fmt.Errorf("Expected : after property \"%s\"", propertyName.String()), t)
 						return nil
 					}
-					exprNodes := p.parseExpressionNodes()
+					exprNodes := p.parseExpressionNodes(false)
 					node := ast.StructLiteralField{}
 					node.Name = propertyName
 					node.ChildNodes = exprNodes
@@ -489,7 +517,7 @@ Loop:
 
 		ArrayLiteralLoop:
 			for i := 0; true; i++ {
-				expr := p.parseExpression()
+				expr := p.parseExpression(false)
 				sep := p.GetNextToken()
 				switch sep.Kind {
 				case token.Comma:

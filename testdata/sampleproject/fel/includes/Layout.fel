@@ -25,7 +25,7 @@ Layout :: html {
 			link(rel="stylesheet", type="text/css", href="../css/main.css")
 		}
 		body(class="no-js "+body_class) {
-			Header(isBlue=true)
+			Header(isBlue=false)
 			children
 		}
 	}
