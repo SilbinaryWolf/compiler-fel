@@ -11,7 +11,7 @@ import (
 )
 
 type Parser struct {
-	*scanner.Scanner
+	scanner.Scanner
 	typeinfo                      TypeInfoManager
 	errors                        map[string][]error
 	typecheckHtmlNodeDependencies map[string]*ast.HTMLNode
@@ -36,7 +36,7 @@ func (p *Parser) ParseFile(filepath string) (*ast.File, error) {
 }
 
 func (p *Parser) Parse(filecontentsAsBytes []byte, filepath string) *ast.File {
-	p.Scanner = scanner.New(filecontentsAsBytes, filepath)
+	p.Scanner = *scanner.New(filecontentsAsBytes, filepath)
 	resultNode := &ast.File{
 		Filepath: filepath,
 	}

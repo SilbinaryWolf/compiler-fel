@@ -136,7 +136,8 @@ func (scanner *Scanner) eatEndOfLine() bool {
 	return false
 }
 
-func (scanner *Scanner) eatAllWhitespace() {
+/*func (scanner *Scanner) eatAllWhitespace() bool {
+	originalIndex := scanner.index
 	for {
 		lastIndex := scanner.index
 		C := scanner.nextRune()
@@ -147,19 +148,28 @@ func (scanner *Scanner) eatAllWhitespace() {
 		scanner.index = lastIndex
 		break
 	}
-}
+	return scanner.index != originalIndex
+}*/
 
-func (scanner *Scanner) eatAllComments() {
+func (scanner *Scanner) eatAllCommentsAndMaybeWhitespace() {
 	commentBlockDepth := 0
+
+	// CSS relies on whitespace tokens for parsing selectors
+	// if we aren't parsing CSS, we eat and ignore whitespace.
+	eatWhitespace := scanner.scanmode != ModeCSS
 
 	for {
 		lastIndex := scanner.index
 		C := scanner.nextRune()
+		if eatWhitespace && isWhitespace(C) {
+			continue
+		}
 		C2 := scanner.nextRune()
 		if C == '/' && C2 == '/' {
 			for {
 				C := scanner.nextRune()
 				if scanner.eatEndOfLine() {
+					//debugLine += 1
 					break
 				}
 				if C == 0 {
@@ -272,15 +282,7 @@ func (scanner *Scanner) _getNextToken() token.Token {
 		}
 	}()
 
-	// NOTE: Eating whitespace before *and* after comments, avoids
-	//	     bug where scanner falls over on "\t" or similar
-	if scanner.scanmode != ModeCSS {
-		scanner.eatAllWhitespace()
-	}
-	scanner.eatAllComments()
-	if scanner.scanmode != ModeCSS {
-		scanner.eatAllWhitespace()
-	}
+	scanner.eatAllCommentsAndMaybeWhitespace()
 
 	t.Start = scanner.index
 	C := scanner.nextRune()

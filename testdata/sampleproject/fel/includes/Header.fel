@@ -24,6 +24,8 @@ Header :: html {
 	class := "no_blue"
 	if isBlue {
 		// todo(Jake): Fix this, something wrong with evaluator not able to set a variable after declaring.
+		// stuff BREAKS!
+		// test
 		class = "blue"
 	}
 	header(class="header "+class) {

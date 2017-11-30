@@ -39,12 +39,12 @@ func (p *Parser) typecheckStructLiteral(scope *Scope, literal *ast.StructLiteral
 		return
 	}
 	if len(def.Fields) == 0 && len(literal.Fields) > 0 {
-		p.addErrorToken(fmt.Errorf("Struct %s does not have any fields."), literal.Name)
+		p.addErrorToken(fmt.Errorf("Struct %s does not have any fields.", name), literal.Name)
 		return
 	}
 	literal.TypeInfo = p.typeinfo.get(name)
 	if types.HasNoType(literal.TypeInfo) {
-		p.fatalErrorToken(fmt.Errorf("Missing typeinfo for \"%s :: struct\"."), literal.Name)
+		p.fatalErrorToken(fmt.Errorf("Missing typeinfo for \"%s :: struct\".", name), literal.Name)
 		return
 	}
 
@@ -340,8 +340,8 @@ func (p *Parser) typecheckStatements(topNode ast.Node, scope *Scope) {
 			// Skip nodes and child nodes
 			continue
 		case *ast.HTMLBlock:
-			panic("todo(Jake): Remove this if unused.")
-			p.typecheckHTMLBlock(node, scope)
+			panic("todo(Jake): Remove below commented out line if this is unused.")
+			//p.typecheckHTMLBlock(node, scope)
 		case *ast.HTMLNode:
 			p.typecheckExpression(scope, &node.IfExpression)
 

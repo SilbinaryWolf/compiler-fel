@@ -17,10 +17,8 @@ func removeTrailingWhitespaceTokens(tokenList []ast.Node) []ast.Node {
 		itNode := tokenList[i]
 		node, ok := itNode.(*ast.Token)
 		if !ok || node.Kind != token.Whitespace {
-			// If not whitespace, consider the trimming complete
 			break
 		}
-		// Cut off last element
 		tokenList = tokenList[:i]
 	}
 	return tokenList
@@ -175,7 +173,6 @@ Loop:
 				return nil
 			}
 
-			// Remove trailing whitespace tokens
 			tokenList = removeTrailingWhitespaceTokens(tokenList)
 
 			// Put selectors into a single array
