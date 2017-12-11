@@ -8,14 +8,16 @@ type Kind int
 
 const (
 	Unknown Kind = 0 + iota
-	Set
+	Store
 	Push
+	Add
 )
 
 var kindToString = []string{
 	Unknown: "unknown/unset bytecode",
-	Set:     "Set",
+	Store:   "Store",
 	Push:    "Push",
+	Add:     "Add",
 }
 
 type Code struct {

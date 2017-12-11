@@ -82,7 +82,8 @@ func (emit *Emitter) EmitBytecode(node ast.Node) *CodeBlock {
 							opcodes = append(opcodes, code)
 						}
 					case token.Add:
-						panic("EmitBytecode: Handle add")
+						code := bytecode.Init(bytecode.Add)
+						opcodes = append(opcodes, code)
 					default:
 						panic(fmt.Sprintf("EmitBytecode:DeclareStatement:Token: Unhandled token kind \"%s\"", t.Kind.String()))
 					}
@@ -90,7 +91,7 @@ func (emit *Emitter) EmitBytecode(node ast.Node) *CodeBlock {
 					panic(fmt.Sprintf("EmitBytecode:DeclareStatement: Unhandled type %T", node))
 				}
 			}
-			code := bytecode.Init(bytecode.Set)
+			code := bytecode.Init(bytecode.Store)
 			code.StackPos = emit.stackPos
 			emit.stackPos++
 			opcodes = append(opcodes, code)
