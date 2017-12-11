@@ -12,6 +12,7 @@ import (
 
 	"github.com/silbinarywolf/compiler-fel/ast"
 	"github.com/silbinarywolf/compiler-fel/data"
+	"github.com/silbinarywolf/compiler-fel/emitter"
 	"github.com/silbinarywolf/compiler-fel/generate"
 	"github.com/silbinarywolf/compiler-fel/parser"
 )
@@ -201,6 +202,17 @@ func (program *Program) RunProject(projectDirpath string) error {
 	}
 
 	outputTemplateFileSet := make([]TemplateFile, 0, len(astFiles))
+
+	// EXPERIMENTAL: Bytecode
+	{
+		info := emitter.New()
+		for _, astFile := range astFiles {
+			if strings.Contains(astFile.Filepath, "Header.fel") {
+				info.EmitBytecode(astFile)
+			}
+		}
+		panic("Finished emitBytecode in Evaluator")
+	}
 
 	// Execute template
 	executionStart := time.Now()
