@@ -10,20 +10,33 @@ const (
 	Unknown Kind = 0 + iota
 	Store
 	Push
+	PushStackVar
+	ConditionalEqual
 	Add
+	Jump
+	JumpIfFalse
 )
 
 var kindToString = []string{
-	Unknown: "unknown/unset bytecode",
-	Store:   "Store",
-	Push:    "Push",
-	Add:     "Add",
+	Unknown:          "unknown/unset bytecode",
+	Store:            "Store",
+	Push:             "Push",
+	PushStackVar:     "PushStackVar",
+	ConditionalEqual: "ConditionalEqual",
+	Add:              "Add",
+	Jump:             "Jump",
+	JumpIfFalse:      "JumpIfFalse",
 }
 
 type Code struct {
-	kind     Kind
-	Value    interface{}
-	StackPos int // Stack offset where interface{} is stored in memory
+	kind  Kind
+	Value interface{}
+}
+
+// ie. a function, block-scope, HTMLComponent
+type Block struct {
+	Opcodes   []Code
+	StackSize int
 }
 
 func Init(kind Kind) Code {
@@ -43,13 +56,7 @@ func (kind Kind) String() string {
 func (code *Code) String() string {
 	result := code.Kind().String()
 	if code.Value != nil {
-		switch value := code.Value.(type) {
-		default:
-			result += fmt.Sprintf(" %v", value)
-		}
-	}
-	if code.StackPos > 0 {
-		result += fmt.Sprintf(" %d", code.StackPos)
+		result += fmt.Sprintf(" %v", code.Value)
 	}
 	return result
 }

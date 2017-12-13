@@ -15,6 +15,7 @@ import (
 	"github.com/silbinarywolf/compiler-fel/emitter"
 	"github.com/silbinarywolf/compiler-fel/generate"
 	"github.com/silbinarywolf/compiler-fel/parser"
+	"github.com/silbinarywolf/compiler-fel/vm"
 )
 
 /*func (program *Program) CreateDataType(t token.Token) data.Type {
@@ -208,9 +209,11 @@ func (program *Program) RunProject(projectDirpath string) error {
 		info := emitter.New()
 		for _, astFile := range astFiles {
 			if strings.Contains(astFile.Filepath, "Header.fel") {
-				info.EmitBytecode(astFile)
+				codeBlock := info.EmitBytecode(astFile)
+				vm.ExecuteBytecode(codeBlock)
 			}
 		}
+
 		panic("Finished emitBytecode in Evaluator")
 	}
 

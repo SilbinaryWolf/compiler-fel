@@ -1,6 +1,18 @@
 test := 1 + 4 + 5
+test = 5
 
-Header :: css_config {
+if test == 5 {
+	test = 6
+	test = 5
+}
+
+Test :: struct {
+	value: int
+}
+
+myVal := Test{}
+
+/*Header :: css_config {
 	.is-* {
 		modify: false
 	}
@@ -33,3 +45,4 @@ Header :: html {
 	header(class="header "+class) {
 	}
 }
+*/

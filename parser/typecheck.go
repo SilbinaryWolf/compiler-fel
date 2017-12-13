@@ -534,7 +534,13 @@ func (p *Parser) TypecheckAndFinalize(files []*ast.File) {
 		scope := globalScope
 		for _, itNode := range file.ChildNodes {
 			switch node := itNode.(type) {
-			case *ast.HTMLNode, *ast.DeclareStatement, *ast.Expression, *ast.HTMLBlock:
+			case *ast.HTMLNode,
+				*ast.DeclareStatement,
+				*ast.OpStatement,
+				*ast.Expression,
+				*ast.If,
+				*ast.For,
+				*ast.HTMLBlock:
 				// no-op, these are checked in TypecheckFile()
 			case *ast.StructDefinition:
 				if node == nil {
