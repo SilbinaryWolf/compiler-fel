@@ -71,7 +71,7 @@ func (emit *Emitter) emitExpression(opcodes []bytecode.Code, node *ast.Expressio
 					if strings.Contains(tokenString, ".") {
 						tokenFloat, err := strconv.ParseFloat(node.String(), 10)
 						if err != nil {
-							panic(fmt.Errorf("EmitBytecode:DeclareStatement: Cannot convert token string to float, error: %s", err))
+							panic(fmt.Errorf("emitExpression:DeclareStatement: Cannot convert token string to float, error: %s", err))
 						}
 						code := bytecode.Init(bytecode.Push)
 						code.Value = tokenFloat
@@ -79,7 +79,7 @@ func (emit *Emitter) emitExpression(opcodes []bytecode.Code, node *ast.Expressio
 					} else {
 						tokenInt, err := strconv.ParseInt(tokenString, 10, 0)
 						if err != nil {
-							panic(fmt.Sprintf("EmitBytecode:DeclareStatement: Cannot convert token string to int, error: %s", err))
+							panic(fmt.Sprintf("emitExpression:DeclareStatement: Cannot convert token string to int, error: %s", err))
 						}
 						code := bytecode.Init(bytecode.Push)
 						code.Value = tokenInt
@@ -89,14 +89,44 @@ func (emit *Emitter) emitExpression(opcodes []bytecode.Code, node *ast.Expressio
 					code := bytecode.Init(bytecode.Add)
 					opcodes = append(opcodes, code)
 				default:
-					panic(fmt.Sprintf("EmitBytecode:DeclareStatement:Token: Unhandled token kind \"%s\"", t.Kind.String()))
+					panic(fmt.Sprintf("emitExpression:DeclareStatement:Token: Unhandled token kind \"%s\"", t.Kind.String()))
 				}
 			default:
-				panic(fmt.Sprintf("EmitBytecode:DeclareStatement: Unhandled type %T", node))
+				panic(fmt.Sprintf("emitExpression:DeclareStatement: Unhandled type %T", node))
 			}
 		}
+	case *parser.TypeInfo_Struct:
+		typeInfo := node.TypeInfo
+		structDef := node.TypeInfo.Definition()
+		if structDef == nil {
+			panic("emitExpression: TypeInfo_Struct: Missing Definition() data, this should be handled in the type checker.")
+		}
+
+		structData := new(bytecode.Struct)
+		structData.StructDefinition = structDef
+		structData.Fields = make([]interface{}, 0, len(structDef.Fields))
+
+		for _, structField := range structDef.Fields {
+			name := structField.Name.String()
+
+			exprNode := &structField.Expression
+			hasField := false
+			for _, literalField := range node.Fields {
+				if name == literalField.Name.String() {
+					exprNode = &literalField.Expression
+					hasField = true
+					break
+				}
+			}
+			typeinfo := exprNode.TypeInfo
+			if typeinfo == nil {
+				panic(fmt.Sprintf("emitExpression: Missing typeinfo on property for \"%s :: struct { %s }\"", structDef.Name, structField.Name))
+			}
+		}
+
+		panic("todo(Jake): TypeInfo_Struct")
 	default:
-		panic(fmt.Sprintf("EmitBytecode:DeclareStatement: Unhandled expression with type %T", typeInfo))
+		panic(fmt.Sprintf("emitExpression: Unhandled expression with type %T", typeInfo))
 	}
 	return opcodes
 }
@@ -152,15 +182,15 @@ func (emit *Emitter) emitStatement(opcodes []bytecode.Code, node ast.Node) []byt
 	case *ast.CSSProperty:
 		panic("todo(Jake): CSSProperty")
 	case *ast.HTMLComponentDefinition:
-		panic(fmt.Sprintf("EmitBytecode: Todo HTMLComponentDef"))
+		panic(fmt.Sprintf("emitStatement: Todo HTMLComponentDef"))
 	case *ast.CSSDefinition:
 		emit.EmitBytecode(node)
-		panic(fmt.Sprintf("EmitBytecode: Todo CSSDefinition"))
+		panic(fmt.Sprintf("emitStatement: Todo CSSDefinition"))
 	case *ast.StructDefinition,
 		*ast.CSSConfigDefinition:
 		break
 	default:
-		panic(fmt.Sprintf("EmitBytecode: Unhandled type %T", node))
+		panic(fmt.Sprintf("emitStatement: Unhandled type %T", node))
 	}
 	return opcodes
 }

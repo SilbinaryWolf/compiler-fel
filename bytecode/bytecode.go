@@ -11,6 +11,7 @@ const (
 	Store
 	Push
 	PushStackVar
+	PushStruct
 	ConditionalEqual
 	Add
 	Jump
@@ -22,6 +23,7 @@ var kindToString = []string{
 	Store:            "Store",
 	Push:             "Push",
 	PushStackVar:     "PushStackVar",
+	PushStruct:       "PushStruct",
 	ConditionalEqual: "ConditionalEqual",
 	Add:              "Add",
 	Jump:             "Jump",
@@ -31,6 +33,11 @@ var kindToString = []string{
 type Code struct {
 	kind  Kind
 	Value interface{}
+}
+
+type Struct struct {
+	Fields           []interface{}
+	StructDefinition interface{}
 }
 
 // ie. a function, block-scope, HTMLComponent
