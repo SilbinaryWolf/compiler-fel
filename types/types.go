@@ -6,6 +6,13 @@ import (
 	"github.com/silbinarywolf/compiler-fel/data"
 )
 
+//
+// todo(Jake): Refactor / move this code to the parser.
+//
+//
+//
+//
+
 type TypeInfo interface {
 	String() string
 	Create() data.Type
@@ -28,7 +35,7 @@ func Equals(a TypeInfo, b TypeInfo) bool {
 }
 
 // Float
-type Float_ struct{}
+/*type Float_ struct{}
 
 func (info *Float_) String() string { return "float" }
 
@@ -36,7 +43,7 @@ func (info *Float_) Create() data.Type { return new(data.Float64) }
 
 var typeFloat = new(Float_)
 
-func Float() TypeInfo { return typeFloat }
+func Float() TypeInfo { return typeFloat }*/
 
 // Bool
 type Bool_ struct{}
@@ -50,7 +57,7 @@ var typeBool = new(Bool_)
 func Bool() TypeInfo { return typeBool }
 
 // String
-type String_ struct{}
+/*type String_ struct{}
 
 func (info *String_) String() string { return "string" }
 
@@ -58,7 +65,7 @@ func (info *String_) Create() data.Type { return new(data.String) }
 
 var typeString = new(String_)
 
-func String() TypeInfo { return typeString }
+func String() TypeInfo { return typeString }*/
 
 // HTML
 type HTMLNode_ struct{}
@@ -103,9 +110,9 @@ func GetRegisteredType(name string) TypeInfo {
 	return registeredTypes[name]
 }
 
-func init() {
+/*func init() {
 	RegisterType("string", String())
 	//RegisterType("int", Int())
-	RegisterType("float", Float())
+	//RegisterType("float", Float())
 	RegisterType("bool", Bool())
-}
+}*/

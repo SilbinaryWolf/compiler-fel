@@ -8,9 +8,12 @@ if test == 5 {
 
 Test :: struct {
 	value: int
+	otherValue: string
 }
 
-myVal := Test{}
+myVal := Test{
+	otherValue: "test"
+}
 
 /*Header :: css_config {
 	.is-* {

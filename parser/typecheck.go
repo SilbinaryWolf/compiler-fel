@@ -191,7 +191,7 @@ func (p *Parser) typecheckExpression(scope *Scope, expression *ast.Expression) {
 
 			switch node.Kind {
 			case token.String:
-				expectedTypeInfo := types.String()
+				expectedTypeInfo := p.typeinfo.NewTypeInfoString()
 				if types.HasNoType(resultTypeInfo) {
 					resultTypeInfo = expectedTypeInfo
 				}
@@ -200,7 +200,7 @@ func (p *Parser) typecheckExpression(scope *Scope, expression *ast.Expression) {
 				}
 			case token.Number:
 				IntTypeInfo := p.typeinfo.NewTypeInfoInt()
-				FloatTypeInfo := types.Float()
+				FloatTypeInfo := p.typeinfo.NewTypeInfoFloat()
 
 				if types.HasNoType(resultTypeInfo) {
 					resultTypeInfo = IntTypeInfo

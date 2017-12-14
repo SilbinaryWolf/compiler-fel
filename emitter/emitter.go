@@ -6,6 +6,7 @@ import (
 	"github.com/silbinarywolf/compiler-fel/bytecode"
 	"github.com/silbinarywolf/compiler-fel/parser"
 	"github.com/silbinarywolf/compiler-fel/token"
+	"github.com/silbinarywolf/compiler-fel/types"
 	"strconv"
 	"strings"
 )
@@ -33,12 +34,40 @@ func appendReverse(nodes []ast.Node, nodesToPrepend []ast.Node) []ast.Node {
 	return nodes
 }
 
+func addDebugString(opcodes []bytecode.Code, text string) []bytecode.Code {
+	code := bytecode.Init(bytecode.DebugString)
+	code.Value = text
+	opcodes = append(opcodes, code)
+	return opcodes
+}
+
 func debugOpcodes(opcodes []bytecode.Code) {
 	fmt.Printf("Opcode Debug:\n-----------\n")
 	for i, code := range opcodes {
 		fmt.Printf("%d - %s\n", i, code.String())
 	}
 	fmt.Printf("-----------\n")
+}
+
+func (emit *Emitter) emitNewFromType(opcodes []bytecode.Code, typeInfo types.TypeInfo) []bytecode.Code {
+	opcodes = addDebugString(opcodes, "emitNewFromType")
+	switch typeInfo.(type) {
+	case *parser.TypeInfo_Int:
+		code := bytecode.Init(bytecode.Push)
+		code.Value = int(0)
+		opcodes = append(opcodes, code)
+	case *parser.TypeInfo_Float:
+		code := bytecode.Init(bytecode.Push)
+		code.Value = float64(0.0)
+		opcodes = append(opcodes, code)
+	case *parser.TypeInfo_String:
+		code := bytecode.Init(bytecode.Push)
+		code.Value = ""
+		opcodes = append(opcodes, code)
+	default:
+		panic(fmt.Sprintf("emitNewFromType: Unhandled type %T", typeInfo))
+	}
+	return opcodes
 }
 
 func (emit *Emitter) emitExpression(opcodes []bytecode.Code, node *ast.Expression) []bytecode.Code {
@@ -49,6 +78,7 @@ func (emit *Emitter) emitExpression(opcodes []bytecode.Code, node *ast.Expressio
 
 	switch typeInfo := node.TypeInfo.(type) {
 	case *parser.TypeInfo_Int:
+		//*parser.TypeInfo_Float:
 		for _, node := range nodes {
 			switch node := node.(type) {
 			case *ast.Token:
@@ -69,9 +99,12 @@ func (emit *Emitter) emitExpression(opcodes []bytecode.Code, node *ast.Expressio
 				case token.Number:
 					tokenString := t.String()
 					if strings.Contains(tokenString, ".") {
+						//if typeInfo.(type) == *parser.TypeInfo_Int {
+						//	panic("This should not happen as the type is int.")
+						//}
 						tokenFloat, err := strconv.ParseFloat(node.String(), 10)
 						if err != nil {
-							panic(fmt.Errorf("emitExpression:DeclareStatement: Cannot convert token string to float, error: %s", err))
+							panic(fmt.Errorf("emitExpression: Cannot convert token string to float, error: %s", err))
 						}
 						code := bytecode.Init(bytecode.Push)
 						code.Value = tokenFloat
@@ -79,7 +112,7 @@ func (emit *Emitter) emitExpression(opcodes []bytecode.Code, node *ast.Expressio
 					} else {
 						tokenInt, err := strconv.ParseInt(tokenString, 10, 0)
 						if err != nil {
-							panic(fmt.Sprintf("emitExpression:DeclareStatement: Cannot convert token string to int, error: %s", err))
+							panic(fmt.Sprintf("emitExpression: Cannot convert token string to int, error: %s", err))
 						}
 						code := bytecode.Init(bytecode.Push)
 						code.Value = tokenInt
@@ -89,41 +122,79 @@ func (emit *Emitter) emitExpression(opcodes []bytecode.Code, node *ast.Expressio
 					code := bytecode.Init(bytecode.Add)
 					opcodes = append(opcodes, code)
 				default:
-					panic(fmt.Sprintf("emitExpression:DeclareStatement:Token: Unhandled token kind \"%s\"", t.Kind.String()))
+					panic(fmt.Sprintf("emitExpression:Token: Unhandled token kind \"%s\"", t.Kind.String()))
 				}
 			default:
-				panic(fmt.Sprintf("emitExpression:DeclareStatement: Unhandled type %T", node))
+				panic(fmt.Sprintf("emitExpression: Unhandled type %T", node))
 			}
 		}
+	case *parser.TypeInfo_String:
+		/*for _, node := range node.Nodes() {
+			switch node := node.(type) {
+			case *ast.Token:
+			}
+			code := bytecode.Init(bytecode.Push)
+			code.Value =
+			opcodes = append(opcodes, code)
+		}*/
+		panic("todo(Jake): add support for string expressions")
 	case *parser.TypeInfo_Struct:
-		typeInfo := node.TypeInfo
-		structDef := node.TypeInfo.Definition()
+		structDef := typeInfo.Definition()
 		if structDef == nil {
 			panic("emitExpression: TypeInfo_Struct: Missing Definition() data, this should be handled in the type checker.")
 		}
 
-		structData := new(bytecode.Struct)
-		structData.StructDefinition = structDef
-		structData.Fields = make([]interface{}, 0, len(structDef.Fields))
+		var structLiteral *ast.StructLiteral
+		if len(nodes) > 0 {
+			var ok bool
+			structLiteral, ok = nodes[0].(*ast.StructLiteral)
+			if !ok {
+				panic("emitExpression: Should only have ast.StructLiteral in TypeInfo_Struct expression, this should be handled in type checker.")
 
-		for _, structField := range structDef.Fields {
+			}
+			if len(nodes) > 1 {
+				panic("emitExpression: Should only have one node in TypeInfo_Struct, this should be handled in type checker.")
+			}
+		}
+
+		// NOTE(Jake): This belongs in "vm"
+		//structData := new(bytecode.Struct)
+		//structData.StructDefinition = structDef
+		//structData.Fields = make([]interface{}, 0, len(structDef.Fields))
+
+		code := bytecode.Init(bytecode.AllocStruct)
+		code.Value = len(structDef.Fields)
+		opcodes = append(opcodes, code)
+
+		for offset, structField := range structDef.Fields {
 			name := structField.Name.String()
 
 			exprNode := &structField.Expression
 			hasField := false
-			for _, literalField := range node.Fields {
+			for _, literalField := range structLiteral.Fields {
 				if name == literalField.Name.String() {
 					exprNode = &literalField.Expression
 					hasField = true
 					break
 				}
 			}
-			typeinfo := exprNode.TypeInfo
-			if typeinfo == nil {
+			fieldTypeInfo := exprNode.TypeInfo
+			if fieldTypeInfo == nil {
 				panic(fmt.Sprintf("emitExpression: Missing typeinfo on property for \"%s :: struct { %s }\"", structDef.Name, structField.Name))
 			}
+			if hasField {
+				opcodes = emit.emitExpression(opcodes, exprNode)
+			} else {
+				opcodes = emit.emitNewFromType(opcodes, fieldTypeInfo)
+			}
+
+			code := bytecode.Init(bytecode.StoreStructField)
+			code.Value = offset
+			opcodes = append(opcodes, code)
+			//structData.Fields = append(structData.Fields, value)
 		}
 
+		debugOpcodes(opcodes)
 		panic("todo(Jake): TypeInfo_Struct")
 	default:
 		panic(fmt.Sprintf("emitExpression: Unhandled expression with type %T", typeInfo))

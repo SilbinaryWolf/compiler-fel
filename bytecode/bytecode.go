@@ -8,10 +8,12 @@ type Kind int
 
 const (
 	Unknown Kind = 0 + iota
+	DebugString
+	AllocStruct
 	Store
+	StoreStructField
 	Push
 	PushStackVar
-	PushStruct
 	ConditionalEqual
 	Add
 	Jump
@@ -20,10 +22,12 @@ const (
 
 var kindToString = []string{
 	Unknown:          "unknown/unset bytecode",
+	DebugString:      "DebugString",
+	AllocStruct:      "AllocStruct",
 	Store:            "Store",
+	StoreStructField: "StoreStructField",
 	Push:             "Push",
 	PushStackVar:     "PushStackVar",
-	PushStruct:       "PushStruct",
 	ConditionalEqual: "ConditionalEqual",
 	Add:              "Add",
 	Jump:             "Jump",
@@ -63,7 +67,12 @@ func (kind Kind) String() string {
 func (code *Code) String() string {
 	result := code.Kind().String()
 	if code.Value != nil {
-		result += fmt.Sprintf(" %v", code.Value)
+		switch code.Value.(type) {
+		case string:
+			result += fmt.Sprintf(" \"%v\"", code.Value)
+		default:
+			result += fmt.Sprintf(" %v", code.Value)
+		}
 	}
 	return result
 }

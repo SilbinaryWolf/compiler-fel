@@ -13,7 +13,9 @@ type TypeInfoManager struct {
 	registeredTypes map[string]TypeInfo
 
 	// built-in
-	intInfo TypeInfo_Int
+	intInfo    TypeInfo_Int
+	floatInfo  TypeInfo_Float
+	stringInfo TypeInfo_String
 }
 
 func (manager *TypeInfoManager) Init() {
@@ -22,8 +24,8 @@ func (manager *TypeInfoManager) Init() {
 	}
 	manager.registeredTypes = make(map[string]TypeInfo)
 	manager.register("int", manager.NewTypeInfoInt())
-	manager.register("string", types.String())
-	manager.register("float", types.Float())
+	manager.register("string", manager.NewTypeInfoString())
+	manager.register("float", manager.NewTypeInfoFloat())
 	manager.register("bool", types.Bool())
 }
 
@@ -59,6 +61,26 @@ func (info *TypeInfo_Int) Create() data.Type { return new(data.Integer64) }
 
 func (manager *TypeInfoManager) NewTypeInfoInt() *TypeInfo_Int {
 	return &manager.intInfo
+}
+
+// Float
+type TypeInfo_Float struct{}
+
+func (info *TypeInfo_Float) String() string    { return "float" }
+func (info *TypeInfo_Float) Create() data.Type { return new(data.Float64) }
+
+func (manager *TypeInfoManager) NewTypeInfoFloat() *TypeInfo_Float {
+	return &manager.floatInfo
+}
+
+// String
+type TypeInfo_String struct{}
+
+func (info *TypeInfo_String) String() string    { return "string" }
+func (info *TypeInfo_String) Create() data.Type { return new(data.String) }
+
+func (manager *TypeInfoManager) NewTypeInfoString() *TypeInfo_String {
+	return &manager.stringInfo
 }
 
 // Struct
