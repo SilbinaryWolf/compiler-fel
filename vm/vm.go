@@ -2,6 +2,7 @@ package vm
 
 import (
 	"fmt"
+
 	"github.com/silbinarywolf/compiler-fel/bytecode"
 )
 
@@ -43,15 +44,29 @@ func ExecuteBytecode(codeBlock *bytecode.Block) {
 			valueB := registerStack[len(registerStack)-1].(int64)
 			registerStack = registerStack[:len(registerStack)-2]
 			registerStack = append(registerStack, valueA+valueB)
+		case bytecode.AddString:
+			valueA := registerStack[len(registerStack)-2].(string)
+			valueB := registerStack[len(registerStack)-1].(string)
+			registerStack = registerStack[:len(registerStack)-2]
+			registerStack = append(registerStack, valueA+valueB)
 		case bytecode.Store:
 			value := registerStack[len(registerStack)-1]
 			registerStack = registerStack[:len(registerStack)-1]
 
 			stackOffset := code.Value.(int)
 			program.stack[stackOffset] = value
+			//panic(program.stack[stackOffset])
 		default:
 			panic(fmt.Sprintf("executeBytecode: Unhandled kind in vm: \"%s\"", code.Kind().String()))
 		}
 		offset++
 	}
+
+	// Debug
+	fmt.Printf("----------------\nVM Stack Values:\n----------------\n")
+	for i := 0; i < len(program.stack); i++ {
+		stackValue := program.stack[i]
+		fmt.Printf("%v - %T\n", stackValue, stackValue)
+	}
+	fmt.Printf("----------------\n")
 }

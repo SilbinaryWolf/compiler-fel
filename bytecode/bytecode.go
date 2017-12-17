@@ -16,6 +16,7 @@ const (
 	PushStackVar
 	ConditionalEqual
 	Add
+	AddString
 	Jump
 	JumpIfFalse
 )
@@ -30,6 +31,7 @@ var kindToString = []string{
 	PushStackVar:     "PushStackVar",
 	ConditionalEqual: "ConditionalEqual",
 	Add:              "Add",
+	AddString:        "AddString",
 	Jump:             "Jump",
 	JumpIfFalse:      "JumpIfFalse",
 }

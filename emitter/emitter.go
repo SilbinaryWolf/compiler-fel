@@ -2,13 +2,14 @@ package emitter
 
 import (
 	"fmt"
+	"strconv"
+	"strings"
+
 	"github.com/silbinarywolf/compiler-fel/ast"
 	"github.com/silbinarywolf/compiler-fel/bytecode"
 	"github.com/silbinarywolf/compiler-fel/parser"
 	"github.com/silbinarywolf/compiler-fel/token"
 	"github.com/silbinarywolf/compiler-fel/types"
-	"strconv"
-	"strings"
 )
 
 type Emitter struct {
@@ -70,6 +71,16 @@ func (emit *Emitter) emitNewFromType(opcodes []bytecode.Code, typeInfo types.Typ
 	return opcodes
 }
 
+func (emit *Emitter) getPushVariableCodeFromIdent(ident string) bytecode.Code {
+	stackPos, ok := emit.nameToStackPos[ident]
+	if !ok {
+		panic("Undeclared variable \"%s\", this should be caught in the type checker.")
+	}
+	code := bytecode.Init(bytecode.PushStackVar)
+	code.Value = stackPos
+	return code
+}
+
 func (emit *Emitter) emitExpression(opcodes []bytecode.Code, node *ast.Expression) []bytecode.Code {
 	nodes := node.Nodes()
 	if len(nodes) == 0 {
@@ -82,37 +93,30 @@ func (emit *Emitter) emitExpression(opcodes []bytecode.Code, node *ast.Expressio
 		for _, node := range nodes {
 			switch node := node.(type) {
 			case *ast.Token:
-				t := node.Token
-				switch t.Kind {
+				switch t := node.Token; t.Kind {
 				case token.Identifier:
-					nameString := t.String()
-					stackPos, ok := emit.nameToStackPos[nameString]
-					if !ok {
-						panic("Undeclared variable \"%s\", this should be caught in the type checker.")
-					}
-					code := bytecode.Init(bytecode.PushStackVar)
-					code.Value = stackPos
-					opcodes = append(opcodes, code)
+					opcodes = append(opcodes, emit.getPushVariableCodeFromIdent(t.String()))
 				case token.ConditionalEqual:
 					code := bytecode.Init(bytecode.ConditionalEqual)
 					opcodes = append(opcodes, code)
 				case token.Number:
 					tokenString := t.String()
 					if strings.Contains(tokenString, ".") {
+						panic("Cannot add float to int, this should be caught in the type checker.")
 						//if typeInfo.(type) == *parser.TypeInfo_Int {
 						//	panic("This should not happen as the type is int.")
 						//}
-						tokenFloat, err := strconv.ParseFloat(node.String(), 10)
+						/*tokenFloat, err := strconv.ParseFloat(node.String(), 10)
 						if err != nil {
-							panic(fmt.Errorf("emitExpression: Cannot convert token string to float, error: %s", err))
+							panic(fmt.Errorf("emitExpression:TypeInfo_Int:Token: Cannot convert token string to float, error: %s", err))
 						}
 						code := bytecode.Init(bytecode.Push)
 						code.Value = tokenFloat
-						opcodes = append(opcodes, code)
+						opcodes = append(opcodes, code)*/
 					} else {
 						tokenInt, err := strconv.ParseInt(tokenString, 10, 0)
 						if err != nil {
-							panic(fmt.Sprintf("emitExpression: Cannot convert token string to int, error: %s", err))
+							panic(fmt.Sprintf("emitExpression:Int:Token: Cannot convert token string to int, error: %s", err))
 						}
 						code := bytecode.Init(bytecode.Push)
 						code.Value = tokenInt
@@ -122,22 +126,33 @@ func (emit *Emitter) emitExpression(opcodes []bytecode.Code, node *ast.Expressio
 					code := bytecode.Init(bytecode.Add)
 					opcodes = append(opcodes, code)
 				default:
-					panic(fmt.Sprintf("emitExpression:Token: Unhandled token kind \"%s\"", t.Kind.String()))
+					panic(fmt.Sprintf("emitExpression:Int:Token: Unhandled token kind \"%s\"", t.Kind.String()))
 				}
 			default:
-				panic(fmt.Sprintf("emitExpression: Unhandled type %T", node))
+				panic(fmt.Sprintf("emitExpression:Int: Unhandled type %T", node))
 			}
 		}
 	case *parser.TypeInfo_String:
-		/*for _, node := range node.Nodes() {
+		for _, node := range node.Nodes() {
 			switch node := node.(type) {
 			case *ast.Token:
+				switch t := node.Token; t.Kind {
+				case token.Identifier:
+					opcodes = append(opcodes, emit.getPushVariableCodeFromIdent(t.String()))
+				case token.Add:
+					code := bytecode.Init(bytecode.AddString)
+					opcodes = append(opcodes, code)
+				case token.String:
+					code := bytecode.Init(bytecode.Push)
+					code.Value = t.String()
+					opcodes = append(opcodes, code)
+				default:
+					panic(fmt.Sprintf("emitExpression:String:Token: Unhandled token kind \"%s\"", t.Kind.String()))
+				}
+			default:
+				panic(fmt.Sprintf("emitExpression:String: Unhandled type %T", node))
 			}
-			code := bytecode.Init(bytecode.Push)
-			code.Value =
-			opcodes = append(opcodes, code)
-		}*/
-		panic("todo(Jake): add support for string expressions")
+		}
 	case *parser.TypeInfo_Struct:
 		structDef := typeInfo.Definition()
 		if structDef == nil {
@@ -223,7 +238,30 @@ func (emit *Emitter) emitStatement(opcodes []bytecode.Code, node ast.Node) []byt
 		if !ok {
 			panic(fmt.Sprintf("Missing declaration for %s, this should be caught in the type checker.", node.Name))
 		}
+		switch node.Operator.Kind {
+		case token.Equal:
+			// no-op
+		case token.AddEqual:
+			code := bytecode.Init(bytecode.PushStackVar)
+			code.Value = stackPos
+			opcodes = append(opcodes, code)
+		default:
+			panic(fmt.Sprintf("emitStatement: Unhandled operator kind: %s", node.Operator.Kind.String()))
+		}
 		opcodes = emit.emitExpression(opcodes, &node.Expression)
+		switch node.Operator.Kind {
+		case token.Equal:
+			// no-op
+		case token.AddEqual:
+			switch node.TypeInfo.(type) {
+			case *parser.TypeInfo_String:
+				opcodes = append(opcodes, bytecode.Init(bytecode.AddString))
+			default:
+				opcodes = append(opcodes, bytecode.Init(bytecode.Add))
+			}
+		default:
+			panic(fmt.Sprintf("emitStatement: Unhandled operator kind: %s", node.Operator.Kind.String()))
+		}
 		code := bytecode.Init(bytecode.Store)
 		code.Value = stackPos
 		opcodes = append(opcodes, code)

@@ -1,11 +1,18 @@
-test := 1 + 4 + 5
+/*test := 1 + 4 + 5
 test = 5
 
 if test == 5 {
 	test = 6
 	test = 5
 }
+*/
+meow := "test" + " hello"
+meow += "me" + " wow"
 
+test := 1 + 1
+test += 2
+
+/*
 Test :: struct {
 	value: int
 	otherValue: string
@@ -13,7 +20,9 @@ Test :: struct {
 
 myVal := Test{
 	otherValue: "test"
-}
+}*/
+
+/////////////////// TESTING BYTECODE ABOVE
 
 /*Header :: css_config {
 	.is-* {
