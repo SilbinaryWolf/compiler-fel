@@ -50,8 +50,14 @@ func debugOpcodes(opcodes []bytecode.Code) {
 	fmt.Printf("-----------\n")
 }
 
+//
+// This is used to emit bytecode for zeroing out a type that wasn't given an
+// explicit value
+//
+// ie. "test: string"
+//
 func (emit *Emitter) emitNewFromType(opcodes []bytecode.Code, typeInfo types.TypeInfo) []bytecode.Code {
-	opcodes = addDebugString(opcodes, "emitNewFromType")
+	//opcodes = addDebugString(opcodes, "emitNewFromType")
 	switch typeInfo.(type) {
 	case *parser.TypeInfo_Int:
 		code := bytecode.Init(bytecode.Push)
@@ -185,11 +191,9 @@ func (emit *Emitter) emitExpression(opcodes []bytecode.Code, node *ast.Expressio
 			name := structField.Name.String()
 
 			exprNode := &structField.Expression
-			hasField := false
 			for _, literalField := range structLiteral.Fields {
 				if name == literalField.Name.String() {
 					exprNode = &literalField.Expression
-					hasField = true
 					break
 				}
 			}
@@ -197,7 +201,7 @@ func (emit *Emitter) emitExpression(opcodes []bytecode.Code, node *ast.Expressio
 			if fieldTypeInfo == nil {
 				panic(fmt.Sprintf("emitExpression: Missing typeinfo on property for \"%s :: struct { %s }\"", structDef.Name, structField.Name))
 			}
-			if hasField {
+			if len(exprNode.Nodes()) > 0 {
 				opcodes = emit.emitExpression(opcodes, exprNode)
 			} else {
 				opcodes = emit.emitNewFromType(opcodes, fieldTypeInfo)

@@ -12,15 +12,15 @@ meow += "me" + " wow"
 test := 1 + 1
 test += 2
 
-/*
 Test :: struct {
 	value: int
+	derp: string = "heh"
 	otherValue: string
 }
 
 myVal := Test{
 	otherValue: "test"
-}*/
+}
 
 /////////////////// TESTING BYTECODE ABOVE
 

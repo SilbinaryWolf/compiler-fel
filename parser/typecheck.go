@@ -396,12 +396,16 @@ func (p *Parser) typecheckStatements(topNode ast.Node, scope *Scope) {
 				}
 			}
 		case *ast.OpStatement:
-			p.typecheckExpression(scope, &node.Expression)
 			name := node.Name.String()
-			_, ok := scope.Get(name)
+			variableTypeInfo, ok := scope.Get(name)
 			if !ok {
 				p.addErrorToken(fmt.Errorf("Undeclared variable \"%s\".", name), node.Name)
 				continue
+			}
+			p.typecheckExpression(scope, &node.Expression)
+			resultTypeInfo := node.Expression.TypeInfo
+			if !types.Equals(variableTypeInfo, resultTypeInfo) {
+				p.addErrorToken(fmt.Errorf("Cannot change \"%s\" from %s to %s", name, variableTypeInfo, resultTypeInfo.String()), node.Name)
 			}
 			continue
 		case *ast.DeclareStatement:
