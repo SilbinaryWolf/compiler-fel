@@ -27,6 +27,10 @@ func ExecuteBytecode(codeBlock *bytecode.Block) {
 		case bytecode.PushStackVar:
 			stackOffset := code.Value.(int)
 			registerStack = append(registerStack, program.stack[stackOffset])
+		case bytecode.PushAllocStruct:
+			structFieldCount := code.Value.(int)
+			structData := bytecode.NewStruct(structFieldCount)
+			registerStack = append(registerStack, structData)
 		case bytecode.ConditionalEqual:
 			valueA := registerStack[len(registerStack)-2].(int64)
 			valueB := registerStack[len(registerStack)-1].(int64)
@@ -56,6 +60,15 @@ func ExecuteBytecode(codeBlock *bytecode.Block) {
 			stackOffset := code.Value.(int)
 			program.stack[stackOffset] = value
 			//panic(program.stack[stackOffset])
+		case bytecode.StoreStructField:
+			fieldData := registerStack[len(registerStack)-1]
+			structData := registerStack[len(registerStack)-2].(bytecode.StructInterface)
+
+			// NOTE(Jake): Only pop `fieldData`
+			registerStack = registerStack[:len(registerStack)-1]
+
+			fieldOffset := code.Value.(int)
+			structData.SetField(fieldOffset, fieldData)
 		default:
 			panic(fmt.Sprintf("executeBytecode: Unhandled kind in vm: \"%s\"", code.Kind().String()))
 		}

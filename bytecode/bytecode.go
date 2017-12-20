@@ -8,12 +8,13 @@ type Kind int
 
 const (
 	Unknown Kind = 0 + iota
-	DebugString
-	AllocStruct
+	Label
 	Store
 	StoreStructField
 	Push
 	PushStackVar
+	PushAllocStruct
+	PushAllocInternalStruct
 	ConditionalEqual
 	Add
 	AddString
@@ -22,18 +23,19 @@ const (
 )
 
 var kindToString = []string{
-	Unknown:          "unknown/unset bytecode",
-	DebugString:      "DebugString",
-	AllocStruct:      "AllocStruct",
-	Store:            "Store",
-	StoreStructField: "StoreStructField",
-	Push:             "Push",
-	PushStackVar:     "PushStackVar",
-	ConditionalEqual: "ConditionalEqual",
-	Add:              "Add",
-	AddString:        "AddString",
-	Jump:             "Jump",
-	JumpIfFalse:      "JumpIfFalse",
+	Unknown:                 "unknown/unset bytecode",
+	Label:                   "Label",
+	Store:                   "Store",
+	StoreStructField:        "StoreStructField",
+	Push:                    "Push",
+	PushStackVar:            "PushStackVar",
+	PushAllocStruct:         "PushAllocStruct",
+	PushAllocInternalStruct: "PushAllocInternalStruct",
+	ConditionalEqual:        "ConditionalEqual",
+	Add:                     "Add",
+	AddString:               "AddString",
+	Jump:                    "Jump",
+	JumpIfFalse:             "JumpIfFalse",
 }
 
 type Code struct {
@@ -41,15 +43,33 @@ type Code struct {
 	Value interface{}
 }
 
-type Struct struct {
-	Fields           []interface{}
-	StructDefinition interface{}
-}
-
 // ie. a function, block-scope, HTMLComponent
 type Block struct {
 	Opcodes   []Code
 	StackSize int
+}
+
+type StructInterface interface {
+	GetField(index int) interface{}
+	SetField(index int, value interface{})
+}
+
+type Struct struct {
+	fields []interface{}
+}
+
+func NewStruct(fieldCount int) *Struct {
+	structData := new(Struct)
+	structData.fields = make([]interface{}, fieldCount)
+	return structData
+}
+
+func (structData *Struct) SetField(index int, value interface{}) {
+	structData.fields[index] = value
+}
+
+func (structData *Struct) GetField(index int) interface{} {
+	return structData.fields[index]
 }
 
 func Init(kind Kind) Code {

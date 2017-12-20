@@ -58,6 +58,11 @@ type For struct {
 	Base
 }
 
+// ie. for block scoping with an `if`, `for`, etc
+type Block struct {
+	Base
+}
+
 type If struct {
 	Condition Expression
 	Base
@@ -92,8 +97,8 @@ type Expression struct {
 }
 
 type OpStatement struct {
-	Name     token.Token
-	Operator token.Token
+	LeftHandSide []token.Token
+	Operator     token.Token
 	Expression
 }
 
@@ -115,11 +120,22 @@ type StructDefinition struct {
 	Fields []StructField
 }
 
+func (node *StructDefinition) GetFieldByName(name string) *StructField {
+	for i := 0; i < len(node.Fields); i++ {
+		field := &node.Fields[i]
+		if field.Name.String() == name {
+			return field
+		}
+	}
+	return nil
+}
+
 func (node *StructDefinition) Nodes() []Node {
 	return nil
 }
 
 type StructField struct {
-	Name token.Token
+	Name  token.Token
+	Index int
 	Expression
 }

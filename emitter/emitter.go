@@ -12,18 +12,65 @@ import (
 	"github.com/silbinarywolf/compiler-fel/types"
 )
 
-type Emitter struct {
-	//nameToSymbolIndex map[string]int
-	symbols []bytecode.Block
+type VariableInfo struct {
+	stackPos  int
+	structDef *ast.StructDefinition // TypeInfo_Struct only
+}
 
-	nameToStackPos map[string]int
-	stackPos       int
+type Scope struct {
+	mapToInfo map[string]VariableInfo
+	parent    *Scope
+}
+
+type Emitter struct {
+	//symbols []bytecode.Block
+	scope    *Scope
+	stackPos int
+}
+
+func (emit *Emitter) PushScope() {
+	scope := new(Scope)
+	scope.mapToInfo = make(map[string]VariableInfo)
+	scope.parent = emit.scope
+
+	emit.scope = scope
+}
+
+func (emit *Emitter) PopScope() {
+	parentScope := emit.scope.parent
+	if parentScope == nil {
+		panic("Cannot pop last scope item.")
+	}
+	emit.scope = parentScope
+}
+
+func (scope *Scope) DeclareSet(name string, varInfo VariableInfo) {
+	_, ok := scope.mapToInfo[name]
+	if ok {
+		panic(fmt.Sprintf("Cannot redeclare variable \"%s\" in same scope. This should be caught in type checker.", name))
+	}
+	scope.mapToInfo[name] = varInfo
+}
+
+func (scope *Scope) GetThisScope(name string) (VariableInfo, bool) {
+	result, ok := scope.mapToInfo[name]
+	return result, ok
+}
+
+func (scope *Scope) Get(name string) (VariableInfo, bool) {
+	result, ok := scope.mapToInfo[name]
+	if !ok {
+		if scope.parent == nil {
+			return VariableInfo{}, false
+		}
+		result, ok = scope.parent.Get(name)
+	}
+	return result, ok
 }
 
 func New() *Emitter {
 	emit := new(Emitter)
-	emit.nameToStackPos = make(map[string]int)
-	//emit.nameToSymbolIndex = make(map[string]int)
+	emit.PushScope()
 	return emit
 }
 
@@ -36,8 +83,8 @@ func appendReverse(nodes []ast.Node, nodesToPrepend []ast.Node) []ast.Node {
 }
 
 func addDebugString(opcodes []bytecode.Code, text string) []bytecode.Code {
-	code := bytecode.Init(bytecode.DebugString)
-	code.Value = text
+	code := bytecode.Init(bytecode.Label)
+	code.Value = "DEBUG LABEL: " + text
 	opcodes = append(opcodes, code)
 	return opcodes
 }
@@ -78,12 +125,12 @@ func (emit *Emitter) emitNewFromType(opcodes []bytecode.Code, typeInfo types.Typ
 }
 
 func (emit *Emitter) getPushVariableCodeFromIdent(ident string) bytecode.Code {
-	stackPos, ok := emit.nameToStackPos[ident]
+	varInfo, ok := emit.scope.Get(ident)
 	if !ok {
 		panic("Undeclared variable \"%s\", this should be caught in the type checker.")
 	}
 	code := bytecode.Init(bytecode.PushStackVar)
-	code.Value = stackPos
+	code.Value = varInfo.stackPos
 	return code
 }
 
@@ -183,7 +230,7 @@ func (emit *Emitter) emitExpression(opcodes []bytecode.Code, node *ast.Expressio
 		//structData.StructDefinition = structDef
 		//structData.Fields = make([]interface{}, 0, len(structDef.Fields))
 
-		code := bytecode.Init(bytecode.AllocStruct)
+		code := bytecode.Init(bytecode.PushAllocStruct)
 		code.Value = len(structDef.Fields)
 		opcodes = append(opcodes, code)
 
@@ -213,8 +260,8 @@ func (emit *Emitter) emitExpression(opcodes []bytecode.Code, node *ast.Expressio
 			//structData.Fields = append(structData.Fields, value)
 		}
 
-		debugOpcodes(opcodes)
-		panic("todo(Jake): TypeInfo_Struct")
+		//debugOpcodes(opcodes)
+		//panic("todo(Jake): TypeInfo_Struct")
 	default:
 		panic(fmt.Sprintf("emitExpression: Unhandled expression with type %T", typeInfo))
 	}
@@ -223,35 +270,75 @@ func (emit *Emitter) emitExpression(opcodes []bytecode.Code, node *ast.Expressio
 
 func (emit *Emitter) emitStatement(opcodes []bytecode.Code, node ast.Node) []bytecode.Code {
 	switch node := node.(type) {
+	case *ast.Block:
+		emit.PushScope()
+		for _, node := range node.Nodes() {
+			opcodes = emit.emitStatement(opcodes, node)
+		}
+		emit.PopScope()
+	case *ast.CSSDefinition:
+		nodes := node.Nodes()
+		if len(nodes) > 0 {
+			code := bytecode.Init(bytecode.Label)
+			code.Value = "css:" + node.Name.String()
+			opcodes = append(opcodes, code)
+
+			for _, node := range nodes {
+				opcodes = emit.emitStatement(opcodes, node)
+			}
+			debugOpcodes(opcodes)
+		}
+	case *ast.CSSRule:
+
+		// no-op
+		panic("todo(Jake): *ast.CSSRule")
+	case *ast.CSSProperty:
+		panic("todo(Jake): *ast.CSSProperty")
 	case *ast.DeclareStatement:
 		opcodes = emit.emitExpression(opcodes, &node.Expression)
+		typeInfo := node.Expression.TypeInfo
 
 		code := bytecode.Init(bytecode.Store)
 		code.Value = emit.stackPos
 		nameString := node.Name.String()
-		_, ok := emit.nameToStackPos[nameString]
+		_, ok := emit.scope.GetThisScope(nameString)
 		if ok {
-			panic("Redeclared \"%s\" in same scope, this should be caught in the type checker.")
+			panic(fmt.Sprintf("Redeclared \"%s\" in same scope, this should be caught in the type checker.", nameString))
 		}
-		emit.nameToStackPos[nameString] = emit.stackPos
-		emit.stackPos++
+
+		{
+			varInfo := VariableInfo{}
+			varInfo.stackPos = emit.stackPos
+			if typeInfo, ok := typeInfo.(*parser.TypeInfo_Struct); ok {
+				varInfo.structDef = typeInfo.Definition()
+			}
+			emit.scope.DeclareSet(nameString, varInfo)
+			emit.stackPos++
+		}
 
 		opcodes = append(opcodes, code)
 	case *ast.OpStatement:
-		stackPos, ok := emit.nameToStackPos[node.Name.String()]
+		name := node.LeftHandSide[0].String()
+		varInfo, ok := emit.scope.Get(name)
 		if !ok {
-			panic(fmt.Sprintf("Missing declaration for %s, this should be caught in the type checker.", node.Name))
+			panic(fmt.Sprintf("Missing declaration for %s, this should be caught in the type checker.", name))
+		}
+		if len(node.LeftHandSide) > 1 {
+			code := bytecode.Init(bytecode.PushStackVar)
+			code.Value = varInfo.stackPos
+			opcodes = append(opcodes, code)
 		}
 		switch node.Operator.Kind {
 		case token.Equal:
 			// no-op
 		case token.AddEqual:
 			code := bytecode.Init(bytecode.PushStackVar)
-			code.Value = stackPos
+			code.Value = varInfo.stackPos
 			opcodes = append(opcodes, code)
 		default:
 			panic(fmt.Sprintf("emitStatement: Unhandled operator kind: %s", node.Operator.Kind.String()))
 		}
+
 		opcodes = emit.emitExpression(opcodes, &node.Expression)
 		switch node.Operator.Kind {
 		case token.Equal:
@@ -266,9 +353,27 @@ func (emit *Emitter) emitStatement(opcodes []bytecode.Code, node ast.Node) []byt
 		default:
 			panic(fmt.Sprintf("emitStatement: Unhandled operator kind: %s", node.Operator.Kind.String()))
 		}
-		code := bytecode.Init(bytecode.Store)
-		code.Value = stackPos
-		opcodes = append(opcodes, code)
+		if len(node.LeftHandSide) > 1 {
+			structDef := varInfo.structDef
+			if structDef == nil {
+				panic("emitStatement: Non-struct cannot have properties. This should be caught in the typechecker.")
+			}
+			fieldName := node.LeftHandSide[1].String()
+			field := structDef.GetFieldByName(fieldName)
+			if field == nil {
+				panic(fmt.Sprintf("emitStatement: \"%s :: struct\" does not have property \"%s\". This should be caught in the typechecker.", structDef.Name, fieldName))
+			}
+			code := bytecode.Init(bytecode.StoreStructField)
+			code.Value = field.Index
+			opcodes = append(opcodes, code)
+			if len(node.LeftHandSide) > 2 {
+				panic("todo(Jake): Support nested properties")
+			}
+		} else {
+			code := bytecode.Init(bytecode.Store)
+			code.Value = varInfo.stackPos
+			opcodes = append(opcodes, code)
+		}
 	case *ast.If:
 		originalOpcodesLength := len(opcodes)
 
@@ -284,21 +389,13 @@ func (emit *Emitter) emitStatement(opcodes []bytecode.Code, node ast.Node) []byt
 		}
 
 		if beforeIfStatementCount == len(opcodes) {
-			// Dont output any bytecode for an empty if
+			// Dont output any bytecode for an empty `if`
 			opcodes = opcodes[:originalOpcodesLength] // Remove if statement
 			break
 		}
 		opcodes[jumpCodeOffset].Value = len(opcodes)
-		debugOpcodes(opcodes)
-	case *ast.CSSRule:
-		panic("todo(Jake): CSSRule")
-	case *ast.CSSProperty:
-		panic("todo(Jake): CSSProperty")
 	case *ast.HTMLComponentDefinition:
-		panic(fmt.Sprintf("emitStatement: Todo HTMLComponentDef"))
-	case *ast.CSSDefinition:
-		emit.EmitBytecode(node)
-		panic(fmt.Sprintf("emitStatement: Todo CSSDefinition"))
+		//panic(fmt.Sprintf("emitStatement: Todo HTMLComponentDef"))
 	case *ast.StructDefinition,
 		*ast.CSSConfigDefinition:
 		break

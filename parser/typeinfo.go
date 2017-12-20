@@ -89,7 +89,7 @@ type TypeInfo_Struct struct {
 	definition *ast.StructDefinition
 }
 
-func (info *TypeInfo_Struct) String() string { return info.name }
+func (info *TypeInfo_Struct) String() string { return "struct " + info.name }
 func (info *TypeInfo_Struct) Create() data.Type {
 	panic("Handled by `evaluator`")
 }

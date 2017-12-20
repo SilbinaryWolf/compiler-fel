@@ -396,16 +396,36 @@ func (p *Parser) typecheckStatements(topNode ast.Node, scope *Scope) {
 				}
 			}
 		case *ast.OpStatement:
-			name := node.Name.String()
+			nameToken := node.LeftHandSide[0]
+			name := nameToken.String()
 			variableTypeInfo, ok := scope.Get(name)
 			if !ok {
-				p.addErrorToken(fmt.Errorf("Undeclared variable \"%s\".", name), node.Name)
+				p.addErrorToken(fmt.Errorf("Undeclared variable \"%s\".", name), nameToken)
 				continue
+			}
+			if len(node.LeftHandSide) > 1 {
+				propertyName := node.LeftHandSide[1].String()
+				structInfo, ok := variableTypeInfo.(*TypeInfo_Struct)
+				if !ok {
+					p.addErrorToken(fmt.Errorf("Property \"%s\" does not exist on type \"%s\".", propertyName, variableTypeInfo.String()), nameToken)
+					continue
+				}
+				structDef := structInfo.Definition()
+				structField := structDef.GetFieldByName(propertyName)
+				if structField == nil {
+					p.addErrorToken(fmt.Errorf("Property \"%s\" does not exist on \"%s :: struct\".", propertyName, structDef.Name), nameToken)
+					continue
+				}
+				variableTypeInfo = structField.TypeInfo
+				if len(node.LeftHandSide) > 2 {
+					panic("Todo(Jake): Allow infinite depth property checking")
+				}
 			}
 			p.typecheckExpression(scope, &node.Expression)
 			resultTypeInfo := node.Expression.TypeInfo
 			if !types.Equals(variableTypeInfo, resultTypeInfo) {
-				p.addErrorToken(fmt.Errorf("Cannot change \"%s\" from %s to %s", name, variableTypeInfo, resultTypeInfo.String()), node.Name)
+				p.addErrorToken(fmt.Errorf("Cannot change \"%s\" from %s to %s", name, variableTypeInfo, resultTypeInfo.String()), nameToken)
+				p.addErrorToken(fmt.Errorf("Cannot change \"%s\" from %s to %s", name, variableTypeInfo, resultTypeInfo.String()), nameToken)
 			}
 			continue
 		case *ast.DeclareStatement:
@@ -446,6 +466,8 @@ func (p *Parser) typecheckStatements(topNode ast.Node, scope *Scope) {
 				}
 			}
 			continue
+		case *ast.Block:
+			// no-op, will jump to adding child nodes / new scope below
 		case *ast.For:
 			if !node.IsDeclareSet {
 				panic("todo(Jake): handle array without declare set")
@@ -544,6 +566,7 @@ func (p *Parser) TypecheckAndFinalize(files []*ast.File) {
 				*ast.Expression,
 				*ast.If,
 				*ast.For,
+				*ast.Block,
 				*ast.HTMLBlock:
 				// no-op, these are checked in TypecheckFile()
 			case *ast.StructDefinition:

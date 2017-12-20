@@ -22,9 +22,11 @@ myVal := Test{
 	otherValue: "test"
 }
 
+myVal.otherValue = "new value!"
+
 /////////////////// TESTING BYTECODE ABOVE
 
-/*Header :: css_config {
+Header :: css_config {
 	.is-* {
 		modify: false
 	}
@@ -57,4 +59,3 @@ Header :: html {
 	header(class="header "+class) {
 	}
 }
-*/

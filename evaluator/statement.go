@@ -22,10 +22,13 @@ func (program *Program) evaluateStatement(topNode ast.Node, scope *Scope) {
 	case *ast.DeclareStatement:
 		program.evaluateDeclareSet(node, scope)
 	case *ast.OpStatement:
-		name := node.Name.String()
+		name := node.LeftHandSide[0].String()
 		_, exists := scope.Get(name)
 		if !exists {
 			panic(fmt.Sprintf("evaluateStatement(): Typechecker missed undeclared variable \"%s\".", name))
+		}
+		if len(node.LeftHandSide) > 1 {
+			panic("todo(Jake): Handle sub property")
 		}
 		value := program.evaluateExpression(&node.Expression, scope)
 		switch node.Operator.Kind {

@@ -98,14 +98,6 @@ Loop:
 			case token.DeclareSet:
 				node := p.NewDeclareStatement(name, ast.Type{}, p.parseExpressionNodes(false))
 				resultNodes = append(resultNodes, node)
-			// myVar = {Expression} \n
-			//
-			case token.Equal, token.AddEqual:
-				node := new(ast.OpStatement)
-				node.Name = name
-				node.Operator = t
-				node.Expression.ChildNodes = p.parseExpressionNodes(false)
-				resultNodes = append(resultNodes, node)
 			// myVar : string \n
 			case token.Colon:
 				typeName := p.parseType()
@@ -116,6 +108,49 @@ Loop:
 					expressionNodes = p.parseExpressionNodes(false)
 				}
 				node := p.NewDeclareStatement(name, typeName, expressionNodes)
+				resultNodes = append(resultNodes, node)
+			// myVar.Property.SubProperty = {Expression}
+			//
+			case token.Dot:
+				leftHandSide := make([]token.Token, 0, 5)
+				leftHandSide = append(leftHandSide, name)
+				for {
+					t := p.GetNextToken()
+					if t.Kind != token.Identifier {
+						p.addErrorToken(p.expect(t, token.Identifier), t)
+						return nil
+					}
+					leftHandSide = append(leftHandSide, t)
+					if dotToken := p.PeekNextToken(); dotToken.Kind == token.Dot {
+						p.GetNextToken()
+						continue
+					}
+					break
+				}
+				operatorToken := p.GetNextToken()
+				if operatorToken.Kind == token.DeclareSet {
+					p.addErrorToken(fmt.Errorf("Cannot use := on a property."), operatorToken)
+					continue
+				}
+				if operatorToken.Kind != token.Equal &&
+					operatorToken.Kind != token.AddEqual {
+					p.addErrorToken(p.expect(operatorToken, token.Equal, token.AddEqual), operatorToken)
+					continue
+				}
+				node := new(ast.OpStatement)
+				node.LeftHandSide = leftHandSide
+				node.Operator = operatorToken
+				node.Expression.ChildNodes = p.parseExpressionNodes(false)
+				resultNodes = append(resultNodes, node)
+			// myVar = {Expression} \n
+			//
+			case token.Equal, token.AddEqual:
+				leftHandSide := make([]token.Token, 1)
+				leftHandSide[0] = name
+				node := new(ast.OpStatement)
+				node.LeftHandSide = leftHandSide
+				node.Operator = t
+				node.Expression.ChildNodes = p.parseExpressionNodes(false)
 				resultNodes = append(resultNodes, node)
 			// div if {expr} {
 			//     ^
@@ -297,6 +332,11 @@ Loop:
 				p.addErrorToken(p.expect(t, token.BraceOpen), t)
 				return nil
 			}
+			node.ChildNodes = p.parseStatements()
+			resultNodes = append(resultNodes, node)
+		case token.BraceOpen:
+			p.GetNextToken()
+			node := new(ast.Block)
 			node.ChildNodes = p.parseStatements()
 			resultNodes = append(resultNodes, node)
 		case token.EOF, token.Illegal:
@@ -616,12 +656,15 @@ func (p *Parser) parseDefinition(name token.Token) ast.Node {
 		//
 		childNodes := p.parseStatements()
 		fields := make([]ast.StructField, 0, len(childNodes))
+		fieldIndex := 0
 		// NOTE(Jake): A bit of a hack, we should have a 'parseStruct' function
 		for _, itNode := range childNodes {
 			switch node := itNode.(type) {
 			case *ast.DeclareStatement:
 				field := ast.StructField{}
 				field.Name = node.Name
+				field.Index = fieldIndex
+				fieldIndex++
 				//field.Expression.TypeIdentifier = node.Expression.TypeIdentifier
 				field.Expression = node.Expression
 				fields = append(fields, field)
