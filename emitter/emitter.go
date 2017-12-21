@@ -7,6 +7,7 @@ import (
 
 	"github.com/silbinarywolf/compiler-fel/ast"
 	"github.com/silbinarywolf/compiler-fel/bytecode"
+	//"github.com/silbinarywolf/compiler-fel/data"
 	"github.com/silbinarywolf/compiler-fel/parser"
 	"github.com/silbinarywolf/compiler-fel/token"
 	"github.com/silbinarywolf/compiler-fel/types"
@@ -286,14 +287,27 @@ func (emit *Emitter) emitStatement(opcodes []bytecode.Code, node ast.Node) []byt
 			for _, node := range nodes {
 				opcodes = emit.emitStatement(opcodes, node)
 			}
-			debugOpcodes(opcodes)
+			//debugOpcodes(opcodes)
 		}
 	case *ast.CSSRule:
-
+		/*var emptyTypeData *data.CSSDefinition
+		internalType := reflect.TypeOf(emptyTypeData)
+		code := bytecode.Init(bytecode.PushAllocInternalStruct)
+		code.Value = internalType
+		opcodes = append(opcodes, code)
+		{
+			fieldMeta, ok := internalType.FieldByName("Name")
+			if !ok {
+				panic("Cannot find \"Name\".")
+			}
+			code := bytecode.Init(bytecode.StoreInternalStructField)
+			code.Value = fieldMeta
+			opcodes = append(opcodes, code)
+		}*/
 		// no-op
 		panic("todo(Jake): *ast.CSSRule")
 	case *ast.CSSProperty:
-		panic("todo(Jake): *ast.CSSProperty")
+		//panic("todo(Jake): *ast.CSSProperty")
 	case *ast.DeclareStatement:
 		opcodes = emit.emitExpression(opcodes, &node.Expression)
 		typeInfo := node.Expression.TypeInfo

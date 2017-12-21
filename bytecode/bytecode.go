@@ -11,6 +11,7 @@ const (
 	Label
 	Store
 	StoreStructField
+	StoreInternalStructField
 	Push
 	PushStackVar
 	PushAllocStruct
@@ -23,10 +24,11 @@ const (
 )
 
 var kindToString = []string{
-	Unknown:                 "unknown/unset bytecode",
-	Label:                   "Label",
-	Store:                   "Store",
-	StoreStructField:        "StoreStructField",
+	Unknown:                  "unknown/unset bytecode",
+	Label:                    "Label",
+	Store:                    "Store",
+	StoreStructField:         "StoreStructField",
+	StoreInternalStructField: "StoreInternalStructField",
 	Push:                    "Push",
 	PushStackVar:            "PushStackVar",
 	PushAllocStruct:         "PushAllocStruct",

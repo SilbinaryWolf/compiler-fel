@@ -2,12 +2,15 @@ package vm
 
 import (
 	"fmt"
+	"reflect"
 
 	"github.com/silbinarywolf/compiler-fel/bytecode"
 )
 
 type Program struct {
 	stack []interface{}
+	// NOTE(Jake):
+	//nodeContext []interface{}
 }
 
 func ExecuteBytecode(codeBlock *bytecode.Block) {
@@ -22,6 +25,8 @@ func ExecuteBytecode(codeBlock *bytecode.Block) {
 		code := opcodes[offset]
 
 		switch code.Kind() {
+		case bytecode.Label:
+			// no-op
 		case bytecode.Push:
 			registerStack = append(registerStack, code.Value)
 		case bytecode.PushStackVar:
@@ -30,6 +35,10 @@ func ExecuteBytecode(codeBlock *bytecode.Block) {
 		case bytecode.PushAllocStruct:
 			structFieldCount := code.Value.(int)
 			structData := bytecode.NewStruct(structFieldCount)
+			registerStack = append(registerStack, structData)
+		case bytecode.PushAllocInternalStruct:
+			internalType := code.Value.(reflect.Type)
+			structData := reflect.Indirect(reflect.New(internalType)).Interface()
 			registerStack = append(registerStack, structData)
 		case bytecode.ConditionalEqual:
 			valueA := registerStack[len(registerStack)-2].(int64)
@@ -69,6 +78,18 @@ func ExecuteBytecode(codeBlock *bytecode.Block) {
 
 			fieldOffset := code.Value.(int)
 			structData.SetField(fieldOffset, fieldData)
+		case bytecode.StoreInternalStructField:
+			fieldData := registerStack[len(registerStack)-1]
+			structData := registerStack[len(registerStack)-2]
+
+			// NOTE(Jake): Only pop `fieldData`
+			registerStack = registerStack[:len(registerStack)-1]
+
+			// NOTE(Jake): This might not work as I think it does... need to investigate
+			fieldOffset := []int{code.Value.(int)}
+			structField := reflect.ValueOf(structData).FieldByIndex(fieldOffset)
+			structField.Set(reflect.ValueOf(fieldData))
+			panic("todo(Jake): Add reflect.GetField or whatever here")
 		default:
 			panic(fmt.Sprintf("executeBytecode: Unhandled kind in vm: \"%s\"", code.Kind().String()))
 		}
