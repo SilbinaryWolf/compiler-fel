@@ -106,7 +106,7 @@ func debugOpcodes(opcodes []bytecode.Code) {
 //
 func (emit *Emitter) emitNewFromType(opcodes []bytecode.Code, typeInfo types.TypeInfo) []bytecode.Code {
 	//opcodes = addDebugString(opcodes, "emitNewFromType")
-	switch typeInfo.(type) {
+	switch typeInfo := typeInfo.(type) {
 	case *parser.TypeInfo_Int:
 		code := bytecode.Init(bytecode.Push)
 		code.Value = int(0)
@@ -118,6 +118,19 @@ func (emit *Emitter) emitNewFromType(opcodes []bytecode.Code, typeInfo types.Typ
 	case *parser.TypeInfo_String:
 		code := bytecode.Init(bytecode.Push)
 		code.Value = ""
+		opcodes = append(opcodes, code)
+	case *parser.TypeInfo_Array:
+		underlyingType := typeInfo.Underlying()
+		var code bytecode.Code
+		switch underlyingType.(type) {
+		case *parser.TypeInfo_String:
+			code = bytecode.Init(bytecode.PushArrayString)
+		default:
+			panic(fmt.Sprintf("emitNewFromType:Array: Unhandled type %T", underlyingType))
+		}
+		if code.Kind() == bytecode.Unknown {
+			panic("Unhandled.")
+		}
 		opcodes = append(opcodes, code)
 	default:
 		panic(fmt.Sprintf("emitNewFromType: Unhandled type %T", typeInfo))
@@ -280,8 +293,12 @@ func (emit *Emitter) emitStatement(opcodes []bytecode.Code, node ast.Node) []byt
 	case *ast.CSSDefinition:
 		nodes := node.Nodes()
 		if len(nodes) > 0 {
-			code := bytecode.Init(bytecode.Label)
-			code.Value = "css:" + node.Name.String()
+			//code := bytecode.Init(bytecode.Label)
+			//code.Value = "css:" + node.Name.String()
+			//opcodes = append(opcodes, code)
+
+			code := bytecode.Init(bytecode.PushNewContextNode)
+			code.Value = bytecode.NodeCSSDefinition
 			opcodes = append(opcodes, code)
 
 			for _, node := range nodes {
@@ -305,6 +322,7 @@ func (emit *Emitter) emitStatement(opcodes []bytecode.Code, node ast.Node) []byt
 			opcodes = append(opcodes, code)
 		}*/
 		// no-op
+		debugOpcodes(opcodes)
 		panic("todo(Jake): *ast.CSSRule")
 	case *ast.CSSProperty:
 		//panic("todo(Jake): *ast.CSSProperty")

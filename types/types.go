@@ -15,23 +15,7 @@ import (
 
 type TypeInfo interface {
 	String() string
-	Create() data.Type
-}
-
-func HasNoType(a TypeInfo) bool {
-	return a == nil
-}
-
-func Equals(a TypeInfo, b TypeInfo) bool {
-	aAsArray, aOk := a.(*Array_)
-	bAsArray, bOk := b.(*Array_)
-	if aOk && bOk {
-		return Equals(aAsArray.underlying, bAsArray.underlying)
-	}
-	if a == b {
-		return true
-	}
-	return false
+	Create() data.Type // NOTE(Jake): 2017-12-25 Deprecated when we remove evaluation on the AST.
 }
 
 // Float
@@ -79,7 +63,7 @@ var typeHTMLNode_ = new(HTMLNode_)
 func HTMLNode() TypeInfo { return typeHTMLNode_ }
 
 // Array
-type Array_ struct {
+/*type Array_ struct {
 	underlying TypeInfo
 }
 
@@ -91,7 +75,7 @@ func Array(underlying TypeInfo) TypeInfo {
 	result := new(Array_)
 	result.underlying = underlying
 	return result
-}
+}*/
 
 //
 // Initialization

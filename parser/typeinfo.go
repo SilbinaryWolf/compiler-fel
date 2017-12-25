@@ -83,6 +83,21 @@ func (manager *TypeInfoManager) NewTypeInfoString() *TypeInfo_String {
 	return &manager.stringInfo
 }
 
+// Array
+type TypeInfo_Array struct {
+	underlying TypeInfo
+}
+
+func (info *TypeInfo_Array) String() string       { return "[]" + info.underlying.String() }
+func (info *TypeInfo_Array) Underlying() TypeInfo { return info.underlying }
+func (info *TypeInfo_Array) Create() data.Type    { return data.NewArray(info.underlying.Create()) }
+
+func (manager *TypeInfoManager) NewTypeInfoArray(underlying TypeInfo) TypeInfo {
+	result := new(TypeInfo_Array)
+	result.underlying = underlying
+	return result
+}
+
 // Struct
 type TypeInfo_Struct struct {
 	name       string
@@ -143,9 +158,21 @@ func (p *Parser) DetermineType(node *ast.Type) types.TypeInfo {
 	}
 	if node.ArrayDepth > 0 {
 		for i := 0; i < node.ArrayDepth; i++ {
-			arrayItemType := resultType
-			resultType = types.Array(arrayItemType)
+			underlyingType := resultType
+			resultType = p.typeinfo.NewTypeInfoArray(underlyingType)
 		}
 	}
 	return resultType
+}
+
+func TypeEquals(a TypeInfo, b TypeInfo) bool {
+	aAsArray, aOk := a.(*TypeInfo_Array)
+	bAsArray, bOk := b.(*TypeInfo_Array)
+	if aOk && bOk {
+		return TypeEquals(aAsArray.underlying, bAsArray.underlying)
+	}
+	if a == b {
+		return true
+	}
+	return false
 }

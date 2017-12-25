@@ -43,7 +43,7 @@ func (p *Parser) typecheckStructLiteral(scope *Scope, literal *ast.StructLiteral
 		return
 	}
 	literal.TypeInfo = p.typeinfo.get(name)
-	if types.HasNoType(literal.TypeInfo) {
+	if literal.TypeInfo == nil {
 		p.fatalErrorToken(fmt.Errorf("Missing typeinfo for \"%s :: struct\".", name), literal.Name)
 		return
 	}
@@ -51,7 +51,7 @@ func (p *Parser) typecheckStructLiteral(scope *Scope, literal *ast.StructLiteral
 	// Check literal against definition
 	for _, defField := range def.Fields {
 		defTypeInfo := defField.Expression.TypeInfo
-		if types.HasNoType(defTypeInfo) {
+		if defTypeInfo == nil {
 			p.fatalErrorToken(fmt.Errorf("Missing type info from field \"%s\" on \"%s :: struct\".", defField.Name.String(), name), defField.Name)
 			return
 		}
@@ -92,14 +92,14 @@ func (p *Parser) typecheckArrayLiteral(scope *Scope, literal *ast.ArrayLiteral) 
 	typeIdentName := literal.TypeIdentifier.Name
 	typeIdentString := typeIdentName.String()
 	typeInfo := p.DetermineType(&literal.TypeIdentifier)
-	if types.HasNoType(typeInfo) {
+	if typeInfo == nil {
 		p.addErrorToken(fmt.Errorf("Undeclared type \"%s\" used for array literal", typeIdentString), typeIdentName)
 		return
 	}
 	literal.TypeInfo = typeInfo
 
 	//
-	resultTypeInfo, ok := typeInfo.(*types.Array_)
+	resultTypeInfo, ok := typeInfo.(*TypeInfo_Array)
 	if !ok {
 		p.fatalErrorToken(fmt.Errorf("Expected array type but got \"%s\".", typeIdentString), typeIdentName)
 		return
@@ -115,12 +115,12 @@ func (p *Parser) typecheckArrayLiteral(scope *Scope, literal *ast.ArrayLiteral) 
 			//			   type checking will catch things immediately
 			//			   when we call `typecheckExpression`
 			//			   ie. Won't infer, will mark as invalid.
-			if types.HasNoType(node.TypeInfo) {
+			if node.TypeInfo == nil {
 				node.TypeInfo = underlyingTypeInfo
 			}
 			p.typecheckExpression(scope, node)
 
-			if types.HasNoType(node.TypeInfo) {
+			if node.TypeInfo == nil {
 				panic(fmt.Sprintf("typecheckArrayLiteral: Missing type on array literal item #%d.", i))
 			}
 			continue
@@ -136,7 +136,7 @@ func (p *Parser) typecheckExpression(scope *Scope, expression *ast.Expression) {
 	if typeIdent := expression.TypeIdentifier.Name; resultTypeInfo == nil && typeIdent.Kind != token.Unknown {
 		typeIdentString := typeIdent.String()
 		resultTypeInfo = p.DetermineType(&expression.TypeIdentifier)
-		if types.HasNoType(resultTypeInfo) {
+		if resultTypeInfo == nil {
 			p.addErrorToken(fmt.Errorf("Undeclared type %s", typeIdentString), typeIdent)
 			return
 		}
@@ -149,24 +149,24 @@ func (p *Parser) typecheckExpression(scope *Scope, expression *ast.Expression) {
 		case *ast.StructLiteral:
 			p.typecheckStructLiteral(scope, node)
 			expectedTypeInfo := node.TypeInfo
-			if types.HasNoType(expectedTypeInfo) {
+			if expectedTypeInfo == nil {
 				p.fatalError(fmt.Errorf("Missing type info for \"%s :: struct\".", node.Name.String()))
 				continue
 			}
-			if types.HasNoType(resultTypeInfo) {
+			if resultTypeInfo == nil {
 				resultTypeInfo = expectedTypeInfo
 			}
-			if !types.Equals(resultTypeInfo, expectedTypeInfo) {
+			if !TypeEquals(resultTypeInfo, expectedTypeInfo) {
 				p.addErrorToken(fmt.Errorf("Cannot mix struct literal %s with %s", expectedTypeInfo.String(), resultTypeInfo.String()), node.Name)
 			}
 			continue
 		case *ast.ArrayLiteral:
 			p.typecheckArrayLiteral(scope, node)
 			expectedTypeInfo := node.TypeInfo
-			if types.HasNoType(resultTypeInfo) {
+			if resultTypeInfo == nil {
 				resultTypeInfo = expectedTypeInfo
 			}
-			if !types.Equals(resultTypeInfo, expectedTypeInfo) {
+			if !TypeEquals(resultTypeInfo, expectedTypeInfo) {
 				p.addErrorToken(fmt.Errorf("Cannot mix array literal %s with %s", expectedTypeInfo.String(), resultTypeInfo.String()), node.TypeIdentifier.Name)
 			}
 			continue
@@ -192,31 +192,31 @@ func (p *Parser) typecheckExpression(scope *Scope, expression *ast.Expression) {
 			switch node.Kind {
 			case token.String:
 				expectedTypeInfo := p.typeinfo.NewTypeInfoString()
-				if types.HasNoType(resultTypeInfo) {
+				if resultTypeInfo == nil {
 					resultTypeInfo = expectedTypeInfo
 				}
-				if !types.Equals(resultTypeInfo, expectedTypeInfo) {
+				if !TypeEquals(resultTypeInfo, expectedTypeInfo) {
 					p.addErrorToken(fmt.Errorf("Cannot %s (%s) %s %s (\"%s\"), mismatching types.", resultTypeInfo.String(), leftToken.String(), opToken.String(), expectedTypeInfo.String(), node.String()), node.Token)
 				}
 			case token.Number:
 				IntTypeInfo := p.typeinfo.NewTypeInfoInt()
 				FloatTypeInfo := p.typeinfo.NewTypeInfoFloat()
 
-				if types.HasNoType(resultTypeInfo) {
+				if resultTypeInfo == nil {
 					resultTypeInfo = IntTypeInfo
 					if strings.ContainsRune(node.Data, '.') {
 						resultTypeInfo = FloatTypeInfo
 					}
 				}
-				if !types.Equals(resultTypeInfo, IntTypeInfo) && !types.Equals(resultTypeInfo, FloatTypeInfo) {
+				if !TypeEquals(resultTypeInfo, IntTypeInfo) && !TypeEquals(resultTypeInfo, FloatTypeInfo) {
 					p.addErrorToken(fmt.Errorf("Cannot use %s with number \"%s\"", resultTypeInfo.String(), node.String()), node.Token)
 				}
 			case token.KeywordTrue, token.KeywordFalse:
 				expectedTypeInfo := types.Bool()
-				if types.HasNoType(resultTypeInfo) {
+				if resultTypeInfo == nil {
 					resultTypeInfo = expectedTypeInfo
 				}
-				if !types.Equals(resultTypeInfo, expectedTypeInfo) {
+				if !TypeEquals(resultTypeInfo, expectedTypeInfo) {
 					p.addErrorToken(fmt.Errorf("Cannot use %s with %s \"%s\"", resultTypeInfo.String(), expectedTypeInfo.String(), node.String()), node.Token)
 				}
 			case token.Identifier:
@@ -231,11 +231,11 @@ func (p *Parser) typecheckExpression(scope *Scope, expression *ast.Expression) {
 					p.addErrorToken(fmt.Errorf("Undeclared identifier \"%s\".", name), node.Token)
 					continue
 				}
-				if types.HasNoType(resultTypeInfo) {
+				if resultTypeInfo == nil {
 					resultTypeInfo = variableTypeInfo
 				}
-				if !types.Equals(resultTypeInfo, variableTypeInfo) {
-					if types.HasNoType(variableTypeInfo) {
+				if !TypeEquals(resultTypeInfo, variableTypeInfo) {
+					if variableTypeInfo == nil {
 						p.fatalErrorToken(fmt.Errorf("Unable to determine type, typechecker must have failed."), node.Token)
 						return
 					}
@@ -381,7 +381,7 @@ func (p *Parser) typecheckStatements(topNode ast.Node, scope *Scope) {
 								parameterType := parameterNode.TypeInfo
 								componentStructType := field.TypeInfo
 								if parameterType != componentStructType {
-									if types.HasNoType(field.TypeInfo) {
+									if field.TypeInfo == nil {
 										p.fatalError(fmt.Errorf("Struct field \"%s\" is missing type info.", paramName))
 										return
 									}
@@ -423,7 +423,7 @@ func (p *Parser) typecheckStatements(topNode ast.Node, scope *Scope) {
 			}
 			p.typecheckExpression(scope, &node.Expression)
 			resultTypeInfo := node.Expression.TypeInfo
-			if !types.Equals(variableTypeInfo, resultTypeInfo) {
+			if !TypeEquals(variableTypeInfo, resultTypeInfo) {
 				p.addErrorToken(fmt.Errorf("Cannot change \"%s\" from %s to %s", name, variableTypeInfo, resultTypeInfo.String()), nameToken)
 				p.addErrorToken(fmt.Errorf("Cannot change \"%s\" from %s to %s", name, variableTypeInfo, resultTypeInfo.String()), nameToken)
 			}
@@ -474,7 +474,7 @@ func (p *Parser) typecheckStatements(topNode ast.Node, scope *Scope) {
 			}
 			p.typecheckExpression(scope, &node.Array)
 			iTypeInfo := node.Array.TypeInfo
-			typeInfo, ok := iTypeInfo.(*types.Array_)
+			typeInfo, ok := iTypeInfo.(*TypeInfo_Array)
 			if !ok {
 				p.addErrorToken(fmt.Errorf("Cannot use type %s as array.", iTypeInfo.String()), node.RecordName)
 				continue
@@ -539,7 +539,7 @@ func (p *Parser) typecheckStruct(node *ast.StructDefinition, scope *Scope) {
 		}
 		typeIdentString := typeIdent.String()
 		resultTypeInfo := p.DetermineType(&structField.TypeIdentifier)
-		if types.HasNoType(resultTypeInfo) {
+		if resultTypeInfo == nil {
 			p.addErrorToken(fmt.Errorf("Undeclared type %s", typeIdentString), typeIdent)
 			return
 		}

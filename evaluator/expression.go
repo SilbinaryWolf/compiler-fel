@@ -9,7 +9,6 @@ import (
 	"github.com/silbinarywolf/compiler-fel/data"
 	"github.com/silbinarywolf/compiler-fel/parser"
 	"github.com/silbinarywolf/compiler-fel/token"
-	"github.com/silbinarywolf/compiler-fel/types"
 )
 
 func (program *Program) evaluateExpression(expressionNode *ast.Expression, scope *Scope) data.Type {
@@ -19,7 +18,7 @@ func (program *Program) evaluateExpression(expressionNode *ast.Expression, scope
 	if len(nodes) == 0 {
 		panic(fmt.Sprintf("evaluateExpression: Expression node is missing nodes."))
 	}
-	if types.HasNoType(expressionNode.TypeInfo) {
+	if expressionNode.TypeInfo == nil {
 		panic(fmt.Sprintf("evaluateExpression: Expression node has not been type-checked. Type Token: %v\nExpression Node Data:\n%v", expressionNode.TypeIdentifier, expressionNode))
 	}
 

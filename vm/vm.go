@@ -5,12 +5,12 @@ import (
 	"reflect"
 
 	"github.com/silbinarywolf/compiler-fel/bytecode"
+	"github.com/silbinarywolf/compiler-fel/data"
 )
 
 type Program struct {
-	stack []interface{}
-	// NOTE(Jake):
-	//nodeContext []interface{}
+	stack            []interface{}
+	nodeStackContext []interface{} // stack of node contexts for tracking CSS rules / current HTML node.
 }
 
 func ExecuteBytecode(codeBlock *bytecode.Block) {
@@ -29,6 +29,18 @@ func ExecuteBytecode(codeBlock *bytecode.Block) {
 			// no-op
 		case bytecode.Push:
 			registerStack = append(registerStack, code.Value)
+		case bytecode.PushArrayString:
+			value := make([]int, 0)
+			registerStack = append(registerStack, value)
+		case bytecode.PushArrayInt:
+			value := make([]int, 0)
+			registerStack = append(registerStack, value)
+		case bytecode.PushArrayFloat:
+			value := make([]int, 0)
+			registerStack = append(registerStack, value)
+		case bytecode.PushArrayStruct:
+			value := make([]bytecode.Struct, 0)
+			registerStack = append(registerStack, value)
 		case bytecode.PushStackVar:
 			stackOffset := code.Value.(int)
 			registerStack = append(registerStack, program.stack[stackOffset])
@@ -40,6 +52,15 @@ func ExecuteBytecode(codeBlock *bytecode.Block) {
 			internalType := code.Value.(reflect.Type)
 			structData := reflect.Indirect(reflect.New(internalType)).Interface()
 			registerStack = append(registerStack, structData)
+		case bytecode.PushNewContextNode:
+			var node interface{}
+			switch code.Value.(bytecode.NodeContextType) {
+			case bytecode.NodeCSSDefinition:
+				node = new(data.CSSDefinition)
+			default:
+				panic("Unhandled NodeContextType")
+			}
+			program.nodeStackContext = append(program.nodeStackContext, node)
 		case bytecode.ConditionalEqual:
 			valueA := registerStack[len(registerStack)-2].(int64)
 			valueB := registerStack[len(registerStack)-1].(int64)

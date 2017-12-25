@@ -14,13 +14,15 @@ test += 2
 
 Test :: struct {
 	value: int
-	derp: string = "heh"
+	derp: []string
 	otherValue: string
 }
 
 myVal := Test{
 	otherValue: "test"
 }
+
+myVal.derp[] = "test"
 
 myVal.otherValue = "new value!"
 

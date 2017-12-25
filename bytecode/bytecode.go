@@ -13,14 +13,26 @@ const (
 	StoreStructField
 	StoreInternalStructField
 	Push
+	PushArrayString
+	PushArrayInt
+	PushArrayFloat
+	PushArrayStruct
 	PushStackVar
 	PushAllocStruct
 	PushAllocInternalStruct
+	PushNewContextNode
 	ConditionalEqual
 	Add
 	AddString
 	Jump
 	JumpIfFalse
+)
+
+type NodeContextType int
+
+const (
+	NodeUnknown NodeContextType = 0 + iota
+	NodeCSSDefinition
 )
 
 var kindToString = []string{
@@ -30,9 +42,14 @@ var kindToString = []string{
 	StoreStructField:         "StoreStructField",
 	StoreInternalStructField: "StoreInternalStructField",
 	Push:                    "Push",
+	PushArrayString:         "PushArrayString",
+	PushArrayInt:            "PushArrayInt",
+	PushArrayFloat:          "PushArrayFloat",
+	PushArrayStruct:         "PushArrayStruct",
 	PushStackVar:            "PushStackVar",
 	PushAllocStruct:         "PushAllocStruct",
 	PushAllocInternalStruct: "PushAllocInternalStruct",
+	PushNewContextNode:      "PushNewContextNode",
 	ConditionalEqual:        "ConditionalEqual",
 	Add:                     "Add",
 	AddString:               "AddString",

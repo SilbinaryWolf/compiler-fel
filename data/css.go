@@ -57,7 +57,7 @@ type CSSDefinition struct {
 type CSSRule struct {
 	Selectors  []CSSSelector
 	Properties []CSSProperty
-	Rules      []*CSSRule
+	Rules      []*CSSRule // note(Jake): 2017-12-25, nested rules, might want to take these out as in practice, I find them hard to read.
 }
 
 type CSSSelector []CSSSelectorPart
