@@ -127,16 +127,35 @@ Loop:
 					}
 					break
 				}
+
 				operatorToken := p.GetNextToken()
+				if operatorToken.Kind == token.BracketOpen {
+					if t := p.GetNextToken(); t.Kind != token.BracketClose {
+						p.addErrorToken(p.expect(t, token.BracketClose), t)
+						continue
+					}
+					if t := p.GetNextToken(); t.Kind != token.Equal {
+						p.addErrorToken(p.expect(t, token.Equal), t)
+						continue
+					}
+
+					node := new(ast.ArrayAppendStatement)
+					node.LeftHandSide = leftHandSide
+					node.Expression.ChildNodes = p.parseExpressionNodes(false)
+					resultNodes = append(resultNodes, node)
+					continue
+				}
 				if operatorToken.Kind == token.DeclareSet {
 					p.addErrorToken(fmt.Errorf("Cannot use := on a property."), operatorToken)
 					continue
 				}
+
 				if operatorToken.Kind != token.Equal &&
 					operatorToken.Kind != token.AddEqual {
 					p.addErrorToken(p.expect(operatorToken, token.Equal, token.AddEqual), operatorToken)
 					continue
 				}
+
 				node := new(ast.OpStatement)
 				node.LeftHandSide = leftHandSide
 				node.Operator = operatorToken

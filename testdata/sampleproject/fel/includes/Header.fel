@@ -22,9 +22,8 @@ myVal := Test{
 	otherValue: "test"
 }
 
-myVal.derp[] = "test"
+myVal.otherValue[] = "test"
 
-myVal.otherValue = "new value!"
 
 /////////////////// TESTING BYTECODE ABOVE
 

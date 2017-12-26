@@ -102,6 +102,11 @@ type OpStatement struct {
 	Expression
 }
 
+type ArrayAppendStatement struct {
+	LeftHandSide []token.Token
+	Expression
+}
+
 type DeclareStatement struct {
 	Name token.Token
 	Expression

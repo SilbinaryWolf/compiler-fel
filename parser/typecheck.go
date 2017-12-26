@@ -258,6 +258,35 @@ func (p *Parser) typecheckHTMLBlock(htmlBlock *ast.HTMLBlock, scope *Scope) {
 	p.typecheckStatements(htmlBlock, scope)
 }
 
+func (p *Parser) getTypeFromLeftHandSide(leftHandSideTokens []token.Token, scope *Scope) types.TypeInfo {
+	nameToken := leftHandSideTokens[0]
+	name := nameToken.String()
+	variableTypeInfo, ok := scope.Get(name)
+	if !ok {
+		p.addErrorToken(fmt.Errorf("Undeclared variable \"%s\".", name), nameToken)
+		return nil
+	}
+	if len(leftHandSideTokens) > 1 {
+		propertyName := leftHandSideTokens[1].String()
+		structInfo, ok := variableTypeInfo.(*TypeInfo_Struct)
+		if !ok {
+			p.addErrorToken(fmt.Errorf("Property \"%s\" does not exist on type \"%s\".", propertyName, variableTypeInfo.String()), nameToken)
+			return nil
+		}
+		structDef := structInfo.Definition()
+		structField := structDef.GetFieldByName(propertyName)
+		if structField == nil {
+			p.addErrorToken(fmt.Errorf("Property \"%s\" does not exist on \"%s :: struct\".", propertyName, structDef.Name), nameToken)
+			return nil
+		}
+		variableTypeInfo = structField.TypeInfo
+		if len(leftHandSideTokens) > 2 {
+			panic("Todo(Jake): Allow infinite depth property checking")
+		}
+	}
+	return variableTypeInfo
+}
+
 func (p *Parser) typecheckHTMLDefinition(htmlDefinition *ast.HTMLComponentDefinition, parentScope *Scope) {
 	// Attach CSSDefinition if found
 	name := htmlDefinition.Name.String()
@@ -395,35 +424,37 @@ func (p *Parser) typecheckStatements(topNode ast.Node, scope *Scope) {
 					}
 				}
 			}
-		case *ast.OpStatement:
+		case *ast.ArrayAppendStatement:
 			nameToken := node.LeftHandSide[0]
 			name := nameToken.String()
-			variableTypeInfo, ok := scope.Get(name)
-			if !ok {
-				p.addErrorToken(fmt.Errorf("Undeclared variable \"%s\".", name), nameToken)
+			arrayTypeInfo := p.getTypeFromLeftHandSide(node.LeftHandSide, scope)
+			if arrayTypeInfo == nil {
 				continue
 			}
-			if len(node.LeftHandSide) > 1 {
-				propertyName := node.LeftHandSide[1].String()
-				structInfo, ok := variableTypeInfo.(*TypeInfo_Struct)
-				if !ok {
-					p.addErrorToken(fmt.Errorf("Property \"%s\" does not exist on type \"%s\".", propertyName, variableTypeInfo.String()), nameToken)
-					continue
-				}
-				structDef := structInfo.Definition()
-				structField := structDef.GetFieldByName(propertyName)
-				if structField == nil {
-					p.addErrorToken(fmt.Errorf("Property \"%s\" does not exist on \"%s :: struct\".", propertyName, structDef.Name), nameToken)
-					continue
-				}
-				variableTypeInfo = structField.TypeInfo
-				if len(node.LeftHandSide) > 2 {
-					panic("Todo(Jake): Allow infinite depth property checking")
-				}
+			variableTypeInfo, isArray := arrayTypeInfo.(*TypeInfo_Array)
+			if !isArray {
+				// todo(Jake): 2017-12-25, Retrieve the whole string for the token list and use instead of "name"
+				p.addErrorToken(fmt.Errorf("Cannot do \"%s []=\" as it's not an array type.", name), nameToken)
+				continue
+			}
+			p.typecheckExpression(scope, &node.Expression)
+			resultTypeInfo := node.Expression.TypeInfo
+			if !TypeEquals(variableTypeInfo.Underlying(), resultTypeInfo) {
+				// todo(Jake): 2017-12-25, test these... as the error messages are untested
+				p.addErrorToken(fmt.Errorf("Cannot change \"%s\" from %s to %s", name, variableTypeInfo, resultTypeInfo.String()), nameToken)
+				p.addErrorToken(fmt.Errorf("Cannot change \"%s\" from %s to %s", name, variableTypeInfo, resultTypeInfo.String()), nameToken)
+			}
+			continue
+		case *ast.OpStatement:
+			variableTypeInfo := p.getTypeFromLeftHandSide(node.LeftHandSide, scope)
+			if variableTypeInfo == nil {
+				continue
 			}
 			p.typecheckExpression(scope, &node.Expression)
 			resultTypeInfo := node.Expression.TypeInfo
 			if !TypeEquals(variableTypeInfo, resultTypeInfo) {
+				nameToken := node.LeftHandSide[0]
+				name := nameToken.String()
 				p.addErrorToken(fmt.Errorf("Cannot change \"%s\" from %s to %s", name, variableTypeInfo, resultTypeInfo.String()), nameToken)
 				p.addErrorToken(fmt.Errorf("Cannot change \"%s\" from %s to %s", name, variableTypeInfo, resultTypeInfo.String()), nameToken)
 			}
@@ -563,6 +594,7 @@ func (p *Parser) TypecheckAndFinalize(files []*ast.File) {
 			case *ast.HTMLNode,
 				*ast.DeclareStatement,
 				*ast.OpStatement,
+				*ast.ArrayAppendStatement,
 				*ast.Expression,
 				*ast.If,
 				*ast.For,
