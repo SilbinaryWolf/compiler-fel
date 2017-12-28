@@ -10,6 +10,7 @@ const (
 	Unknown Kind = 0 + iota
 	Label
 	Pop
+	PopN
 	Store
 	StorePopStructField
 	StoreInternalStructField
@@ -41,6 +42,7 @@ var kindToString = []string{
 	Unknown:                  "unknown/unset bytecode",
 	Label:                    "Label",
 	Pop:                      "Pop",
+	PopN:                     "PopN", // Pop [N] number of times
 	Store:                    "Store",
 	StorePopStructField:      "StorePopStructField",
 	StoreInternalStructField: "StoreInternalStructField",

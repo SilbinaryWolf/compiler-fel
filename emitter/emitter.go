@@ -420,7 +420,8 @@ func (emit *Emitter) emitStatement(opcodes []bytecode.Code, node ast.Node) []byt
 	case *ast.ArrayAppendStatement:
 		//panic("todo(Jake): ArrayAppendStatement ")
 	case *ast.OpStatement:
-		name := node.LeftHandSide[0].String()
+		leftHandSide := node.LeftHandSide
+		name := leftHandSide[0].String()
 		varInfo, ok := emit.scope.Get(name)
 		if !ok {
 			panic(fmt.Sprintf("Missing declaration for %s, this should be caught in the type checker.", name))
@@ -429,17 +430,19 @@ func (emit *Emitter) emitStatement(opcodes []bytecode.Code, node ast.Node) []byt
 			Kind:  bytecode.Label,
 			Value: "OpStatement",
 		})
-		if len(node.LeftHandSide) > 1 {
+
+		var field *ast.StructField
+		if len(leftHandSide) > 1 {
 			opcodes = append(opcodes, bytecode.Code{
 				Kind:  bytecode.PushStackVar,
 				Value: varInfo.stackPos,
 			})
 			structDef := varInfo.structDef
-			for i := 1; i < len(node.LeftHandSide)-1; i++ {
+			for i := 1; i < len(leftHandSide)-1; i++ {
 				if structDef == nil {
 					panic("emitStatement: Non-struct cannot have properties. This should be caught in the typechecker.")
 				}
-				fieldName := node.LeftHandSide[i].String()
+				fieldName := leftHandSide[i].String()
 				field := structDef.GetFieldByName(fieldName)
 				if field == nil {
 					panic(fmt.Sprintf("emitStatement: \"%s :: struct\" does not have property \"%s\". This should be caught in the typechecker.", structDef.Name, fieldName))
@@ -452,7 +455,13 @@ func (emit *Emitter) emitStatement(opcodes []bytecode.Code, node ast.Node) []byt
 					structDef = typeInfo.Definition()
 				}
 			}
+			fieldName := leftHandSide[len(leftHandSide)-1].String()
+			field = structDef.GetFieldByName(fieldName)
+			if field == nil {
+				panic(fmt.Sprintf("emitStatement: \"%s :: struct\" does not have property \"%s\". This should be caught in the typechecker.", structDef.Name, fieldName))
+			}
 		}
+
 		switch node.Operator.Kind {
 		case token.Equal:
 			// no-op
@@ -483,26 +492,15 @@ func (emit *Emitter) emitStatement(opcodes []bytecode.Code, node ast.Node) []byt
 		default:
 			panic(fmt.Sprintf("emitStatement: Unhandled operator kind: %s", node.Operator.Kind.String()))
 		}
-		if len(node.LeftHandSide) > 1 {
-			var field *ast.StructField
-			structDef := varInfo.structDef
-			for i := 1; i < len(node.LeftHandSide); i++ {
-				if structDef == nil {
-					panic("emitStatement: Non-struct cannot have properties. This should be caught in the typechecker.")
-				}
-				fieldName := node.LeftHandSide[i].String()
-				field = structDef.GetFieldByName(fieldName)
-				if field == nil {
-					panic(fmt.Sprintf("emitStatement: \"%s :: struct\" does not have property \"%s\". This should be caught in the typechecker.", structDef.Name, fieldName))
-				}
-				typeInfo, ok := field.TypeInfo.(*parser.TypeInfo_Struct)
-				if ok {
-					structDef = typeInfo.Definition()
-				}
-			}
+		if len(leftHandSide) > 1 {
 			opcodes = append(opcodes, bytecode.Code{
 				Kind:  bytecode.StorePopStructField,
 				Value: field.Index,
+			})
+			popCount := len(leftHandSide) - 1
+			opcodes = append(opcodes, bytecode.Code{
+				Kind:  bytecode.PopN,
+				Value: popCount,
 			})
 		} else {
 			opcodes = append(opcodes, bytecode.Code{

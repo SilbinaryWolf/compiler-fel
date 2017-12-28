@@ -23,6 +23,10 @@ Test :: struct {
 	other: List
 }
 
+Complex :: struct {
+	test: Test
+}
+
 myVal := Test{}
 
 // NOTE(Jake): 2017-12-28, For some reason these values aren't emitting bytecode.
@@ -31,6 +35,9 @@ myVal.other = List{
 }
 myVal.other.name = "nextlevel!"
 myVal.derp []= "test"
+
+otherDude := Complex{}
+otherDude.test.other.name = "bowowow!"
 
 /////////////////// TESTING BYTECODE ABOVE
 

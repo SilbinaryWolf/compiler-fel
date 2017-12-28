@@ -90,8 +90,10 @@ func ExecuteBytecode(codeBlock *bytecode.Block) {
 			registerStack = registerStack[:len(registerStack)-2]
 			registerStack = append(registerStack, valueA+valueB)
 		case bytecode.Pop:
-			//popAmount := code.Value.(int) + 1
 			registerStack = registerStack[:len(registerStack)-1]
+		case bytecode.PopN:
+			popAmount := code.Value.(int)
+			registerStack = registerStack[:len(registerStack)-popAmount]
 		case bytecode.Store:
 			value := registerStack[len(registerStack)-1]
 
