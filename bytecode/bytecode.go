@@ -19,6 +19,7 @@ const (
 	PushArrayFloat
 	PushArrayStruct
 	PushStackVar
+	PushStructFieldVar
 	PushAllocStruct
 	PushAllocInternalStruct
 	PushNewContextNode
@@ -49,6 +50,7 @@ var kindToString = []string{
 	PushArrayFloat:          "PushArrayFloat",
 	PushArrayStruct:         "PushArrayStruct",
 	PushStackVar:            "PushStackVar",
+	PushStructFieldVar:      "PushStructFieldVar",
 	PushAllocStruct:         "PushAllocStruct",
 	PushAllocInternalStruct: "PushAllocInternalStruct",
 	PushNewContextNode:      "PushNewContextNode",

@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"bytes"
 	"fmt"
 	"strings"
 
@@ -270,7 +271,27 @@ func (p *Parser) getTypeFromLeftHandSide(leftHandSideTokens []token.Token, scope
 		p.fatalErrorToken(fmt.Errorf("Variable declared \"%s\" but it has \"nil\" type information, this is a bug in typechecking scope.", name), nameToken)
 		return nil
 	}
-	if len(leftHandSideTokens) > 1 {
+	var concatPropertyName bytes.Buffer
+	concatPropertyName.WriteString(name)
+	for i := 1; i < len(leftHandSideTokens); i++ {
+		propertyName := leftHandSideTokens[i].String()
+		concatPropertyName.WriteString(".")
+		concatPropertyName.WriteString(propertyName)
+		structInfo, ok := variableTypeInfo.(*TypeInfo_Struct)
+		if !ok {
+			p.addErrorToken(fmt.Errorf("Property \"%s\" does not exist on type \"%s\".", concatPropertyName.String(), variableTypeInfo.String()), nameToken)
+			return nil
+		}
+		structDef := structInfo.Definition()
+		structField := structDef.GetFieldByName(propertyName)
+		if structField == nil {
+			p.addErrorToken(fmt.Errorf("Property \"%s\" does not exist on \"%s :: struct\".", concatPropertyName.String(), structDef.Name), nameToken)
+			return nil
+		}
+		variableTypeInfo = structField.TypeInfo
+	}
+
+	/*for len(leftHandSideTokens) > 1 {
 		propertyName := leftHandSideTokens[1].String()
 		structInfo, ok := variableTypeInfo.(*TypeInfo_Struct)
 		if !ok {
@@ -287,7 +308,7 @@ func (p *Parser) getTypeFromLeftHandSide(leftHandSideTokens []token.Token, scope
 		if len(leftHandSideTokens) > 2 {
 			panic("Todo(Jake): Allow infinite depth property checking")
 		}
-	}
+	}*/
 	return variableTypeInfo
 }
 

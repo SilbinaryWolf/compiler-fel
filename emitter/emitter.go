@@ -303,7 +303,7 @@ func (emit *Emitter) emitExpression(opcodes []bytecode.Code, node *ast.Expressio
 					panic(fmt.Sprintf("emitExpression: Missing type info on property for \"%s :: struct { %s }\"", structDef.Name, structField.Name))
 				}
 				if len(exprNode.Nodes()) == 0 {
-					panic(fmt.Sprintf("emitExpression:TypeInfo_Struct: Missing info for field \"%s\" on \"%s :: struct\", typechecker should enforce that you need all fields.", structField.Name, structDef.Name))
+					panic(fmt.Sprintf("emitExpression:TypeInfo_Struct: Missing value for field \"%s\" on \"%s :: struct\", type checker should enforce that you need all fields.", structField.Name, structDef.Name))
 				}
 				opcodes = emit.emitExpression(opcodes, exprNode)
 				opcodes = append(opcodes, bytecode.Code{
@@ -321,6 +321,21 @@ func (emit *Emitter) emitExpression(opcodes []bytecode.Code, node *ast.Expressio
 	return opcodes
 }
 
+func (emit *Emitter) emitLeftHandSide(opcodes []bytecode.Code, leftHandSide []ast.Token) []bytecode.Code {
+	name := leftHandSide[0].String()
+	varInfo, ok := emit.scope.Get(name)
+	if !ok {
+		return nil
+	}
+	if len(leftHandSide) > 1 {
+		opcodes = append(opcodes, bytecode.Code{
+			Kind:  bytecode.PushStackVar,
+			Value: varInfo.stackPos,
+		})
+	}
+	return opcodes
+}
+
 func (emit *Emitter) emitStatement(opcodes []bytecode.Code, node ast.Node) []bytecode.Code {
 	switch node := node.(type) {
 	case *ast.Block:
@@ -330,7 +345,9 @@ func (emit *Emitter) emitStatement(opcodes []bytecode.Code, node ast.Node) []byt
 		}
 		emit.PopScope()
 	case *ast.CSSDefinition:
-		nodes := node.Nodes()
+		fmt.Printf("todo(Jake): *ast.CSSDefinition\n")
+
+		/*nodes := node.Nodes()
 		if len(nodes) > 0 {
 			opcodes = append(opcodes, bytecode.Code{
 				Kind:  bytecode.Label,
@@ -346,7 +363,7 @@ func (emit *Emitter) emitStatement(opcodes []bytecode.Code, node ast.Node) []byt
 				opcodes = emit.emitStatement(opcodes, node)
 			}
 			//debugOpcodes(opcodes)
-		}
+		}*/
 	case *ast.CSSRule:
 		/*var emptyTypeData *data.CSSDefinition
 		internalType := reflect.TypeOf(emptyTypeData)
@@ -363,11 +380,15 @@ func (emit *Emitter) emitStatement(opcodes []bytecode.Code, node ast.Node) []byt
 			opcodes = append(opcodes, code)
 		}*/
 		// no-op
-		debugOpcodes(opcodes)
+		//debugOpcodes(opcodes)
 		panic("todo(Jake): *ast.CSSRule")
 	case *ast.CSSProperty:
-		//panic("todo(Jake): *ast.CSSProperty")
+		panic("todo(Jake): *ast.CSSProperty")
 	case *ast.DeclareStatement:
+		opcodes = append(opcodes, bytecode.Code{
+			Kind:  bytecode.Label,
+			Value: "DeclareStatement",
+		})
 		opcodes = emit.emitExpression(opcodes, &node.Expression)
 		typeInfo := node.Expression.TypeInfo
 
@@ -396,17 +417,41 @@ func (emit *Emitter) emitStatement(opcodes []bytecode.Code, node ast.Node) []byt
 			})
 			emit.stackPos++
 		}
+	case *ast.ArrayAppendStatement:
+		//panic("todo(Jake): ArrayAppendStatement ")
 	case *ast.OpStatement:
 		name := node.LeftHandSide[0].String()
 		varInfo, ok := emit.scope.Get(name)
 		if !ok {
 			panic(fmt.Sprintf("Missing declaration for %s, this should be caught in the type checker.", name))
 		}
+		opcodes = append(opcodes, bytecode.Code{
+			Kind:  bytecode.Label,
+			Value: "OpStatement",
+		})
 		if len(node.LeftHandSide) > 1 {
 			opcodes = append(opcodes, bytecode.Code{
 				Kind:  bytecode.PushStackVar,
 				Value: varInfo.stackPos,
 			})
+			structDef := varInfo.structDef
+			for i := 1; i < len(node.LeftHandSide)-1; i++ {
+				if structDef == nil {
+					panic("emitStatement: Non-struct cannot have properties. This should be caught in the typechecker.")
+				}
+				fieldName := node.LeftHandSide[i].String()
+				field := structDef.GetFieldByName(fieldName)
+				if field == nil {
+					panic(fmt.Sprintf("emitStatement: \"%s :: struct\" does not have property \"%s\". This should be caught in the typechecker.", structDef.Name, fieldName))
+				}
+				opcodes = append(opcodes, bytecode.Code{
+					Kind:  bytecode.PushStructFieldVar,
+					Value: field.Index,
+				})
+				if typeInfo, ok := field.TypeInfo.(*parser.TypeInfo_Struct); ok {
+					structDef = typeInfo.Definition()
+				}
+			}
 		}
 		switch node.Operator.Kind {
 		case token.Equal:
@@ -439,22 +484,26 @@ func (emit *Emitter) emitStatement(opcodes []bytecode.Code, node ast.Node) []byt
 			panic(fmt.Sprintf("emitStatement: Unhandled operator kind: %s", node.Operator.Kind.String()))
 		}
 		if len(node.LeftHandSide) > 1 {
+			var field *ast.StructField
 			structDef := varInfo.structDef
-			if structDef == nil {
-				panic("emitStatement: Non-struct cannot have properties. This should be caught in the typechecker.")
-			}
-			fieldName := node.LeftHandSide[1].String()
-			field := structDef.GetFieldByName(fieldName)
-			if field == nil {
-				panic(fmt.Sprintf("emitStatement: \"%s :: struct\" does not have property \"%s\". This should be caught in the typechecker.", structDef.Name, fieldName))
+			for i := 1; i < len(node.LeftHandSide); i++ {
+				if structDef == nil {
+					panic("emitStatement: Non-struct cannot have properties. This should be caught in the typechecker.")
+				}
+				fieldName := node.LeftHandSide[i].String()
+				field = structDef.GetFieldByName(fieldName)
+				if field == nil {
+					panic(fmt.Sprintf("emitStatement: \"%s :: struct\" does not have property \"%s\". This should be caught in the typechecker.", structDef.Name, fieldName))
+				}
+				typeInfo, ok := field.TypeInfo.(*parser.TypeInfo_Struct)
+				if ok {
+					structDef = typeInfo.Definition()
+				}
 			}
 			opcodes = append(opcodes, bytecode.Code{
 				Kind:  bytecode.StorePopStructField,
 				Value: field.Index,
 			})
-			if len(node.LeftHandSide) > 2 {
-				panic("todo(Jake): Support nested properties")
-			}
 		} else {
 			opcodes = append(opcodes, bytecode.Code{
 				Kind:  bytecode.Store,
@@ -504,15 +553,7 @@ func (emit *Emitter) emitStatement(opcodes []bytecode.Code, node ast.Node) []byt
 func (emit *Emitter) EmitBytecode(node ast.Node) *bytecode.Block {
 	opcodes := make([]bytecode.Code, 0, 10)
 
-	topNodes := make([]ast.Node, 0, 10)
-	topNodes = appendReverse(topNodes, node.Nodes())
-	if topNodes == nil {
-		panic("EmitBytecode: Top-level node shouldnt have no nodes.")
-	}
-	for len(topNodes) > 0 {
-		node := topNodes[len(topNodes)-1]
-		topNodes = topNodes[:len(topNodes)-1]
-
+	for _, node := range node.Nodes() {
 		opcodes = emit.emitStatement(opcodes, node)
 	}
 	codeBlock := new(bytecode.Block)

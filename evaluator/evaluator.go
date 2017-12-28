@@ -2,6 +2,7 @@ package evaluator
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -209,11 +210,13 @@ func (program *Program) RunProject(projectDirpath string) error {
 		info := emitter.New()
 		for _, astFile := range astFiles {
 			if strings.Contains(astFile.Filepath, "Header.fel") {
+				json, _ := json.MarshalIndent(astFile, "", "   ")
+				fmt.Printf("%s\nJSON AST\n---------------\n", string(json))
+
 				codeBlock := info.EmitBytecode(astFile)
 				vm.ExecuteBytecode(codeBlock)
 			}
 		}
-
 		panic("Finished emitBytecode in Evaluator")
 	}
 

@@ -2,9 +2,10 @@ package parser
 
 import (
 	"fmt"
-	"github.com/silbinarywolf/compiler-fel/token"
 	"runtime"
 	"strings"
+
+	"github.com/silbinarywolf/compiler-fel/token"
 )
 
 // Adds additional info that tells the developer where a parser error was raised in Golang
@@ -76,7 +77,7 @@ func (p *Parser) HasErrors() bool {
 	return p.Scanner.Error != nil || len(p.errors) > 0
 }
 
-func (p *Parser) addError(message error) {
+/*func (p *Parser) addError(message error) {
 	// todo(Jake): Expose this function to AST/token/etc data to retrieve line number
 	//message = fmt.Errorf("Line %d - %s", -99, message)
 	filepath := p.Filepath
@@ -85,7 +86,7 @@ func (p *Parser) addError(message error) {
 		p.errors[filepath] = make([]error, 0, 10)
 	}
 	p.errors[filepath] = append(p.errors[filepath], message)
-}
+}*/
 
 func (p *Parser) addErrorToken(message error, token token.Token) {
 	filepath := token.Filepath
@@ -120,7 +121,7 @@ func (p *Parser) addErrorToken(message error, token token.Token) {
 }
 
 func (p *Parser) fatalError(message error) {
-	p.addError(message)
+	//p.addError(message)
 	p.PrintErrors()
 	panic(FatalErrorMessage)
 }

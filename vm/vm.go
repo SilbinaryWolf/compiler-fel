@@ -44,6 +44,12 @@ func ExecuteBytecode(codeBlock *bytecode.Block) {
 		case bytecode.PushStackVar:
 			stackOffset := code.Value.(int)
 			registerStack = append(registerStack, program.stack[stackOffset])
+		case bytecode.PushStructFieldVar:
+			fieldOffset := code.Value.(int)
+			value := registerStack[len(registerStack)-1]
+			structData := value.(*bytecode.Struct)
+			fieldData := structData.GetField(fieldOffset)
+			registerStack = append(registerStack, fieldData)
 		case bytecode.PushAllocStruct:
 			structFieldCount := code.Value.(int)
 			structData := bytecode.NewStruct(structFieldCount)
@@ -119,6 +125,12 @@ func ExecuteBytecode(codeBlock *bytecode.Block) {
 		offset++
 	}
 
+	if len(registerStack) > 0 {
+		debugPrintStack("VM Stack Values", program.stack)
+		debugPrintStack("VM Register Stack", registerStack)
+		panic("Register Stack should be empty.")
+	}
+
 	// Debug
-	debugPrintStack(program.stack)
+	debugPrintStack("VM Stack Values", program.stack)
 }

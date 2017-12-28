@@ -382,12 +382,12 @@ Loop:
 			}
 			t := p.GetNextToken()
 			if t.Kind != token.Equal {
-				p.addError(p.expect(t, token.Equal))
+				p.addErrorToken(p.expect(t, token.Equal), t)
 			}
 			node.ChildNodes = p.parseExpressionNodes(false)
 			t = p.GetNextToken()
 			if t.Kind != token.Comma && t.Kind != token.ParenClose {
-				p.addError(p.expect(t, token.Comma, token.ParenClose))
+				p.addErrorToken(p.expect(t, token.Comma, token.ParenClose), t)
 				return nil
 			}
 			resultNodes = append(resultNodes, node)
@@ -397,7 +397,7 @@ Loop:
 		case token.ParenClose:
 			break Loop
 		default:
-			p.addError(p.expect(t, token.Identifier))
+			p.addErrorToken(p.expect(t, token.Identifier), t)
 			return nil
 		}
 	}
@@ -444,10 +444,11 @@ Loop:
 				{
 					p.eatNewlines()
 					if t := p.PeekNextToken(); t.Kind == token.BraceClose {
-						node := new(ast.StructLiteral)
-						node.Name = name
+						p.GetNextToken()
 						expectOperator = true
-						infixNodes = append(infixNodes, node)
+						infixNodes = append(infixNodes, &ast.StructLiteral{
+							Name: name,
+						})
 						continue Loop
 					}
 				}
@@ -498,11 +499,11 @@ Loop:
 					}
 					errorMsgLastToken = propertyName
 				}
-				node := new(ast.StructLiteral)
-				node.Name = name
-				node.Fields = fields
 				expectOperator = true
-				infixNodes = append(infixNodes, node)
+				infixNodes = append(infixNodes, &ast.StructLiteral{
+					Name:   name,
+					Fields: fields,
+				})
 				continue Loop
 			}
 			expectOperator = true
@@ -657,21 +658,21 @@ func (p *Parser) parseDefinition(name token.Token) ast.Node {
 	switch keyword {
 	case "css":
 		if t := p.GetNextToken(); t.Kind != token.BraceOpen {
-			p.addError(p.expect(t, token.BraceOpen))
+			p.addErrorToken(p.expect(t, token.BraceOpen), t)
 			return nil
 		}
 		node := p.parseCSS(name)
 		return node
 	case "css_config":
 		if t := p.GetNextToken(); t.Kind != token.BraceOpen {
-			p.addError(p.expect(t, token.BraceOpen))
+			p.addErrorToken(p.expect(t, token.BraceOpen), t)
 			return nil
 		}
 		node := p.parseCSSConfigRuleDefinition(name)
 		return node
 	case "struct":
 		if t := p.GetNextToken(); t.Kind != token.BraceOpen {
-			p.addError(p.expect(t, token.BraceOpen))
+			p.addErrorToken(p.expect(t, token.BraceOpen), t)
 			return nil
 		}
 		//
@@ -701,7 +702,7 @@ func (p *Parser) parseDefinition(name token.Token) ast.Node {
 		return node
 	case "html":
 		if t := p.GetNextToken(); t.Kind != token.BraceOpen {
-			p.addError(p.expect(t, token.BraceOpen))
+			p.addErrorToken(p.expect(t, token.BraceOpen), t)
 			return nil
 		}
 		childNodes := p.parseStatements()
@@ -738,13 +739,14 @@ func (p *Parser) parseDefinition(name token.Token) ast.Node {
 				switch node := itNode.(type) {
 				case *ast.StructDefinition:
 					if structDef != nil {
-						p.addError(fmt.Errorf("Cannot declare \":: struct\" twice in the same HTML component."))
+						p.addErrorToken(fmt.Errorf("Cannot declare \":: struct\" twice in the same HTML component."), node.Name)
+						p.addErrorToken(fmt.Errorf("Cannot declare \":: struct\" twice in the same HTML component."), structDef.Name)
 						break RetrievePropertyDefinitionLoop
 					}
 					structDef = node
 				case *ast.CSSDefinition:
 					if cssDef != nil {
-						p.addError(fmt.Errorf("Cannot declare \":: css\" twice in the same HTML component."))
+						p.addErrorToken(fmt.Errorf("Cannot declare \":: css\" twice in the same HTML component."), node.Name)
 						break RetrievePropertyDefinitionLoop
 					}
 					cssDef = node
@@ -767,7 +769,7 @@ func (p *Parser) parseDefinition(name token.Token) ast.Node {
 		node.ChildNodes = childNodes
 		return node
 	}
-	p.addError(fmt.Errorf("Unexpected keyword '%s' for definition (::) type. Expected 'css', 'html' or 'properties' on Line %d", keyword, keywordToken.Line))
+	p.addErrorToken(fmt.Errorf("Unexpected keyword '%s' for definition (::) type. Expected 'css', 'html' or 'properties' on Line %d", keyword, keywordToken.Line), keywordToken)
 	return nil
 }
 

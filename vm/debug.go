@@ -9,7 +9,8 @@ import (
 
 type DebugPrinter struct {
 	bytes.Buffer
-	indent int
+	indent      int
+	seenPointer map[string]bool
 }
 
 func (printer *DebugPrinter) writeLine() {
@@ -22,6 +23,13 @@ func (printer *DebugPrinter) writeLine() {
 func (printer *DebugPrinter) writeValue(value interface{}) {
 	switch value := value.(type) {
 	case *bytecode.Struct:
+		addr := fmt.Sprintf("%p", value)
+		if _, ok := printer.seenPointer[addr]; ok {
+			printer.WriteString("(--recursive--)")
+			return
+		}
+		printer.seenPointer[addr] = true
+
 		printer.indent++
 		printer.WriteString(fmt.Sprintf("%T w/ %d fields", value, value.FieldCount()))
 		printer.WriteString("(")
@@ -46,13 +54,16 @@ func (printer *DebugPrinter) writeValue(value interface{}) {
 	}
 }
 
-func debugPrintStack(stack []interface{}) {
+func debugPrintStack(message string, stack []interface{}) {
 	printer := new(DebugPrinter)
-	fmt.Printf("----------------\nVM Stack Values:\n----------------\n")
+	printer.seenPointer = make(map[string]bool)
+	fmt.Printf("----------------\n%s:\n----------------\n", message)
+	defer func() {
+		fmt.Print(printer.String())
+		fmt.Printf("----------------\n")
+	}()
 	for i := 0; i < len(stack); i++ {
 		printer.writeValue(stack[i])
 		printer.writeLine()
 	}
-	fmt.Print(printer.String())
-	fmt.Printf("----------------\n")
 }
