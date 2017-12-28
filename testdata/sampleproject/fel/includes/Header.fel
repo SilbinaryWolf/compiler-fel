@@ -12,17 +12,24 @@ meow += "me" + " wow"
 test := 1 + 1
 test += 2
 
+List :: struct {
+	name: string = "listname"
+}
+
 Test :: struct {
 	value: int
 	derp: []string
 	otherValue: string
+	other: List
 }
 
-myVal := Test{
-	otherValue: "test"
-}
+myVal := Test{}
 
-myVal.otherValue[] = "test"
+// NOTE(Jake): 2017-12-28, For some reason these values aren't emitting bytecode.
+myVal.other = List{
+	name: "Lol",
+}
+myVal.derp[] = "test"
 
 
 /////////////////// TESTING BYTECODE ABOVE

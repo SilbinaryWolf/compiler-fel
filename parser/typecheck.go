@@ -44,7 +44,7 @@ func (p *Parser) typecheckStructLiteral(scope *Scope, literal *ast.StructLiteral
 	}
 	literal.TypeInfo = p.typeinfo.get(name)
 	if literal.TypeInfo == nil {
-		p.fatalErrorToken(fmt.Errorf("Missing typeinfo for \"%s :: struct\".", name), literal.Name)
+		p.fatalErrorToken(fmt.Errorf("Missing type info for \"%s :: struct\".", name), literal.Name)
 		return
 	}
 
@@ -266,6 +266,10 @@ func (p *Parser) getTypeFromLeftHandSide(leftHandSideTokens []token.Token, scope
 		p.addErrorToken(fmt.Errorf("Undeclared variable \"%s\".", name), nameToken)
 		return nil
 	}
+	if variableTypeInfo == nil {
+		p.fatalErrorToken(fmt.Errorf("Variable declared \"%s\" but it has \"nil\" type information, this is a bug in typechecking scope.", name), nameToken)
+		return nil
+	}
 	if len(leftHandSideTokens) > 1 {
 		propertyName := leftHandSideTokens[1].String()
 		structInfo, ok := variableTypeInfo.(*TypeInfo_Struct)
@@ -380,48 +384,56 @@ func (p *Parser) typecheckStatements(topNode ast.Node, scope *Scope) {
 
 			name := node.Name.String()
 			isValidHTML5TagName := util.IsValidHTML5TagName(name)
-			if !isValidHTML5TagName {
-				htmlComponentDefinition, ok := scope.GetHTMLDefinition(name)
-				if !ok {
-					p.addErrorToken(fmt.Errorf("\"%s\" is not a valid element or component name.", name), node.Name)
+			if isValidHTML5TagName {
+				continue
+			}
+			htmlComponentDefinition, ok := scope.GetHTMLDefinition(name)
+			if !ok {
+				if name != strings.ToLower(name) {
+					// NOTE(Jake): 2017-12-28
+					//			   Hit this error while developing and decided that if the convention is that non-HTML5 spec
+					//			   elements
+					p.addErrorToken(fmt.Errorf("\"%s\" is an undefined component. If you want to use a standard HTML5 element, the name must all be in lowercase.", name), node.Name)
 					continue
 				}
-				//fmt.Printf("%s -- %d\n", htmlComponentDefinition.Name.String(), len(p.typecheckHtmlDefinitionStack))
-				//for _, itHtmlDefinition := range p.typecheckHtmlDefinitionStack {
-				//	if htmlComponentDefinition == itHtmlDefinition {
-				//		p.addErrorLine(fmt.Errorf("Cannot reference self in \"%s :: html\".", htmlComponentDefinition.Name.String()), node.Name.Line)
-				//		//continue Loop
-				//		return
-				//	}
-				//}
-				if p.typecheckHtmlNodeDependencies != nil {
-					p.typecheckHtmlNodeDependencies[name] = node
-				}
-				node.HTMLDefinition = htmlComponentDefinition
-				structDef := node.HTMLDefinition.Struct
-				if structDef != nil && len(structDef.Fields) > 0 {
-					// Check if parameters exist
-				ParameterCheckLoop:
-					for i, _ := range node.Parameters {
-						parameterNode := &node.Parameters[i]
-						paramName := parameterNode.Name.String()
-						for _, field := range structDef.Fields {
-							if paramName == field.Name.String() {
-								parameterType := parameterNode.TypeInfo
-								componentStructType := field.TypeInfo
-								if parameterType != componentStructType {
-									if field.TypeInfo == nil {
-										p.fatalError(fmt.Errorf("Struct field \"%s\" is missing type info.", paramName))
-										return
-									}
-									p.addErrorToken(fmt.Errorf("\"%s\" must be of type %s, not %s", paramName, componentStructType.String(), parameterType.String()), parameterNode.Name)
+				p.addErrorToken(fmt.Errorf("\"%s\" is not a valid HTML5 element or defined component.", name), node.Name)
+				continue
+			}
+			//fmt.Printf("%s -- %d\n", htmlComponentDefinition.Name.String(), len(p.typecheckHtmlDefinitionStack))
+			//for _, itHtmlDefinition := range p.typecheckHtmlDefinitionStack {
+			//	if htmlComponentDefinition == itHtmlDefinition {
+			//		p.addErrorLine(fmt.Errorf("Cannot reference self in \"%s :: html\".", htmlComponentDefinition.Name.String()), node.Name.Line)
+			//		//continue Loop
+			//		return
+			//	}
+			//}
+			if p.typecheckHtmlNodeDependencies != nil {
+				p.typecheckHtmlNodeDependencies[name] = node
+			}
+			node.HTMLDefinition = htmlComponentDefinition
+			structDef := node.HTMLDefinition.Struct
+			if structDef != nil && len(structDef.Fields) > 0 {
+				// Check if parameters exist
+			ParameterCheckLoop:
+				for i, _ := range node.Parameters {
+					parameterNode := &node.Parameters[i]
+					paramName := parameterNode.Name.String()
+					for _, field := range structDef.Fields {
+						if paramName == field.Name.String() {
+							parameterType := parameterNode.TypeInfo
+							componentStructType := field.TypeInfo
+							if parameterType != componentStructType {
+								if field.TypeInfo == nil {
+									p.fatalError(fmt.Errorf("Struct field \"%s\" is missing type info.", paramName))
+									return
 								}
-								continue ParameterCheckLoop
+								p.addErrorToken(fmt.Errorf("\"%s\" must be of type %s, not %s", paramName, componentStructType.String(), parameterType.String()), parameterNode.Name)
 							}
+							continue ParameterCheckLoop
 						}
-						p.addErrorToken(fmt.Errorf("\"%s\" is not a property on \"%s :: html\"", paramName, name), parameterNode.Name)
-						continue
 					}
+					p.addErrorToken(fmt.Errorf("\"%s\" is not a property on \"%s :: html\"", paramName, name), parameterNode.Name)
+					continue
 				}
 			}
 		case *ast.ArrayAppendStatement:

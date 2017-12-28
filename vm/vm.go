@@ -24,7 +24,7 @@ func ExecuteBytecode(codeBlock *bytecode.Block) {
 	for offset < len(opcodes) {
 		code := opcodes[offset]
 
-		switch code.Kind() {
+		switch code.Kind {
 		case bytecode.Label:
 			// no-op
 		case bytecode.Push:
@@ -83,16 +83,17 @@ func ExecuteBytecode(codeBlock *bytecode.Block) {
 			valueB := registerStack[len(registerStack)-1].(string)
 			registerStack = registerStack[:len(registerStack)-2]
 			registerStack = append(registerStack, valueA+valueB)
+		case bytecode.Pop:
+			//popAmount := code.Value.(int) + 1
+			registerStack = registerStack[:len(registerStack)-1]
 		case bytecode.Store:
 			value := registerStack[len(registerStack)-1]
-			registerStack = registerStack[:len(registerStack)-1]
 
 			stackOffset := code.Value.(int)
 			program.stack[stackOffset] = value
-			//panic(program.stack[stackOffset])
-		case bytecode.StoreStructField:
+		case bytecode.StorePopStructField:
 			fieldData := registerStack[len(registerStack)-1]
-			structData := registerStack[len(registerStack)-2].(bytecode.StructInterface)
+			structData := registerStack[len(registerStack)-2].(*bytecode.Struct)
 
 			// NOTE(Jake): Only pop `fieldData`
 			registerStack = registerStack[:len(registerStack)-1]
@@ -100,7 +101,8 @@ func ExecuteBytecode(codeBlock *bytecode.Block) {
 			fieldOffset := code.Value.(int)
 			structData.SetField(fieldOffset, fieldData)
 		case bytecode.StoreInternalStructField:
-			fieldData := registerStack[len(registerStack)-1]
+			panic("No longer supported")
+			/*fieldData := registerStack[len(registerStack)-1]
 			structData := registerStack[len(registerStack)-2]
 
 			// NOTE(Jake): Only pop `fieldData`
@@ -110,18 +112,13 @@ func ExecuteBytecode(codeBlock *bytecode.Block) {
 			fieldOffset := []int{code.Value.(int)}
 			structField := reflect.ValueOf(structData).FieldByIndex(fieldOffset)
 			structField.Set(reflect.ValueOf(fieldData))
-			panic("todo(Jake): Add reflect.GetField or whatever here")
+			panic("todo(Jake): Add reflect.GetField or whatever here")*/
 		default:
-			panic(fmt.Sprintf("executeBytecode: Unhandled kind in vm: \"%s\"", code.Kind().String()))
+			panic(fmt.Sprintf("executeBytecode: Unhandled kind in vm: \"%s\"", code.Kind.String()))
 		}
 		offset++
 	}
 
 	// Debug
-	fmt.Printf("----------------\nVM Stack Values:\n----------------\n")
-	for i := 0; i < len(program.stack); i++ {
-		stackValue := program.stack[i]
-		fmt.Printf("%v - %T\n", stackValue, stackValue)
-	}
-	fmt.Printf("----------------\n")
+	debugPrintStack(program.stack)
 }

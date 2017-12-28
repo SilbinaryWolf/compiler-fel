@@ -441,12 +441,15 @@ Loop:
 				}
 				p.GetNextToken()
 
-				if t := p.PeekNextToken(); t.Kind == token.BraceClose {
-					node := new(ast.StructLiteral)
-					node.Name = name
-					expectOperator = true
-					infixNodes = append(infixNodes, node)
-					continue Loop
+				{
+					p.eatNewlines()
+					if t := p.PeekNextToken(); t.Kind == token.BraceClose {
+						node := new(ast.StructLiteral)
+						node.Name = name
+						expectOperator = true
+						infixNodes = append(infixNodes, node)
+						continue Loop
+					}
 				}
 
 				var errorMsgLastToken token.Token
@@ -459,10 +462,10 @@ Loop:
 					}
 					if propertyName.Kind != token.Identifier {
 						if i == 0 {
-							p.addErrorToken(fmt.Errorf("Expected identifier after %s{ not %s", name, t.Kind.String()), t)
+							p.addErrorToken(fmt.Errorf("Expected identifier after %s{ not %s", name, propertyName.Kind.String()), propertyName)
 							return nil
 						}
-						p.addErrorToken(fmt.Errorf("Expected identifier after \"%s\" not %s", errorMsgLastToken, t.Kind.String()), t)
+						p.addErrorToken(fmt.Errorf("Expected identifier after \"%s\" not %s", errorMsgLastToken, propertyName.Kind.String()), propertyName)
 						return nil
 					}
 					if t := p.GetNextToken(); t.Kind != token.Colon {

@@ -9,8 +9,9 @@ type Kind int
 const (
 	Unknown Kind = 0 + iota
 	Label
+	Pop
 	Store
-	StoreStructField
+	StorePopStructField
 	StoreInternalStructField
 	Push
 	PushArrayString
@@ -38,8 +39,9 @@ const (
 var kindToString = []string{
 	Unknown:                  "unknown/unset bytecode",
 	Label:                    "Label",
+	Pop:                      "Pop",
 	Store:                    "Store",
-	StoreStructField:         "StoreStructField",
+	StorePopStructField:      "StorePopStructField",
 	StoreInternalStructField: "StoreInternalStructField",
 	Push:                    "Push",
 	PushArrayString:         "PushArrayString",
@@ -58,7 +60,7 @@ var kindToString = []string{
 }
 
 type Code struct {
-	kind  Kind
+	Kind  Kind
 	Value interface{}
 }
 
@@ -91,14 +93,8 @@ func (structData *Struct) GetField(index int) interface{} {
 	return structData.fields[index]
 }
 
-func Init(kind Kind) Code {
-	code := Code{}
-	code.kind = kind
-	return code
-}
-
-func (code *Code) Kind() Kind {
-	return code.kind
+func (structData *Struct) FieldCount() int {
+	return len(structData.fields)
 }
 
 func (kind Kind) String() string {
@@ -106,7 +102,7 @@ func (kind Kind) String() string {
 }
 
 func (code *Code) String() string {
-	result := code.Kind().String()
+	result := code.Kind.String()
 	if code.Value != nil {
 		switch code.Value.(type) {
 		case string:
