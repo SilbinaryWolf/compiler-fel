@@ -1,7 +1,7 @@
 package types
 
 import (
-	"fmt"
+	//"fmt"
 
 	"github.com/silbinarywolf/compiler-fel/data"
 )
@@ -80,7 +80,7 @@ func Array(underlying TypeInfo) TypeInfo {
 //
 // Initialization
 //
-var registeredTypes = make(map[string]TypeInfo)
+/*var registeredTypes = make(map[string]TypeInfo)
 
 func RegisterType(name string, info TypeInfo) {
 	_, ok := registeredTypes[name]
@@ -92,7 +92,7 @@ func RegisterType(name string, info TypeInfo) {
 
 func GetRegisteredType(name string) TypeInfo {
 	return registeredTypes[name]
-}
+}*/
 
 /*func init() {
 	RegisterType("string", String())

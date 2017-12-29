@@ -50,6 +50,12 @@ func ExecuteBytecode(codeBlock *bytecode.Block) {
 			structData := value.(*bytecode.Struct)
 			fieldData := structData.GetField(fieldOffset)
 			registerStack = append(registerStack, fieldData)
+		case bytecode.ReplaceStructFieldVar:
+			fieldOffset := code.Value.(int)
+			value := registerStack[len(registerStack)-1]
+			structData := value.(*bytecode.Struct)
+			fieldData := structData.GetField(fieldOffset)
+			registerStack[len(registerStack)-1] = fieldData
 		case bytecode.PushAllocStruct:
 			structFieldCount := code.Value.(int)
 			structData := bytecode.NewStruct(structFieldCount)

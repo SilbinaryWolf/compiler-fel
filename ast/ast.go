@@ -116,7 +116,25 @@ type Token struct {
 	token.Token
 }
 
+type TokenList struct {
+	tokens []token.Token
+}
+
 func (node *Token) Nodes() []Node {
+	return nil
+}
+
+func NewTokenList(tokens []token.Token) *TokenList {
+	result := new(TokenList)
+	result.tokens = tokens
+	return result
+}
+
+func (node *TokenList) Tokens() []token.Token {
+	return node.tokens
+}
+
+func (node *TokenList) Nodes() []Node {
 	return nil
 }
 

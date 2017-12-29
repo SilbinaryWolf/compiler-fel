@@ -181,6 +181,21 @@ func (p *Parser) typecheckExpression(scope *Scope, expression *ast.Expression) {
 				p.addErrorToken(fmt.Errorf("\":: html\" must be a %s not %s.", exprType.String(), variableType.String()), node.HTMLKeyword)
 			}
 			p.typecheckHTMLBlock(node, scope)*/
+		case *ast.TokenList:
+			tokens := node.Tokens()
+			concatPropertyName := tokens[0].String()
+			for i := 1; i < len(tokens); i++ {
+				concatPropertyName += "." + tokens[i].String()
+			}
+			expectedTypeInfo := p.getTypeFromLeftHandSide(tokens, scope)
+			if resultTypeInfo == nil {
+				resultTypeInfo = expectedTypeInfo
+			}
+			if !TypeEquals(resultTypeInfo, expectedTypeInfo) {
+				p.addErrorToken(fmt.Errorf("Cannot mix variable \"%s\" type %s with %s", concatPropertyName, expectedTypeInfo.String(), resultTypeInfo.String()), tokens[0])
+			}
+			//panic("todo(Jake): tokenlist")
+			continue
 		case *ast.Token:
 			if node.IsOperator() {
 				continue
@@ -290,25 +305,6 @@ func (p *Parser) getTypeFromLeftHandSide(leftHandSideTokens []token.Token, scope
 		}
 		variableTypeInfo = structField.TypeInfo
 	}
-
-	/*for len(leftHandSideTokens) > 1 {
-		propertyName := leftHandSideTokens[1].String()
-		structInfo, ok := variableTypeInfo.(*TypeInfo_Struct)
-		if !ok {
-			p.addErrorToken(fmt.Errorf("Property \"%s\" does not exist on type \"%s\".", propertyName, variableTypeInfo.String()), nameToken)
-			return nil
-		}
-		structDef := structInfo.Definition()
-		structField := structDef.GetFieldByName(propertyName)
-		if structField == nil {
-			p.addErrorToken(fmt.Errorf("Property \"%s\" does not exist on \"%s :: struct\".", propertyName, structDef.Name), nameToken)
-			return nil
-		}
-		variableTypeInfo = structField.TypeInfo
-		if len(leftHandSideTokens) > 2 {
-			panic("Todo(Jake): Allow infinite depth property checking")
-		}
-	}*/
 	return variableTypeInfo
 }
 

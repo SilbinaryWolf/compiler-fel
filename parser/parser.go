@@ -427,9 +427,35 @@ Loop:
 		case token.Identifier:
 			name := p.GetNextToken()
 			if expectOperator {
-				panic("Expected operator, not identifier.")
+				p.addErrorToken(fmt.Errorf("Expected operator instead got identifier."), name)
+				return nil
 			}
 			switch t := p.PeekNextToken(); t.Kind {
+			case token.Dot:
+				p.GetNextToken()
+				tokens := make([]token.Token, 0, 5)
+				tokens = append(tokens, name)
+				for {
+					identToken := p.GetNextToken()
+					tokens = append(tokens, identToken)
+					if identToken.Kind != token.Identifier {
+						p.addErrorToken(p.expect(identToken, token.Identifier), identToken)
+						return nil
+					}
+					t := p.PeekNextToken()
+					if t.Kind == token.Dot {
+						p.GetNextToken()
+						continue
+					}
+					if t.IsOperator() || t.Kind == token.Newline {
+						break
+					}
+					p.addErrorToken(p.expect(t, token.Add, token.Newline), t)
+					return nil
+				}
+				expectOperator = true
+				infixNodes = append(infixNodes, ast.NewTokenList(tokens))
+				continue Loop
 			case token.ParenOpen:
 				p.fatalError(fmt.Errorf("todo: Handle component/function in expression"))
 				return nil

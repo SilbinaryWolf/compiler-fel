@@ -165,15 +165,68 @@ func (emit *Emitter) emitNewFromType(opcodes []bytecode.Code, typeInfo types.Typ
 	return opcodes
 }
 
-func (emit *Emitter) getPushVariableCodeFromIdent(ident string) bytecode.Code {
-	varInfo, ok := emit.scope.Get(ident)
+func (emit *Emitter) emitVariableIdent(opcodes []bytecode.Code, ident token.Token) []bytecode.Code {
+	name := ident.String()
+	varInfo, ok := emit.scope.Get(name)
 	if !ok {
-		panic("Undeclared variable \"%s\", this should be caught in the type checker.")
+		panic(fmt.Sprintf("Missing declaration for %s, this should be caught in the type checker.", name))
 	}
-	return bytecode.Code{
+	opcodes = append(opcodes, bytecode.Code{
 		Kind:  bytecode.PushStackVar,
 		Value: varInfo.stackPos,
+	})
+	return opcodes
+}
+
+func (emit *Emitter) emitVariableIdentWithProperty(
+	opcodes []bytecode.Code,
+	leftHandSide []token.Token,
+) ([]bytecode.Code, int) {
+	// NOTE(Jake): 2017-12-29
+	//
+	// `varInfo` is required so we aren't using `emitVariableIdent`
+	//
+	name := leftHandSide[0].String()
+	varInfo, ok := emit.scope.Get(name)
+	if !ok {
+		panic(fmt.Sprintf("Missing declaration for %s, this should be caught in the type checker.", name))
 	}
+	opcodes = append(opcodes, bytecode.Code{
+		Kind:  bytecode.PushStackVar,
+		Value: varInfo.stackPos,
+	})
+	var lastPropertyField *ast.StructField
+	if len(leftHandSide) <= 1 {
+		return opcodes, varInfo.stackPos
+	}
+	structDef := varInfo.structDef
+	for i := 1; i < len(leftHandSide)-1; i++ {
+		if structDef == nil {
+			panic("emitStatement: Non-struct cannot have properties. This should be caught in the typechecker.")
+		}
+		fieldName := leftHandSide[i].String()
+		field := structDef.GetFieldByName(fieldName)
+		if field == nil {
+			panic(fmt.Sprintf("emitStatement: \"%s :: struct\" does not have property \"%s\". This should be caught in the typechecker.", structDef.Name, fieldName))
+		}
+		opcodes = append(opcodes, bytecode.Code{
+			Kind:  bytecode.ReplaceStructFieldVar,
+			Value: field.Index,
+		})
+		if typeInfo, ok := field.TypeInfo.(*parser.TypeInfo_Struct); ok {
+			structDef = typeInfo.Definition()
+		}
+	}
+	fieldName := leftHandSide[len(leftHandSide)-1].String()
+	lastPropertyField = structDef.GetFieldByName(fieldName)
+	if lastPropertyField == nil {
+		panic(fmt.Sprintf("emitStatement: \"%s :: struct\" does not have property \"%s\". This should be caught in the typechecker.", structDef.Name, fieldName))
+	}
+	opcodes = append(opcodes, bytecode.Code{
+		Kind:  bytecode.ReplaceStructFieldVar,
+		Value: lastPropertyField.Index,
+	})
+	return opcodes, lastPropertyField.Index
 }
 
 func (emit *Emitter) emitExpression(opcodes []bytecode.Code, node *ast.Expression) []bytecode.Code {
@@ -190,7 +243,7 @@ func (emit *Emitter) emitExpression(opcodes []bytecode.Code, node *ast.Expressio
 			case *ast.Token:
 				switch t := node.Token; t.Kind {
 				case token.Identifier:
-					opcodes = append(opcodes, emit.getPushVariableCodeFromIdent(t.String()))
+					opcodes = emit.emitVariableIdent(opcodes, t)
 				case token.ConditionalEqual:
 					opcodes = append(opcodes, bytecode.Code{
 						Kind: bytecode.ConditionalEqual,
@@ -226,6 +279,8 @@ func (emit *Emitter) emitExpression(opcodes []bytecode.Code, node *ast.Expressio
 				default:
 					panic(fmt.Sprintf("emitExpression:Int:Token: Unhandled token kind \"%s\"", t.Kind.String()))
 				}
+			case *ast.TokenList:
+				opcodes, _ = emit.emitVariableIdentWithProperty(opcodes, node.Tokens())
 			default:
 				panic(fmt.Sprintf("emitExpression:Int: Unhandled type %T", node))
 			}
@@ -236,7 +291,7 @@ func (emit *Emitter) emitExpression(opcodes []bytecode.Code, node *ast.Expressio
 			case *ast.Token:
 				switch t := node.Token; t.Kind {
 				case token.Identifier:
-					opcodes = append(opcodes, emit.getPushVariableCodeFromIdent(t.String()))
+					opcodes = emit.emitVariableIdent(opcodes, t)
 				case token.Add:
 					opcodes = append(opcodes, bytecode.Code{
 						Kind: bytecode.AddString,
@@ -249,6 +304,8 @@ func (emit *Emitter) emitExpression(opcodes []bytecode.Code, node *ast.Expressio
 				default:
 					panic(fmt.Sprintf("emitExpression:String:Token: Unhandled token kind \"%s\"", t.Kind.String()))
 				}
+			case *ast.TokenList:
+				opcodes, _ = emit.emitVariableIdentWithProperty(opcodes, node.Tokens())
 			default:
 				panic(fmt.Sprintf("emitExpression:String: Unhandled type %T", node))
 			}
@@ -417,51 +474,23 @@ func (emit *Emitter) emitStatement(opcodes []bytecode.Code, node ast.Node) []byt
 	case *ast.ArrayAppendStatement:
 		//panic("todo(Jake): ArrayAppendStatement ")
 	case *ast.OpStatement:
-		leftHandSide := node.LeftHandSide
-		name := leftHandSide[0].String()
-		varInfo, ok := emit.scope.Get(name)
-		if !ok {
-			panic(fmt.Sprintf("Missing declaration for %s, this should be caught in the type checker.", name))
-		}
 		opcodes = append(opcodes, bytecode.Code{
 			Kind:  bytecode.Label,
 			Value: "OpStatement",
 		})
+		leftHandSide := node.LeftHandSide
 
-		opcodes = append(opcodes, bytecode.Code{
-			Kind:  bytecode.PushStackVar,
-			Value: varInfo.stackPos,
-		})
-
-		var lastPropertyField *ast.StructField
-		if len(leftHandSide) > 1 {
-			structDef := varInfo.structDef
-			for i := 1; i < len(leftHandSide)-1; i++ {
-				if structDef == nil {
-					panic("emitStatement: Non-struct cannot have properties. This should be caught in the typechecker.")
-				}
-				fieldName := leftHandSide[i].String()
-				field := structDef.GetFieldByName(fieldName)
-				if field == nil {
-					panic(fmt.Sprintf("emitStatement: \"%s :: struct\" does not have property \"%s\". This should be caught in the typechecker.", structDef.Name, fieldName))
-				}
-				opcodes = append(opcodes, bytecode.Code{
-					Kind:  bytecode.PushStructFieldVar,
-					Value: field.Index,
-				})
-				if typeInfo, ok := field.TypeInfo.(*parser.TypeInfo_Struct); ok {
-					structDef = typeInfo.Definition()
-				}
-			}
-			fieldName := leftHandSide[len(leftHandSide)-1].String()
-			lastPropertyField = structDef.GetFieldByName(fieldName)
-			if lastPropertyField == nil {
-				panic(fmt.Sprintf("emitStatement: \"%s :: struct\" does not have property \"%s\". This should be caught in the typechecker.", structDef.Name, fieldName))
-			}
-			opcodes = append(opcodes, bytecode.Code{
-				Kind:  bytecode.PushStructFieldVar,
-				Value: lastPropertyField.Index,
-			})
+		var storeOffset int
+		opcodes, storeOffset = emit.emitVariableIdentWithProperty(opcodes, leftHandSide)
+		lastCode := &opcodes[len(opcodes)-1]
+		if lastCode.Kind == bytecode.ReplaceStructFieldVar {
+			// NOTE(Jake): 2017-12-29
+			//
+			// Change final bytecode to be pushed
+			// so it can be stored using `StorePopStructField`
+			// below.
+			//
+			lastCode.Kind = bytecode.PushStructFieldVar
 		}
 
 		// NOTE(Jake): 2017-12-29
@@ -498,25 +527,15 @@ func (emit *Emitter) emitStatement(opcodes []bytecode.Code, node ast.Node) []byt
 		if len(leftHandSide) > 1 {
 			opcodes = append(opcodes, bytecode.Code{
 				Kind:  bytecode.StorePopStructField,
-				Value: lastPropertyField.Index,
+				Value: storeOffset,
 			})
-			popCount := len(leftHandSide) - 1
-			//if !isSettingVariable {
-			// NOTE(Jake): 2017-12-29
-			//
-			// We need to pop an additional value for ("+=", "-=")
-			// if the operator is ("="), this branch/if won't execute.
-			//
-			//popCount += 1
-			//}
 			opcodes = append(opcodes, bytecode.Code{
-				Kind:  bytecode.PopN,
-				Value: popCount,
+				Kind: bytecode.Pop,
 			})
 		} else {
 			opcodes = append(opcodes, bytecode.Code{
 				Kind:  bytecode.Store,
-				Value: varInfo.stackPos,
+				Value: storeOffset,
 			})
 			opcodes = append(opcodes, bytecode.Code{
 				Kind: bytecode.Pop,
