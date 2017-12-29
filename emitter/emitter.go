@@ -125,17 +125,14 @@ func (emit *Emitter) emitNewFromType(opcodes []bytecode.Code, typeInfo types.Typ
 		})
 	case *parser.TypeInfo_Array:
 		underlyingType := typeInfo.Underlying()
-		var code bytecode.Code
 		switch underlyingType.(type) {
 		case *parser.TypeInfo_String:
-			code.Kind = bytecode.PushArrayString
+			opcodes = append(opcodes, bytecode.Code{
+				Kind: bytecode.PushAllocArrayString,
+			})
 		default:
 			panic(fmt.Sprintf("emitNewFromType:Array: Unhandled type %T", underlyingType))
 		}
-		if code.Kind == bytecode.Unknown {
-			panic("Unhandled.")
-		}
-		opcodes = append(opcodes, code)
 	case *parser.TypeInfo_Struct:
 		structDef := typeInfo.Definition()
 		if structDef == nil {
@@ -431,12 +428,13 @@ func (emit *Emitter) emitStatement(opcodes []bytecode.Code, node ast.Node) []byt
 			Value: "OpStatement",
 		})
 
-		var field *ast.StructField
+		opcodes = append(opcodes, bytecode.Code{
+			Kind:  bytecode.PushStackVar,
+			Value: varInfo.stackPos,
+		})
+
+		var lastPropertyField *ast.StructField
 		if len(leftHandSide) > 1 {
-			opcodes = append(opcodes, bytecode.Code{
-				Kind:  bytecode.PushStackVar,
-				Value: varInfo.stackPos,
-			})
 			structDef := varInfo.structDef
 			for i := 1; i < len(leftHandSide)-1; i++ {
 				if structDef == nil {
@@ -456,22 +454,26 @@ func (emit *Emitter) emitStatement(opcodes []bytecode.Code, node ast.Node) []byt
 				}
 			}
 			fieldName := leftHandSide[len(leftHandSide)-1].String()
-			field = structDef.GetFieldByName(fieldName)
-			if field == nil {
+			lastPropertyField = structDef.GetFieldByName(fieldName)
+			if lastPropertyField == nil {
 				panic(fmt.Sprintf("emitStatement: \"%s :: struct\" does not have property \"%s\". This should be caught in the typechecker.", structDef.Name, fieldName))
 			}
+			opcodes = append(opcodes, bytecode.Code{
+				Kind:  bytecode.PushStructFieldVar,
+				Value: lastPropertyField.Index,
+			})
 		}
 
-		switch node.Operator.Kind {
-		case token.Equal:
-			// no-op
-		case token.AddEqual:
-			opcodes = append(opcodes, bytecode.Code{
-				Kind:  bytecode.PushStackVar,
-				Value: varInfo.stackPos,
-			})
-		default:
-			panic(fmt.Sprintf("emitStatement: Unhandled operator kind: %s", node.Operator.Kind.String()))
+		// NOTE(Jake): 2017-12-29
+		//
+		// If we're doing a simple set ("=") and not an
+		// add-equal/etc ("+="), then we can remove the
+		// last opcode as it's instruction pushes the variables
+		// current value to the register stack.
+		//
+		isSettingVariable := node.Operator.Kind == token.Equal
+		if isSettingVariable {
+			opcodes = opcodes[:len(opcodes)-1]
 		}
 
 		opcodes = emit.emitExpression(opcodes, &node.Expression)
@@ -492,12 +494,21 @@ func (emit *Emitter) emitStatement(opcodes []bytecode.Code, node ast.Node) []byt
 		default:
 			panic(fmt.Sprintf("emitStatement: Unhandled operator kind: %s", node.Operator.Kind.String()))
 		}
+
 		if len(leftHandSide) > 1 {
 			opcodes = append(opcodes, bytecode.Code{
 				Kind:  bytecode.StorePopStructField,
-				Value: field.Index,
+				Value: lastPropertyField.Index,
 			})
 			popCount := len(leftHandSide) - 1
+			//if !isSettingVariable {
+			// NOTE(Jake): 2017-12-29
+			//
+			// We need to pop an additional value for ("+=", "-=")
+			// if the operator is ("="), this branch/if won't execute.
+			//
+			//popCount += 1
+			//}
 			opcodes = append(opcodes, bytecode.Code{
 				Kind:  bytecode.PopN,
 				Value: popCount,

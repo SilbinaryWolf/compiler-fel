@@ -15,10 +15,10 @@ const (
 	StorePopStructField
 	StoreInternalStructField
 	Push
-	PushArrayString
-	PushArrayInt
-	PushArrayFloat
-	PushArrayStruct
+	PushAllocArrayString
+	PushAllocArrayInt
+	PushAllocArrayFloat
+	PushAllocArrayStruct
 	PushStackVar
 	PushStructFieldVar
 	PushAllocStruct
@@ -47,10 +47,10 @@ var kindToString = []string{
 	StorePopStructField:      "StorePopStructField",
 	StoreInternalStructField: "StoreInternalStructField",
 	Push:                    "Push",
-	PushArrayString:         "PushArrayString",
-	PushArrayInt:            "PushArrayInt",
-	PushArrayFloat:          "PushArrayFloat",
-	PushArrayStruct:         "PushArrayStruct",
+	PushAllocArrayString:    "PushAllocArrayString",
+	PushAllocArrayInt:       "PushAllocArrayInt",
+	PushAllocArrayFloat:     "PushAllocArrayFloat",
+	PushAllocArrayStruct:    "PushAllocArrayStruct",
 	PushStackVar:            "PushStackVar",
 	PushStructFieldVar:      "PushStructFieldVar",
 	PushAllocStruct:         "PushAllocStruct",

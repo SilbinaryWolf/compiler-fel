@@ -29,16 +29,16 @@ func ExecuteBytecode(codeBlock *bytecode.Block) {
 			// no-op
 		case bytecode.Push:
 			registerStack = append(registerStack, code.Value)
-		case bytecode.PushArrayString:
+		case bytecode.PushAllocArrayString:
 			value := make([]int, 0)
 			registerStack = append(registerStack, value)
-		case bytecode.PushArrayInt:
+		case bytecode.PushAllocArrayInt:
 			value := make([]int, 0)
 			registerStack = append(registerStack, value)
-		case bytecode.PushArrayFloat:
+		case bytecode.PushAllocArrayFloat:
 			value := make([]int, 0)
 			registerStack = append(registerStack, value)
-		case bytecode.PushArrayStruct:
+		case bytecode.PushAllocArrayStruct:
 			value := make([]bytecode.Struct, 0)
 			registerStack = append(registerStack, value)
 		case bytecode.PushStackVar:
@@ -59,6 +59,7 @@ func ExecuteBytecode(codeBlock *bytecode.Block) {
 			structData := reflect.Indirect(reflect.New(internalType)).Interface()
 			registerStack = append(registerStack, structData)
 		case bytecode.PushNewContextNode:
+			panic("PushNewContextNode: Not currently supported")
 			var node interface{}
 			switch code.Value.(bytecode.NodeContextType) {
 			case bytecode.NodeCSSDefinition:
