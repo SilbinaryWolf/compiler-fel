@@ -171,6 +171,12 @@ func (p *Parser) typecheckExpression(scope *Scope, expression *ast.Expression) {
 				p.addErrorToken(fmt.Errorf("Cannot mix array literal %s with %s", expectedTypeInfo.String(), resultTypeInfo.String()), node.TypeIdentifier.Name)
 			}
 			continue
+		case *ast.Call:
+			parameters := node.Parameters
+			for _, parameter := range parameters {
+				p.typecheckExpression(scope, parameter)
+			}
+			continue
 		case *ast.HTMLBlock:
 			panic("typecheckExpression: todo(Jake): Fix HTMLBlock")
 			/*variableType := data.KindHTMLNode
@@ -484,6 +490,14 @@ func (p *Parser) typecheckStatements(topNode ast.Node, scope *Scope) {
 			if !TypeEquals(variableTypeInfo, resultTypeInfo) {
 				nameToken := node.LeftHandSide[0]
 				name := nameToken.String()
+				if variableTypeInfo == nil {
+					p.fatalErrorToken(fmt.Errorf("\"variableTypeInfo\" is nil, this should have a value."), nameToken)
+					continue
+				}
+				if resultTypeInfo == nil {
+					p.fatalErrorToken(fmt.Errorf("\"resultTypeInfo\" is nil, this should have a value."), nameToken)
+					continue
+				}
 				p.addErrorToken(fmt.Errorf("Cannot change \"%s\" from %s to %s", name, variableTypeInfo, resultTypeInfo.String()), nameToken)
 				p.addErrorToken(fmt.Errorf("Cannot change \"%s\" from %s to %s", name, variableTypeInfo, resultTypeInfo.String()), nameToken)
 			}

@@ -455,10 +455,52 @@ Loop:
 				}
 				expectOperator = true
 				infixNodes = append(infixNodes, ast.NewTokenList(tokens))
-				continue Loop
 			case token.ParenOpen:
-				p.fatalError(fmt.Errorf("todo: Handle component/function in expression"))
-				return nil
+				p.GetNextToken()
+
+				// NOTE(Jake): 2017-12-29
+				//
+				// This should ideally be factored out into a seperate
+				// parsing function and be combined with the `div(prop=blah)`
+				//
+				// You would get an `ast.Call` if there were no property names
+				// provided, or you'd get a HTMLNode if property names are
+				// provided.
+				//
+				node := new(ast.Call)
+				node.Name = name
+
+				if t := p.PeekNextToken(); t.Kind == token.ParenClose {
+					p.GetNextToken()
+					panic("todo: Parsing a function with no parameters")
+				}
+
+				parameters := make([]*ast.Expression, 0, 10)
+			CallLoop:
+				for {
+					expr := p.parseExpression(false)
+					parameters = append(parameters, expr)
+					t := p.PeekNextToken()
+					switch t.Kind {
+					case token.Comma:
+						p.GetNextToken()
+						//p.eatNewlines()
+						if t := p.PeekNextToken(); t.Kind == token.ParenClose {
+							p.GetNextToken()
+							break CallLoop
+						}
+					case token.ParenClose:
+						p.GetNextToken()
+						break CallLoop
+					default:
+						p.addErrorToken(p.expect(t, token.Comma, token.ParenClose), t)
+						break CallLoop
+					}
+				}
+
+				node.Parameters = parameters
+				expectOperator = true
+				infixNodes = append(infixNodes, node)
 			case token.BraceOpen:
 				if disableStructLiteral {
 					// Dont parse struct literal and use identifier as-is
@@ -530,10 +572,10 @@ Loop:
 					Name:   name,
 					Fields: fields,
 				})
-				continue Loop
+			default:
+				expectOperator = true
+				infixNodes = append(infixNodes, &ast.Token{Token: t})
 			}
-			expectOperator = true
-			infixNodes = append(infixNodes, &ast.Token{Token: t})
 		case token.KeywordTrue, token.KeywordFalse:
 			p.GetNextToken()
 			if expectOperator {
@@ -575,6 +617,7 @@ Loop:
 			parenOpenCount++
 		case token.ParenClose:
 			// If hit end of parameter list
+			// ie. `div(prop=param1, prop2=param2)` or `functionCall(param1, param2)`
 			if parenCloseCount == 0 && parenOpenCount == 0 {
 				break Loop
 			}

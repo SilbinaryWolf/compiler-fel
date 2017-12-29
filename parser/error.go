@@ -121,7 +121,7 @@ func (p *Parser) addErrorToken(message error, token token.Token) {
 }
 
 func (p *Parser) fatalError(message error) {
-	//p.addError(message)
+	fmt.Printf("%s\n", message)
 	p.PrintErrors()
 	panic(FatalErrorMessage)
 }

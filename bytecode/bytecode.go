@@ -14,6 +14,7 @@ const (
 	Store
 	StorePopStructField
 	StoreInternalStructField
+	StoreAppendToArray
 	Push
 	PushAllocArrayString
 	PushAllocArrayInt

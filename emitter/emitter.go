@@ -472,7 +472,40 @@ func (emit *Emitter) emitStatement(opcodes []bytecode.Code, node ast.Node) []byt
 			emit.stackPos++
 		}
 	case *ast.ArrayAppendStatement:
-		//panic("todo(Jake): ArrayAppendStatement ")
+		leftHandSide := node.LeftHandSide
+		var storeOffset int
+		opcodes, storeOffset = emit.emitVariableIdentWithProperty(opcodes, leftHandSide)
+		lastCode := &opcodes[len(opcodes)-1]
+		if lastCode.Kind == bytecode.ReplaceStructFieldVar {
+			// NOTE(Jake): 2017-12-29
+			//
+			// Change final bytecode to be pushed
+			// so it can be stored using `StorePopStructField`
+			// below.
+			//
+			lastCode.Kind = bytecode.PushStructFieldVar
+		}
+		opcodes = emit.emitExpression(opcodes, &node.Expression)
+		if len(leftHandSide) > 1 {
+			opcodes = append(opcodes, bytecode.Code{
+				Kind:  bytecode.StorePopStructField,
+				Value: storeOffset,
+			})
+			opcodes = append(opcodes, bytecode.Code{
+				Kind: bytecode.Pop,
+			})
+			break
+		}
+		opcodes = append(opcodes, bytecode.Code{
+			Kind:  bytecode.Store,
+			Value: storeOffset,
+		})
+		opcodes = append(opcodes, bytecode.Code{
+			Kind: bytecode.Pop,
+		})
+		debugOpcodes(opcodes)
+
+		panic("todo(Jake): ArrayAppendStatement")
 	case *ast.OpStatement:
 		opcodes = append(opcodes, bytecode.Code{
 			Kind:  bytecode.Label,
@@ -532,15 +565,15 @@ func (emit *Emitter) emitStatement(opcodes []bytecode.Code, node ast.Node) []byt
 			opcodes = append(opcodes, bytecode.Code{
 				Kind: bytecode.Pop,
 			})
-		} else {
-			opcodes = append(opcodes, bytecode.Code{
-				Kind:  bytecode.Store,
-				Value: storeOffset,
-			})
-			opcodes = append(opcodes, bytecode.Code{
-				Kind: bytecode.Pop,
-			})
+			break
 		}
+		opcodes = append(opcodes, bytecode.Code{
+			Kind:  bytecode.Store,
+			Value: storeOffset,
+		})
+		opcodes = append(opcodes, bytecode.Code{
+			Kind: bytecode.Pop,
+		})
 	case *ast.If:
 		originalOpcodesLength := len(opcodes)
 

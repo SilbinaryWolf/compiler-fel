@@ -32,6 +32,15 @@ type File struct {
 	Base
 }
 
+type Call struct {
+	Name       token.Token
+	Parameters []*Expression
+}
+
+func (node *Call) Nodes() []Node {
+	return nil
+}
+
 /*type Block struct {
 	Base
 }*/
