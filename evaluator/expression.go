@@ -22,7 +22,7 @@ func (program *Program) evaluateExpression(expressionNode *ast.Expression, scope
 		panic(fmt.Sprintf("evaluateExpression: Expression node has not been type-checked. Type Token: %v\nExpression Node Data:\n%v", expressionNode.TypeIdentifier, expressionNode))
 	}
 
-	typeInfo := expressionNode.TypeInfo
+	//typeInfo := expressionNode.TypeInfo
 	//isStringExpr := types.Equals(typeInfo, types.String())
 
 	// todo(Jake): Rewrite string concat to use `var stringBuffer bytes.Buffer` and see if
@@ -56,16 +56,17 @@ func (program *Program) evaluateExpression(expressionNode *ast.Expression, scope
 				var value data.Type
 				if hasField {
 					value = program.evaluateExpression(exprNode, scope)
-
 				} else {
-					value = typeinfo.Create()
+					panic("NOTE(Jake): Deprecated evaluator, Create()")
 				}
 				resultValue.Fields = append(resultValue.Fields, value)
 			}
 			stack = append(stack, resultValue)
 			//panic(fmt.Sprintf("Debug struct literal data: %T, %s", typeinfo, resultValue))
 		case *ast.ArrayLiteral:
-			resultValue := data.NewArray(typeInfo.Create())
+			panic("NOTE(Jake): Deprecated evaluator, Create()")
+			/*resultValue := data.NewArray()
+			//resultValue := data.NewArray(typeInfo.Create())
 			for _, itNode := range node.ChildNodes {
 				switch node := itNode.(type) {
 				case *ast.Expression:
@@ -75,7 +76,7 @@ func (program *Program) evaluateExpression(expressionNode *ast.Expression, scope
 				}
 				panic(fmt.Sprintf("evaluateExpression:arrayLiteral: Unhandled type %T", itNode))
 			}
-			stack = append(stack, resultValue)
+			stack = append(stack, resultValue)*/
 		case *ast.HTMLBlock:
 			value := program.evaluateHTMLBlock(node, scope)
 			stack = append(stack, value)

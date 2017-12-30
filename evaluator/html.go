@@ -144,7 +144,8 @@ func (program *Program) evaluteHTMLComponent(topNode *ast.HTMLNode, scope *Scope
 			name := decl.Name.String()
 			defaultValueExpr := &decl.Expression
 			if len(defaultValueExpr.ChildNodes) == 0 {
-				componentScope.DeclareSet(name, decl.TypeInfo.Create())
+				panic("NOTE(Jake): Deprecated, Create()")
+				//componentScope.DeclareSet(name, decl.TypeInfo.Create())
 			} else {
 				componentScope.DeclareSet(name, program.evaluateExpression(defaultValueExpr, nil))
 			}

@@ -195,12 +195,21 @@ func (p *Parser) typecheckExpression(scope *Scope, expression *ast.Expression) {
 				parameter := parameters[i]
 				p.typecheckExpression(scope, &parameter.Expression)
 			}
-			expectedTypeInfo := p.typeinfo.get(node.Name.String())
+			typeInfo := p.typeinfo.get(node.Name.String())
+			expectedTypeInfo, ok := typeInfo.(*TypeInfo_Procedure)
+			if !ok {
+				p.addErrorToken(fmt.Errorf("Expected %s to be a procedure.", node.Name.String()), node.Name)
+			}
+			panic("todo: Use result type info from the definition, might need to add it to TypeInfo_Procedure struct")
 			if resultTypeInfo == nil {
 				resultTypeInfo = expectedTypeInfo
 			}
 			if !TypeEquals(resultTypeInfo, expectedTypeInfo) {
 				p.addErrorToken(fmt.Errorf("Cannot mix call type %s with %s", expectedTypeInfo.String(), resultTypeInfo.String()), node.Name)
+			}
+			definitionParameters := expectedTypeInfo.Definition().Parameters
+			if len(definitionParameters) != len(parameters) {
+				p.addErrorToken(fmt.Errorf("Has %d parameters. %d are expected.", len(parameters), len(definitionParameters)), node.Name)
 			}
 			continue
 		case *ast.HTMLBlock:
@@ -711,7 +720,8 @@ func (p *Parser) typecheckProcedureDefinition(node *ast.ProcedureDefinition, sco
 		}
 	}
 
-	p.typeinfo.register(node.Name.String(), returnType)
+	functionType := p.typeinfo.NewProcedureInfo(node)
+	p.typeinfo.register(node.Name.String(), functionType)
 }
 
 func (p *Parser) TypecheckFile(file *ast.File, globalScope *Scope) {

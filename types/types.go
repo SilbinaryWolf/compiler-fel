@@ -1,10 +1,6 @@
 package types
 
-import (
-	//"fmt"
-
-	"github.com/silbinarywolf/compiler-fel/data"
-)
+//"fmt"
 
 //
 // todo(Jake): Refactor / move this code to the parser.
@@ -15,7 +11,6 @@ import (
 
 type TypeInfo interface {
 	String() string
-	Create() data.Type // NOTE(Jake): 2017-12-25 Deprecated when we remove evaluation on the AST.
 }
 
 // Float
@@ -33,8 +28,6 @@ func Float() TypeInfo { return typeFloat }*/
 type Bool_ struct{}
 
 func (info *Bool_) String() string { return "bool" }
-
-func (info *Bool_) Create() data.Type { return new(data.Bool) }
 
 var typeBool = new(Bool_)
 
@@ -55,8 +48,6 @@ func String() TypeInfo { return typeString }*/
 type HTMLNode_ struct{}
 
 func (info *HTMLNode_) String() string { return "html node" }
-
-func (info *HTMLNode_) Create() data.Type { return new(data.HTMLNode) }
 
 var typeHTMLNode_ = new(HTMLNode_)
 

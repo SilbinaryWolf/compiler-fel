@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/silbinarywolf/compiler-fel/ast"
-	"github.com/silbinarywolf/compiler-fel/data"
 	"github.com/silbinarywolf/compiler-fel/types"
 )
 
@@ -49,14 +48,12 @@ func (manager *TypeInfoManager) get(name string) TypeInfo {
 
 type TypeInfo interface {
 	String() string
-	Create() data.Type
 }
 
 // Int
 type TypeInfo_Int struct{}
 
-func (info *TypeInfo_Int) String() string    { return "int" }
-func (info *TypeInfo_Int) Create() data.Type { return new(data.Integer64) }
+func (info *TypeInfo_Int) String() string { return "int" }
 
 func (manager *TypeInfoManager) NewTypeInfoInt() *TypeInfo_Int {
 	return &manager.intInfo
@@ -65,8 +62,7 @@ func (manager *TypeInfoManager) NewTypeInfoInt() *TypeInfo_Int {
 // Float
 type TypeInfo_Float struct{}
 
-func (info *TypeInfo_Float) String() string    { return "float" }
-func (info *TypeInfo_Float) Create() data.Type { return new(data.Float64) }
+func (info *TypeInfo_Float) String() string { return "float" }
 
 func (manager *TypeInfoManager) NewTypeInfoFloat() *TypeInfo_Float {
 	return &manager.floatInfo
@@ -75,8 +71,7 @@ func (manager *TypeInfoManager) NewTypeInfoFloat() *TypeInfo_Float {
 // String
 type TypeInfo_String struct{}
 
-func (info *TypeInfo_String) String() string    { return "string" }
-func (info *TypeInfo_String) Create() data.Type { return new(data.String) }
+func (info *TypeInfo_String) String() string { return "string" }
 
 func (manager *TypeInfoManager) NewTypeInfoString() *TypeInfo_String {
 	return &manager.stringInfo
@@ -89,11 +84,26 @@ type TypeInfo_Array struct {
 
 func (info *TypeInfo_Array) String() string       { return "[]" + info.underlying.String() }
 func (info *TypeInfo_Array) Underlying() TypeInfo { return info.underlying }
-func (info *TypeInfo_Array) Create() data.Type    { return data.NewArray(info.underlying.Create()) }
 
 func (manager *TypeInfoManager) NewTypeInfoArray(underlying TypeInfo) TypeInfo {
 	result := new(TypeInfo_Array)
 	result.underlying = underlying
+	return result
+}
+
+// Procedure
+type TypeInfo_Procedure struct {
+	name       string
+	definition *ast.ProcedureDefinition
+}
+
+func (info *TypeInfo_Procedure) String() string                       { return "procedure " + info.name + "()" }
+func (info *TypeInfo_Procedure) Definition() *ast.ProcedureDefinition { return info.definition }
+
+func (manager *TypeInfoManager) NewProcedureInfo(definiton *ast.ProcedureDefinition) TypeInfo {
+	result := new(TypeInfo_Procedure)
+	result.name = definiton.Name.String()
+	result.definition = definiton
 	return result
 }
 
@@ -103,10 +113,7 @@ type TypeInfo_Struct struct {
 	definition *ast.StructDefinition
 }
 
-func (info *TypeInfo_Struct) String() string { return "struct " + info.name }
-func (info *TypeInfo_Struct) Create() data.Type {
-	panic("Handled by `evaluator`")
-}
+func (info *TypeInfo_Struct) String() string                    { return "struct " + info.name }
 func (info *TypeInfo_Struct) Definition() *ast.StructDefinition { return info.definition }
 
 func (manager *TypeInfoManager) NewStructInfo(definiton *ast.StructDefinition) TypeInfo {
