@@ -123,7 +123,7 @@ func (p *Parser) DetermineType(node *ast.Type) types.TypeInfo {
 	str := node.Name.String()
 	resultType = p.typeinfo.get(str)
 	if resultType == nil {
-		p.addErrorToken(fmt.Errorf("Undeclared type \"%s\".", str), node.Name)
+		return nil
 	}
 	if node.ArrayDepth > 0 {
 		for i := 0; i < node.ArrayDepth; i++ {

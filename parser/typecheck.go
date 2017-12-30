@@ -11,6 +11,24 @@ import (
 	"github.com/silbinarywolf/compiler-fel/util"
 )
 
+/*type Checker struct {
+	*Parser
+	scope *Scope
+}
+
+func (checker *Checker) PushScope() {
+	scope := NewScope(checker.scope)
+	checker.scope = scope
+}
+
+func (checker *Checker) PopScope() {
+	parentScope := checker.scope.parent
+	if parentScope == nil {
+		panic("Cannot pop last scope item.")
+	}
+	checker.scope = parentScope
+}*/
+
 // func getDataTypeFromTokaen(t token.Token) data.Kind {
 // 	switch t.Kind {
 // 	case token.Identifier:
@@ -173,8 +191,16 @@ func (p *Parser) typecheckExpression(scope *Scope, expression *ast.Expression) {
 			continue
 		case *ast.Call:
 			parameters := node.Parameters
-			for _, parameter := range parameters {
-				p.typecheckExpression(scope, parameter)
+			for i := 0; i < len(parameters); i++ {
+				parameter := parameters[i]
+				p.typecheckExpression(scope, &parameter.Expression)
+			}
+			expectedTypeInfo := p.typeinfo.get(node.Name.String())
+			if resultTypeInfo == nil {
+				resultTypeInfo = expectedTypeInfo
+			}
+			if !TypeEquals(resultTypeInfo, expectedTypeInfo) {
+				p.addErrorToken(fmt.Errorf("Cannot mix call type %s with %s", expectedTypeInfo.String(), resultTypeInfo.String()), node.Name)
 			}
 			continue
 		case *ast.HTMLBlock:
@@ -392,7 +418,8 @@ func (p *Parser) typecheckStatements(topNode ast.Node, scope *Scope) {
 		case *ast.CSSDefinition,
 			*ast.CSSConfigDefinition,
 			*ast.HTMLComponentDefinition,
-			*ast.StructDefinition:
+			*ast.StructDefinition,
+			*ast.ProcedureDefinition:
 			// Skip nodes and child nodes
 			continue
 		case *ast.HTMLBlock:
@@ -459,6 +486,9 @@ func (p *Parser) typecheckStatements(topNode ast.Node, scope *Scope) {
 					continue
 				}
 			}
+		case *ast.Return:
+			p.typecheckExpression(scope, &node.Expression)
+			continue
 		case *ast.ArrayAppendStatement:
 			nameToken := node.LeftHandSide[0]
 			name := nameToken.String()
@@ -621,6 +651,69 @@ func (p *Parser) typecheckStruct(node *ast.StructDefinition, scope *Scope) {
 	}
 }
 
+func (p *Parser) typecheckProcedureDefinition(node *ast.ProcedureDefinition, scope *Scope) {
+	errorCount := 0
+	for i := 0; i < len(node.Parameters); i++ {
+		parameter := &node.Parameters[i]
+		typeinfo := p.DetermineType(&parameter.TypeIdentifier)
+		if typeinfo == nil {
+			p.addErrorToken(fmt.Errorf("Unknown type %s on parameter %s", parameter.TypeIdentifier.String(), parameter.Name), parameter.TypeIdentifier.Name)
+			continue
+		}
+		parameter.TypeInfo = typeinfo
+		scope.Set(parameter.Name.String(), typeinfo)
+	}
+	if errorCount > 0 {
+		return
+	}
+	p.typecheckStatements(node, scope)
+
+	var returnType types.TypeInfo
+	if node.TypeIdentifier.Name.Kind != token.Unknown {
+		returnType = p.DetermineType(&node.TypeIdentifier)
+	}
+	// Check return statements
+	// NOTE(Jake): 2017-12-30
+	//
+	// The code below is probably super slow compared
+	// to if we just added a flag to `typecheckStatements`
+	//
+	nodes := node.ChildNodes
+	nodeStack := make([]ast.Node, 0, len(nodes))
+	for i := len(nodes) - 1; i >= 0; i-- {
+		nodeStack = append(nodeStack, nodes[i])
+	}
+	for len(nodeStack) > 0 {
+		node := nodeStack[len(nodeStack)-1]
+		nodeStack = nodeStack[:len(nodeStack)-1]
+
+		returnNode, ok := node.(*ast.Return)
+		if ok {
+			if TypeEquals(returnType, returnNode.TypeInfo) {
+				continue
+			}
+			t := returnNode.TypeIdentifier.Name
+			if returnType == nil {
+				p.addErrorToken(fmt.Errorf("Return statement %s doesn't match procedure type void", returnNode.TypeInfo.String()), t)
+				continue
+			}
+			if returnNode.TypeInfo == nil {
+				p.addErrorToken(fmt.Errorf("Return statement void doesn't match procedure type %s", returnType.String()), t)
+				continue
+			}
+			p.addErrorToken(fmt.Errorf("Return statement %s doesn't match procedure type %s", returnNode.TypeInfo.String(), returnType.String()), t)
+			continue
+		}
+
+		nodes := node.Nodes()
+		for i := len(nodes) - 1; i >= 0; i-- {
+			nodeStack = append(nodeStack, nodes[i])
+		}
+	}
+
+	p.typeinfo.register(node.Name.String(), returnType)
+}
+
 func (p *Parser) TypecheckFile(file *ast.File, globalScope *Scope) {
 	scope := NewScope(globalScope)
 	p.typecheckStatements(file, scope)
@@ -644,13 +737,12 @@ func (p *Parser) TypecheckAndFinalize(files []*ast.File) {
 				*ast.Block,
 				*ast.HTMLBlock:
 				// no-op, these are checked in TypecheckFile()
-			case *ast.FunctionDefinition:
+			case *ast.ProcedureDefinition:
 				if node == nil {
 					p.fatalError(fmt.Errorf("Found nil top-level %T.", node))
 					continue
 				}
-
-				panic("todo: FunctionDefinition")
+				p.typecheckProcedureDefinition(node, NewScope(scope))
 			case *ast.StructDefinition:
 				if node == nil {
 					p.fatalError(fmt.Errorf("Found nil top-level %T.", node))

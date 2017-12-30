@@ -214,7 +214,7 @@ func (program *Program) RunProject(projectDirpath string) error {
 				fmt.Printf("%s\nJSON AST\n---------------\n", string(json))
 
 				codeBlock := info.EmitBytecode(astFile)
-				vm.ExecuteBytecode(codeBlock)
+				vm.ExecuteNewProgram(codeBlock)
 			}
 		}
 		panic("Finished emitBytecode in Evaluator")

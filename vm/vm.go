@@ -5,20 +5,29 @@ import (
 	"reflect"
 
 	"github.com/silbinarywolf/compiler-fel/bytecode"
-	"github.com/silbinarywolf/compiler-fel/data"
 )
 
 type Program struct {
 	stack            []interface{}
+	registerStack    []interface{}
 	nodeStackContext []interface{} // stack of node contexts for tracking CSS rules / current HTML node.
 }
 
-func ExecuteBytecode(codeBlock *bytecode.Block) {
+func (program *Program) PopRegisterStack() interface{} {
+	result := program.registerStack[len(program.registerStack)-1]
+	program.registerStack = program.registerStack[:len(program.registerStack)-1]
+	return result
+}
+
+func ExecuteNewProgram(codeBlock *bytecode.Block) {
 	program := new(Program)
 	program.stack = make([]interface{}, codeBlock.StackSize)
+	program.registerStack = make([]interface{}, 0, 4)
 
-	registerStack := make([]interface{}, 0, 4)
+	program.executeBytecode(codeBlock)
+}
 
+func (program *Program) executeBytecode(codeBlock *bytecode.Block) {
 	opcodes := codeBlock.Opcodes
 	offset := 0
 	for offset < len(opcodes) {
@@ -28,90 +37,90 @@ func ExecuteBytecode(codeBlock *bytecode.Block) {
 		case bytecode.Label:
 			// no-op
 		case bytecode.Push:
-			registerStack = append(registerStack, code.Value)
+			program.registerStack = append(program.registerStack, code.Value)
 		case bytecode.PushAllocArrayString:
 			value := make([]int, 0)
-			registerStack = append(registerStack, value)
+			program.registerStack = append(program.registerStack, value)
 		case bytecode.PushAllocArrayInt:
 			value := make([]int, 0)
-			registerStack = append(registerStack, value)
+			program.registerStack = append(program.registerStack, value)
 		case bytecode.PushAllocArrayFloat:
 			value := make([]int, 0)
-			registerStack = append(registerStack, value)
+			program.registerStack = append(program.registerStack, value)
 		case bytecode.PushAllocArrayStruct:
 			value := make([]bytecode.Struct, 0)
-			registerStack = append(registerStack, value)
+			program.registerStack = append(program.registerStack, value)
 		case bytecode.PushStackVar:
 			stackOffset := code.Value.(int)
-			registerStack = append(registerStack, program.stack[stackOffset])
+			program.registerStack = append(program.registerStack, program.stack[stackOffset])
 		case bytecode.PushStructFieldVar:
 			fieldOffset := code.Value.(int)
-			value := registerStack[len(registerStack)-1]
+			value := program.registerStack[len(program.registerStack)-1]
 			structData := value.(*bytecode.Struct)
 			fieldData := structData.GetField(fieldOffset)
-			registerStack = append(registerStack, fieldData)
+			program.registerStack = append(program.registerStack, fieldData)
 		case bytecode.ReplaceStructFieldVar:
 			fieldOffset := code.Value.(int)
-			value := registerStack[len(registerStack)-1]
+			value := program.registerStack[len(program.registerStack)-1]
 			structData := value.(*bytecode.Struct)
 			fieldData := structData.GetField(fieldOffset)
-			registerStack[len(registerStack)-1] = fieldData
+			program.registerStack[len(program.registerStack)-1] = fieldData
 		case bytecode.PushAllocStruct:
 			structFieldCount := code.Value.(int)
 			structData := bytecode.NewStruct(structFieldCount)
-			registerStack = append(registerStack, structData)
+			program.registerStack = append(program.registerStack, structData)
 		case bytecode.PushAllocInternalStruct:
 			internalType := code.Value.(reflect.Type)
 			structData := reflect.Indirect(reflect.New(internalType)).Interface()
-			registerStack = append(registerStack, structData)
+			program.registerStack = append(program.registerStack, structData)
 		case bytecode.PushNewContextNode:
 			panic("PushNewContextNode: Not currently supported")
-			var node interface{}
+			/*var node interface{}
 			switch code.Value.(bytecode.NodeContextType) {
 			case bytecode.NodeCSSDefinition:
 				node = new(data.CSSDefinition)
 			default:
 				panic("Unhandled NodeContextType")
 			}
-			program.nodeStackContext = append(program.nodeStackContext, node)
+			program.nodeStackContext = append(program.nodeStackContext, node)*/
 		case bytecode.ConditionalEqual:
-			valueA := registerStack[len(registerStack)-2].(int64)
-			valueB := registerStack[len(registerStack)-1].(int64)
-			registerStack = registerStack[:len(registerStack)-2]
-			registerStack = append(registerStack, valueA == valueB)
+			valueA := program.registerStack[len(program.registerStack)-2].(int64)
+			valueB := program.registerStack[len(program.registerStack)-1].(int64)
+			program.registerStack = program.registerStack[:len(program.registerStack)-2]
+			program.registerStack = append(program.registerStack, valueA == valueB)
 		case bytecode.JumpIfFalse:
-			boolValue := registerStack[len(registerStack)-1].(bool)
-			registerStack = registerStack[:len(registerStack)-1]
+			boolValue := program.registerStack[len(program.registerStack)-1].(bool)
+			program.registerStack = program.registerStack[:len(program.registerStack)-1]
 			if !boolValue {
 				offset = code.Value.(int)
 				continue
 			}
 		case bytecode.Add:
-			valueA := registerStack[len(registerStack)-2].(int64)
-			valueB := registerStack[len(registerStack)-1].(int64)
-			registerStack = registerStack[:len(registerStack)-2]
-			registerStack = append(registerStack, valueA+valueB)
+			valueA := program.registerStack[len(program.registerStack)-2].(int64)
+			valueB := program.registerStack[len(program.registerStack)-1].(int64)
+			program.registerStack = program.registerStack[:len(program.registerStack)-2]
+			program.registerStack = append(program.registerStack, valueA+valueB)
 		case bytecode.AddString:
-			valueA := registerStack[len(registerStack)-2].(string)
-			valueB := registerStack[len(registerStack)-1].(string)
-			registerStack = registerStack[:len(registerStack)-2]
-			registerStack = append(registerStack, valueA+valueB)
+			valueA := program.registerStack[len(program.registerStack)-2].(string)
+			valueB := program.registerStack[len(program.registerStack)-1].(string)
+			program.registerStack = program.registerStack[:len(program.registerStack)-2]
+			program.registerStack = append(program.registerStack, valueA+valueB)
 		case bytecode.Pop:
-			registerStack = registerStack[:len(registerStack)-1]
+			program.registerStack = program.registerStack[:len(program.registerStack)-1]
 		case bytecode.PopN:
 			popAmount := code.Value.(int)
-			registerStack = registerStack[:len(registerStack)-popAmount]
+			program.registerStack = program.registerStack[:len(program.registerStack)-popAmount]
 		case bytecode.Store:
-			value := registerStack[len(registerStack)-1]
+			value := program.registerStack[len(program.registerStack)-1]
 
 			stackOffset := code.Value.(int)
 			program.stack[stackOffset] = value
 		case bytecode.StorePopStructField:
-			fieldData := registerStack[len(registerStack)-1]
-			structData := registerStack[len(registerStack)-2].(*bytecode.Struct)
+			fieldData := program.registerStack[len(program.registerStack)-1]
+			structData := program.registerStack[len(program.registerStack)-2].(*bytecode.Struct)
 
 			// NOTE(Jake): Only pop `fieldData`
-			registerStack = registerStack[:len(registerStack)-1]
+			program.registerStack = program.registerStack[:len(program.registerStack)-1]
 
 			fieldOffset := code.Value.(int)
 			structData.SetField(fieldOffset, fieldData)
@@ -128,15 +137,24 @@ func ExecuteBytecode(codeBlock *bytecode.Block) {
 			structField := reflect.ValueOf(structData).FieldByIndex(fieldOffset)
 			structField.Set(reflect.ValueOf(fieldData))
 			panic("todo(Jake): Add reflect.GetField or whatever here")*/
+		case bytecode.Call:
+			block := code.Value.(*bytecode.Block)
+			program.executeBytecode(block)
+
+			//debugPrintStack("VM Stack Values", program.stack)
+			//debugPrintStack("VM Register Stack", program.registerStack)
+			//panic("bytecode.Call debug")
+		case bytecode.Return:
+			return
 		default:
 			panic(fmt.Sprintf("executeBytecode: Unhandled kind in vm: \"%s\"", code.Kind.String()))
 		}
 		offset++
 	}
 
-	if len(registerStack) > 0 {
+	if len(program.registerStack) > 0 {
 		debugPrintStack("VM Stack Values", program.stack)
-		debugPrintStack("VM Register Stack", registerStack)
+		debugPrintStack("VM Register Stack", program.registerStack)
 		panic("Register Stack should be empty.")
 	}
 

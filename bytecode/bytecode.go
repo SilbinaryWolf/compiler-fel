@@ -31,14 +31,16 @@ const (
 	AddString
 	Jump
 	JumpIfFalse
+	Call
+	Return
 )
 
-type NodeContextType int
+/*type NodeContextType int
 
 const (
 	NodeUnknown NodeContextType = 0 + iota
 	NodeCSSDefinition
-)
+)*/
 
 var kindToString = []string{
 	Unknown:                  "unknown/unset bytecode",
@@ -64,7 +66,16 @@ var kindToString = []string{
 	AddString:               "AddString",
 	Jump:                    "Jump",
 	JumpIfFalse:             "JumpIfFalse",
+	Call:                    "Call",
+	Return:                  "Return",
 }
+
+type BlockKind int
+
+const (
+	BlockUnknown BlockKind = 0 + iota
+	BlockProcedure
+)
 
 type Code struct {
 	Kind  Kind
@@ -73,8 +84,15 @@ type Code struct {
 
 // ie. a function, block-scope, HTMLComponent
 type Block struct {
+	Kind      BlockKind
 	Opcodes   []Code
 	StackSize int
+}
+
+func NewBlock(kind BlockKind) *Block {
+	block := new(Block)
+	block.Kind = kind
+	return block
 }
 
 type StructInterface interface {

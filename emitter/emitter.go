@@ -24,7 +24,7 @@ type Scope struct {
 }
 
 type Emitter struct {
-	//symbols []bytecode.Block
+	symbols  map[string]*bytecode.Block
 	scope    *Scope
 	stackPos int
 }
@@ -71,6 +71,7 @@ func (scope *Scope) Get(name string) (VariableInfo, bool) {
 
 func New() *Emitter {
 	emit := new(Emitter)
+	emit.symbols = make(map[string]*bytecode.Block)
 	emit.PushScope()
 	return emit
 }
@@ -97,6 +98,15 @@ func debugOpcodes(opcodes []bytecode.Code) {
 		fmt.Printf("%d - %s\n", i, code.String())
 	}
 	fmt.Printf("-----------\n")
+}
+
+func (emit *Emitter) registerProcedure(name string, block *bytecode.Block) bool {
+	_, ok := emit.symbols[name]
+	if ok {
+		return false
+	}
+	emit.symbols[name] = block
+	return true
 }
 
 //
@@ -306,6 +316,21 @@ func (emit *Emitter) emitExpression(opcodes []bytecode.Code, node *ast.Expressio
 				}
 			case *ast.TokenList:
 				opcodes, _ = emit.emitVariableIdentWithProperty(opcodes, node.Tokens())
+			case *ast.Call:
+				name := node.Name.String()
+				block, ok := emit.symbols[name]
+				if !ok {
+					panic(fmt.Sprintf("Missing procedure %s, this should be caught in the typechecker", name))
+				}
+				for i := 0; i < len(node.Parameters); i++ {
+					expr := node.Parameters[i]
+					opcodes = emit.emitExpression(opcodes, &expr.Expression)
+					//opcodes = emit.emitNewFromType(opcodes, parameter.TypeInfo)
+				}
+				opcodes = append(opcodes, bytecode.Code{
+					Kind:  bytecode.Call,
+					Value: block,
+				})
 			default:
 				panic(fmt.Sprintf("emitExpression:String: Unhandled type %T", node))
 			}
@@ -390,6 +415,51 @@ func (emit *Emitter) emitLeftHandSide(opcodes []bytecode.Code, leftHandSide []as
 	return opcodes
 }
 
+func emitProcedureDefinition(node *ast.ProcedureDefinition) *bytecode.Block {
+	emit := New()
+	opcodes := make([]bytecode.Code, 0, 35)
+	opcodes = append(opcodes, bytecode.Code{
+		Kind:  bytecode.Label,
+		Value: "procedure:" + node.Name.String(),
+	})
+
+	for i := len(node.Parameters) - 1; i >= 0; i-- {
+		parameter := &node.Parameters[i]
+		opcodes = append(opcodes, bytecode.Code{
+			Kind:  bytecode.Store,
+			Value: i,
+		})
+		opcodes = append(opcodes, bytecode.Code{
+			Kind: bytecode.Pop,
+		})
+		emit.scope.DeclareSet(parameter.Name.String(), VariableInfo{
+			stackPos:  i,
+			structDef: nil,
+		})
+	}
+	emit.stackPos = len(node.Parameters)
+
+	for _, node := range node.Nodes() {
+		opcodes = emit.emitStatement(opcodes, node)
+	}
+	return &bytecode.Block{
+		Kind:      bytecode.BlockProcedure,
+		Opcodes:   opcodes,
+		StackSize: emit.stackPos,
+	}
+}
+
+func (emit *Emitter) emitGlobalScope(node ast.Node) {
+	switch node := node.(type) {
+	case *ast.ProcedureDefinition:
+		block := emitProcedureDefinition(node)
+		ok := emit.registerProcedure(node.Name.String(), block)
+		if !ok {
+			panic(fmt.Sprintf("Procedure name %s is used already. This should be caught in the typechecker.", node.Name.String()))
+		}
+	}
+}
+
 func (emit *Emitter) emitStatement(opcodes []bytecode.Code, node ast.Node) []bytecode.Code {
 	switch node := node.(type) {
 	case *ast.Block:
@@ -418,6 +488,8 @@ func (emit *Emitter) emitStatement(opcodes []bytecode.Code, node ast.Node) []byt
 			}
 			//debugOpcodes(opcodes)
 		}*/
+	case *ast.ProcedureDefinition:
+		// Handled previously.
 	case *ast.CSSRule:
 		/*var emptyTypeData *data.CSSDefinition
 		internalType := reflect.TypeOf(emptyTypeData)
@@ -503,8 +575,8 @@ func (emit *Emitter) emitStatement(opcodes []bytecode.Code, node ast.Node) []byt
 		opcodes = append(opcodes, bytecode.Code{
 			Kind: bytecode.Pop,
 		})
-		debugOpcodes(opcodes)
 
+		debugOpcodes(opcodes)
 		panic("todo(Jake): ArrayAppendStatement")
 	case *ast.OpStatement:
 		opcodes = append(opcodes, bytecode.Code{
@@ -574,6 +646,13 @@ func (emit *Emitter) emitStatement(opcodes []bytecode.Code, node ast.Node) []byt
 		opcodes = append(opcodes, bytecode.Code{
 			Kind: bytecode.Pop,
 		})
+	case *ast.Return:
+		if len(node.Expression.Nodes()) > 0 {
+			opcodes = emit.emitExpression(opcodes, &node.Expression)
+		}
+		opcodes = append(opcodes, bytecode.Code{
+			Kind: bytecode.Return,
+		})
 	case *ast.If:
 		originalOpcodesLength := len(opcodes)
 
@@ -612,8 +691,11 @@ func (emit *Emitter) emitStatement(opcodes []bytecode.Code, node ast.Node) []byt
 }
 
 func (emit *Emitter) EmitBytecode(node ast.Node) *bytecode.Block {
-	opcodes := make([]bytecode.Code, 0, 10)
+	for _, node := range node.Nodes() {
+		emit.emitGlobalScope(node)
+	}
 
+	opcodes := make([]bytecode.Code, 0, 10)
 	for _, node := range node.Nodes() {
 		opcodes = emit.emitStatement(opcodes, node)
 	}

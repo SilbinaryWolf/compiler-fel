@@ -34,7 +34,7 @@ type File struct {
 
 type Call struct {
 	Name       token.Token
-	Parameters []*Expression
+	Parameters []*Parameter
 }
 
 func (node *Call) Nodes() []Node {
@@ -50,6 +50,15 @@ type Type struct {
 	ArrayDepth int // [] = 1, [][] = 2, [][][] = 3
 }
 
+func (node *Type) String() string {
+	result := ""
+	for i := 0; i < node.ArrayDepth; i++ {
+		result += "[]"
+	}
+	result += node.Name.String()
+	return result
+}
+
 func (node *Type) Nodes() []Node {
 	return nil
 }
@@ -59,7 +68,7 @@ type Parameter struct {
 	Expression
 }
 
-type FunctionDefinition struct {
+type ProcedureDefinition struct {
 	Name           token.Token
 	Parameters     []Parameter
 	TypeInfo       types.TypeInfo

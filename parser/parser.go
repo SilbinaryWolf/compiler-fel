@@ -100,9 +100,8 @@ Loop:
 				resultNodes = append(resultNodes, node)
 			// myVar : string \n
 			case token.Colon:
-				typeName, err := p.parseType()
-				if err != nil {
-					p.addErrorToken(err, err.Token)
+				typeName := p.parseType()
+				if typeName.Name.Kind == token.Unknown {
 					return nil
 				}
 				// myVar : string = {Expression} \n
@@ -229,6 +228,17 @@ Loop:
 			// PrintThisVariable \n
 			// ^
 			case token.Newline:
+				if name.String() == "return" {
+					p.SetScannerState(storeScannerState)
+					node := new(ast.Return)
+					node.TypeIdentifier.Name = p.GetNextToken() // consume `return`
+					// NOTE(Jake): 2017-12-30, Hack to store Line/Column/File data from token on ast.Return
+					node.TypeIdentifier.Name.Kind = token.Unknown
+					node.TypeIdentifier.Name.Data = ""
+					//node.Expression.ChildNodes = nil
+					resultNodes = append(resultNodes, node)
+					continue
+				}
 				p.SetScannerState(storeScannerState)
 				node := p.parseExpression(false)
 				resultNodes = append(resultNodes, node)
@@ -252,6 +262,10 @@ Loop:
 					name.String() == "return" {
 					p.SetScannerState(storeScannerState)
 					node := new(ast.Return)
+					node.TypeIdentifier.Name = p.GetNextToken() // consume `return`
+					// NOTE(Jake): 2017-12-30, Hack to store Line/Column/File data from token on ast.Return
+					node.TypeIdentifier.Name.Kind = token.Unknown
+					node.TypeIdentifier.Name.Data = ""
 					node.Expression.ChildNodes = p.parseExpressionNodes(false)
 					resultNodes = append(resultNodes, node)
 					continue
@@ -424,7 +438,7 @@ func (p *Parser) isParseTypeAhead() bool {
 	return true
 }
 
-func (p *Parser) parseType() (ast.Type, *ParserError) {
+func (p *Parser) parseType() ast.Type {
 	result := ast.Type{}
 
 	t := p.GetNextToken()
@@ -435,7 +449,8 @@ func (p *Parser) parseType() (ast.Type, *ParserError) {
 		for {
 			t = p.GetNextToken()
 			if t.Kind != token.BracketClose {
-				return ast.Type{}, p.expect(t, token.BracketClose)
+				p.addErrorToken(p.expect(t, token.BracketClose), t)
+				return ast.Type{}
 			}
 			t = p.GetNextToken()
 			if t.Kind == token.BracketOpen {
@@ -446,10 +461,11 @@ func (p *Parser) parseType() (ast.Type, *ParserError) {
 		}
 	}
 	if t.Kind != token.Identifier {
-		return ast.Type{}, p.expect(t, token.Identifier, token.BracketOpen)
+		p.addErrorToken(p.expect(t, token.Identifier, token.BracketOpen), t)
+		return ast.Type{}
 	}
 	result.Name = t
-	return result, nil
+	return result
 }
 
 func (p *Parser) parseExpression(disableStructLiteral bool) *ast.Expression {
@@ -526,11 +542,12 @@ Loop:
 					panic("todo: Parsing a function with no parameters")
 				}
 
-				parameters := make([]*ast.Expression, 0, 10)
+				parameters := make([]*ast.Parameter, 0, 10)
 			CallLoop:
 				for {
-					expr := p.parseExpression(false)
-					parameters = append(parameters, expr)
+					parameter := new(ast.Parameter)
+					parameter.ChildNodes = p.parseExpressionNodes(false)
+					parameters = append(parameters, parameter)
 					t := p.PeekNextToken()
 					switch t.Kind {
 					case token.Comma:
@@ -691,9 +708,8 @@ Loop:
 			infixNodes = append(infixNodes, node)
 		// ie. []string{"item1", "item2", "item3"}
 		case token.BracketOpen:
-			typeIdent, err := p.parseType()
-			if err != nil {
-				p.addErrorToken(err, err.Token)
+			typeIdent := p.parseType()
+			if typeIdent.Name.Kind == token.Unknown {
 				return nil
 			}
 			if t := p.GetNextToken(); t.Kind != token.BraceOpen {
@@ -777,7 +793,7 @@ Loop:
 	return infixNodes
 }
 
-func (p *Parser) parseFunctionDefinition() *ast.FunctionDefinition {
+func (p *Parser) parseProcedureDefinition(name token.Token) *ast.ProcedureDefinition {
 	var parameters []ast.Parameter
 	if hasNoParameters := p.PeekNextToken().Kind == token.ParenClose; hasNoParameters {
 		p.GetNextToken()
@@ -789,9 +805,8 @@ func (p *Parser) parseFunctionDefinition() *ast.FunctionDefinition {
 				p.addErrorToken(p.expect(name, token.ParenClose, token.Identifier), name)
 				return nil
 			}
-			typeIdent, err := p.parseType()
-			if err != nil {
-				p.addErrorToken(err, err.Token)
+			typeIdent := p.parseType()
+			if typeIdent.Name.Kind == token.Unknown {
 				return nil
 			}
 
@@ -814,10 +829,8 @@ func (p *Parser) parseFunctionDefinition() *ast.FunctionDefinition {
 	}
 	var returnType ast.Type
 	if p.isParseTypeAhead() {
-		var err *ParserError
-		returnType, err = p.parseType()
-		if err != nil {
-			p.addErrorToken(err, err.Token)
+		returnType = p.parseType()
+		if returnType.Name.Kind == token.Unknown {
 			return nil
 		}
 	}
@@ -825,7 +838,8 @@ func (p *Parser) parseFunctionDefinition() *ast.FunctionDefinition {
 		p.addErrorToken(p.expect(t, token.BraceOpen), t)
 		return nil
 	}
-	node := new(ast.FunctionDefinition)
+	node := new(ast.ProcedureDefinition)
+	node.Name = name
 	node.Parameters = parameters
 	node.TypeIdentifier = returnType
 	node.ChildNodes = p.parseStatements()
@@ -837,7 +851,7 @@ func (p *Parser) parseDefinition(name token.Token) ast.Node {
 	keyword := keywordToken.String()
 	switch keywordToken.Kind {
 	case token.ParenOpen:
-		node := p.parseFunctionDefinition()
+		node := p.parseProcedureDefinition(name)
 		if node == nil {
 			return nil
 		}
