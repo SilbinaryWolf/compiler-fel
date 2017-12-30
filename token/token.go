@@ -49,6 +49,7 @@ const (
 	keyword_end
 
 	operator_begin
+	Operator
 	// Operators and delimiters
 	Add                 // +
 	AddEqual            // +=
@@ -128,6 +129,7 @@ var kindToString = []string{
 	//KeywordHTML:   "html",
 
 	// Operators and delimiters
+	Operator:            "operator",
 	Add:                 "+",
 	AddEqual:            "+=",
 	Subtract:            "-",

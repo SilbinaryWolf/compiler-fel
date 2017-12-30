@@ -447,14 +447,17 @@ Loop:
 						p.GetNextToken()
 						continue
 					}
-					if t.IsOperator() || t.Kind == token.Newline {
+					if t.IsOperator() ||
+						t.Kind == token.Comma ||
+						t.Kind == token.Newline {
 						break
 					}
-					p.addErrorToken(p.expect(t, token.Add, token.Newline), t)
+					p.addErrorToken(p.expect(t, token.Operator, token.Newline), t)
 					return nil
 				}
 				expectOperator = true
 				infixNodes = append(infixNodes, ast.NewTokenList(tokens))
+				continue Loop
 			case token.ParenOpen:
 				p.GetNextToken()
 
@@ -501,6 +504,7 @@ Loop:
 				node.Parameters = parameters
 				expectOperator = true
 				infixNodes = append(infixNodes, node)
+				continue Loop
 			case token.BraceOpen:
 				if disableStructLiteral {
 					// Dont parse struct literal and use identifier as-is
@@ -572,10 +576,10 @@ Loop:
 					Name:   name,
 					Fields: fields,
 				})
-			default:
-				expectOperator = true
-				infixNodes = append(infixNodes, &ast.Token{Token: t})
+				continue Loop
 			}
+			expectOperator = true
+			infixNodes = append(infixNodes, &ast.Token{Token: t})
 		case token.KeywordTrue, token.KeywordFalse:
 			p.GetNextToken()
 			if expectOperator {

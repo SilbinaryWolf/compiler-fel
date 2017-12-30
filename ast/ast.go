@@ -100,8 +100,8 @@ type StructLiteralField struct {
 }
 
 type Expression struct {
-	TypeInfo       types.TypeInfo
-	TypeIdentifier Type
+	TypeInfo       types.TypeInfo // determined at typecheck time (2017-12-30)
+	TypeIdentifier Type           // optional, for declare statements
 	Base
 }
 
