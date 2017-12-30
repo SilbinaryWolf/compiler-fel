@@ -239,6 +239,24 @@ func (emit *Emitter) emitVariableIdentWithProperty(
 	return opcodes, lastPropertyField.Index
 }
 
+func (emit *Emitter) emitCall(opcodes []bytecode.Code, node *ast.Call) []bytecode.Code {
+	name := node.Name.String()
+	block, ok := emit.symbols[name]
+	if !ok {
+		panic(fmt.Sprintf("Missing procedure %s, this should be caught in the typechecker", name))
+	}
+	for i := 0; i < len(node.Parameters); i++ {
+		expr := node.Parameters[i]
+		opcodes = emit.emitExpression(opcodes, &expr.Expression)
+		//opcodes = emit.emitNewFromType(opcodes, parameter.TypeInfo)
+	}
+	opcodes = append(opcodes, bytecode.Code{
+		Kind:  bytecode.Call,
+		Value: block,
+	})
+	return opcodes
+}
+
 func (emit *Emitter) emitExpression(opcodes []bytecode.Code, node *ast.Expression) []bytecode.Code {
 	nodes := node.Nodes()
 	if len(nodes) == 0 {
@@ -291,6 +309,8 @@ func (emit *Emitter) emitExpression(opcodes []bytecode.Code, node *ast.Expressio
 				}
 			case *ast.TokenList:
 				opcodes, _ = emit.emitVariableIdentWithProperty(opcodes, node.Tokens())
+			case *ast.Call:
+				opcodes = emit.emitCall(opcodes, node)
 			default:
 				panic(fmt.Sprintf("emitExpression:Int: Unhandled type %T", node))
 			}
@@ -317,20 +337,7 @@ func (emit *Emitter) emitExpression(opcodes []bytecode.Code, node *ast.Expressio
 			case *ast.TokenList:
 				opcodes, _ = emit.emitVariableIdentWithProperty(opcodes, node.Tokens())
 			case *ast.Call:
-				name := node.Name.String()
-				block, ok := emit.symbols[name]
-				if !ok {
-					panic(fmt.Sprintf("Missing procedure %s, this should be caught in the typechecker", name))
-				}
-				for i := 0; i < len(node.Parameters); i++ {
-					expr := node.Parameters[i]
-					opcodes = emit.emitExpression(opcodes, &expr.Expression)
-					//opcodes = emit.emitNewFromType(opcodes, parameter.TypeInfo)
-				}
-				opcodes = append(opcodes, bytecode.Code{
-					Kind:  bytecode.Call,
-					Value: block,
-				})
+				opcodes = emit.emitCall(opcodes, node)
 			default:
 				panic(fmt.Sprintf("emitExpression:String: Unhandled type %T", node))
 			}
@@ -341,59 +348,59 @@ func (emit *Emitter) emitExpression(opcodes []bytecode.Code, node *ast.Expressio
 			panic("emitExpression: TypeInfo_Struct: Missing Definition() data, this should be handled in the type checker.")
 		}
 
-		var structLiteral *ast.StructLiteral
-		if len(nodes) > 0 {
-			var ok bool
-			structLiteral, ok = nodes[0].(*ast.StructLiteral)
-			if !ok {
-				panic("emitExpression: Should only have ast.StructLiteral in TypeInfo_Struct expression, this should be handled in type checker.")
-			}
-			if len(nodes) > 1 {
-				panic("emitExpression: Should only have one node in TypeInfo_Struct, this should be handled in type checker.")
-			}
+		if len(nodes) == 0 {
+			panic("emitExpression: TypeInfo_Struct: Cannot have 0 nodes.")
+		}
+		if len(nodes) > 1 {
+			panic("emitExpression: Should only have one node in TypeInfo_Struct, this should be handled in type checker.")
 		}
 
-		if len(structLiteral.Fields) == 0 {
-			// NOTE(Jake) 2017-12-28
-			// If using struct literal syntax "MyStruct{}" without fields, assume all fields
-			// use default values.
-			opcodes = emit.emitNewFromType(opcodes, typeInfo)
-		} else {
-			opcodes = append(opcodes, bytecode.Code{
-				Kind:  bytecode.PushAllocStruct,
-				Value: len(structDef.Fields),
-			})
-
-			// NOTE(Jake): 2017-12-28
-			// If using struct literal syntax "MyStruct{FieldA: 3, Name: "Jake"}" with fields, you need
-			// to provide *ALL* the field values. Reasoning is that one method implies you want explicit
-			// structures (maybe for testing data) so if you add additional fields to a struct later, the compiler
-			// will tell you about missing fields.
-			for offset, structField := range structDef.Fields {
-				name := structField.Name.String()
-				exprNode := &structField.Expression
-				for _, literalField := range structLiteral.Fields {
-					if name == literalField.Name.String() {
-						exprNode = &literalField.Expression
-						break
-					}
-				}
-				if fieldTypeInfo := exprNode.TypeInfo; fieldTypeInfo == nil {
-					panic(fmt.Sprintf("emitExpression: Missing type info on property for \"%s :: struct { %s }\"", structDef.Name, structField.Name))
-				}
-				if len(exprNode.Nodes()) == 0 {
-					panic(fmt.Sprintf("emitExpression:TypeInfo_Struct: Missing value for field \"%s\" on \"%s :: struct\", type checker should enforce that you need all fields.", structField.Name, structDef.Name))
-				}
-				opcodes = emit.emitExpression(opcodes, exprNode)
+		switch node := nodes[0].(type) {
+		case *ast.Call:
+			opcodes = emit.emitCall(opcodes, node)
+		case *ast.StructLiteral:
+			structLiteral := node
+			if len(structLiteral.Fields) == 0 {
+				// NOTE(Jake) 2017-12-28
+				// If using struct literal syntax "MyStruct{}" without fields, assume all fields
+				// use default values.
+				opcodes = emit.emitNewFromType(opcodes, typeInfo)
+			} else {
 				opcodes = append(opcodes, bytecode.Code{
-					Kind:  bytecode.StorePopStructField,
-					Value: offset,
+					Kind:  bytecode.PushAllocStruct,
+					Value: len(structDef.Fields),
 				})
-			}
-		}
 
-		//debugOpcodes(opcodes)
-		//panic("todo(Jake): TypeInfo_Struct")
+				// NOTE(Jake): 2017-12-28
+				// If using struct literal syntax "MyStruct{FieldA: 3, Name: "Jake"}" with fields, you need
+				// to provide *ALL* the field values. Reasoning is that one method implies you want explicit
+				// structures (maybe for testing data) so if you add additional fields to a struct later, the compiler
+				// will tell you about missing fields.
+				for offset, structField := range structDef.Fields {
+					name := structField.Name.String()
+					exprNode := &structField.Expression
+					for _, literalField := range structLiteral.Fields {
+						if name == literalField.Name.String() {
+							exprNode = &literalField.Expression
+							break
+						}
+					}
+					if fieldTypeInfo := exprNode.TypeInfo; fieldTypeInfo == nil {
+						panic(fmt.Sprintf("emitExpression: Missing type info on property for \"%s :: struct { %s }\"", structDef.Name, structField.Name))
+					}
+					if len(exprNode.Nodes()) == 0 {
+						panic(fmt.Sprintf("emitExpression:TypeInfo_Struct: Missing value for field \"%s\" on \"%s :: struct\", type checker should enforce that you need all fields.", structField.Name, structDef.Name))
+					}
+					opcodes = emit.emitExpression(opcodes, exprNode)
+					opcodes = append(opcodes, bytecode.Code{
+						Kind:  bytecode.StorePopStructField,
+						Value: offset,
+					})
+				}
+			}
+		default:
+			panic(fmt.Sprintf("emitExpression:Struct: Unhandled type %T", node))
+		}
 	default:
 		panic(fmt.Sprintf("emitExpression: Unhandled expression with type %T", typeInfo))
 	}

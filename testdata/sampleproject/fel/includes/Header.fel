@@ -39,7 +39,15 @@ append :: (param1 string, param2 string) string {
 	return param1 + "flew"
 }
 
+testProc :: (param1 string) List {
+	return List{
+		name: param1,
+	}
+}
+
 myVal.otherValue = append("blest", "test")
+
+myVal.other = testProc("Ayyy")
 
 // NOTE(Jake): 2017-12-28, For some reason these values aren't emitting bytecode.
 /*myVal.other = List{
