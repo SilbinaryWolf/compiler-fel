@@ -59,6 +59,14 @@ type Parameter struct {
 	Expression
 }
 
+type FunctionDefinition struct {
+	Name           token.Token
+	Parameters     []Parameter
+	TypeInfo       types.TypeInfo
+	TypeIdentifier Type
+	Base
+}
+
 type For struct {
 	IndexName    token.Token
 	RecordName   token.Token
@@ -96,6 +104,10 @@ func (node *StructLiteral) Nodes() []Node {
 
 type StructLiteralField struct {
 	Name token.Token
+	Expression
+}
+
+type Return struct {
 	Expression
 }
 

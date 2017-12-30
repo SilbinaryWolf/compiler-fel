@@ -644,6 +644,13 @@ func (p *Parser) TypecheckAndFinalize(files []*ast.File) {
 				*ast.Block,
 				*ast.HTMLBlock:
 				// no-op, these are checked in TypecheckFile()
+			case *ast.FunctionDefinition:
+				if node == nil {
+					p.fatalError(fmt.Errorf("Found nil top-level %T.", node))
+					continue
+				}
+
+				panic("todo: FunctionDefinition")
 			case *ast.StructDefinition:
 				if node == nil {
 					p.fatalError(fmt.Errorf("Found nil top-level %T.", node))

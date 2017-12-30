@@ -39,7 +39,7 @@ myVal.other.name = "jeremy" + "woo" + myVal.other.name + myVal.other.name + meow
 //	return param1 + param2
 //}
 
-myVal.derp = append("blest", "test")
+//myVal.derp = append("blest", "test")
 
 // NOTE(Jake): 2017-12-28, For some reason these values aren't emitting bytecode.
 /*myVal.other = List{

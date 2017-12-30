@@ -13,6 +13,15 @@ const DEVELOPER_MODE = true
 
 const FatalErrorMessage = "Fatal parsing error occurred. Please notify the developer(s)."
 
+type ParserError struct {
+	Message error
+	Token   token.Token
+}
+
+func (parserError *ParserError) Error() string {
+	return parserError.Message.Error()
+}
+
 func (p *Parser) unexpected(thisToken token.Token) error {
 	if thisToken.IsKeyword() {
 		return fmt.Errorf("Unexpected keyword \"%s\".", thisToken.String())
@@ -29,7 +38,7 @@ func (p *Parser) unexpected(thisToken token.Token) error {
 	return fmt.Errorf("Unexpected %s", thisToken.Kind)
 }
 
-func (p *Parser) expect(thisToken token.Token, expectedList ...interface{}) error {
+func (p *Parser) expect(thisToken token.Token, expectedList ...interface{}) *ParserError {
 
 	// todo(Jake): switch to using a buffer as that uses less allocations
 	//			   ie. increase speed from 6500ns to 15ns
@@ -66,7 +75,17 @@ func (p *Parser) expect(thisToken token.Token, expectedList ...interface{}) erro
 			panic(fmt.Sprintf("Unhandled token kind: %s", expectTokenKind.String()))
 		}*/
 	}
-	return fmt.Errorf("Expected %s instead got \"%s\".", expectedItemsString, thisToken.String())
+
+	var message error
+	if thisToken.Kind == token.String {
+		message = fmt.Errorf("Expected %s instead got \"%s\".", expectedItemsString, thisToken.String())
+	} else {
+		message = fmt.Errorf("Expected %s instead got %s.", expectedItemsString, thisToken.String())
+	}
+	return &ParserError{
+		Message: message,
+		Token:   thisToken,
+	}
 }
 
 //func (p *Parser) GetErrors() []error {
