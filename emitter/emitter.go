@@ -210,6 +210,9 @@ func (emit *Emitter) emitVariableIdentWithProperty(
 		return opcodes, varInfo.stackPos
 	}
 	structDef := varInfo.structDef
+	if structDef == nil {
+		panic(fmt.Sprintf("emitStatement: Expected parameter %s to be a struct, this should be set when declaring a new variable (if applicable)", name))
+	}
 	for i := 1; i < len(leftHandSide)-1; i++ {
 		if structDef == nil {
 			panic("emitStatement: Non-struct cannot have properties. This should be caught in the typechecker.")
@@ -439,9 +442,17 @@ func emitProcedureDefinition(node *ast.ProcedureDefinition) *bytecode.Block {
 		opcodes = append(opcodes, bytecode.Code{
 			Kind: bytecode.Pop,
 		})
+		structTypeInfo, ok := parameter.TypeInfo.(*parser.TypeInfo_Struct)
+		if !ok {
+			emit.scope.DeclareSet(parameter.Name.String(), VariableInfo{
+				stackPos:  i,
+				structDef: nil,
+			})
+			continue
+		}
 		emit.scope.DeclareSet(parameter.Name.String(), VariableInfo{
 			stackPos:  i,
-			structDef: nil,
+			structDef: structTypeInfo.Definition(),
 		})
 	}
 	emit.stackPos = len(node.Parameters)

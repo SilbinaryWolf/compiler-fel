@@ -190,25 +190,59 @@ func (p *Parser) typecheckExpression(scope *Scope, expression *ast.Expression) {
 			}
 			continue
 		case *ast.Call:
-			parameters := node.Parameters
-			for i := 0; i < len(parameters); i++ {
-				parameter := parameters[i]
-				p.typecheckExpression(scope, &parameter.Expression)
-			}
 			typeInfo := p.typeinfo.get(node.Name.String())
 			callTypeInfo, ok := typeInfo.(*TypeInfo_Procedure)
 			if !ok {
 				p.addErrorToken(fmt.Errorf("Expected %s to be a procedure.", node.Name.String()), node.Name)
 			}
-			panic("todo: Typecheck the parameters")
-			expectedTypeInfo := callTypeInfo.Definition().TypeInfo
+			//panic("todo: Typecheck the parameters")
+			procDefinition := callTypeInfo.Definition()
+			expectedTypeInfo := procDefinition.TypeInfo
 			if resultTypeInfo == nil {
 				resultTypeInfo = expectedTypeInfo
 			}
 			if !TypeEquals(resultTypeInfo, expectedTypeInfo) {
 				p.addErrorToken(fmt.Errorf("Cannot mix call type %s with %s", expectedTypeInfo.String(), resultTypeInfo.String()), node.Name)
 			}
-			definitionParameters := callTypeInfo.Definition().Parameters
+			hasMismatchingTypes := false
+			parameters := node.Parameters
+			definitionParameters := procDefinition.Parameters
+			for i := 0; i < len(parameters); i++ {
+				parameter := parameters[i]
+				p.typecheckExpression(scope, &parameter.Expression)
+				if hasMismatchingTypes == false && i < len(definitionParameters) {
+					definitionParameter := definitionParameters[i]
+					if !TypeEquals(parameter.TypeInfo, definitionParameter.TypeInfo) {
+						hasMismatchingTypes = true
+					}
+				}
+			}
+			if hasMismatchingTypes {
+				haveStr := "("
+				for i := 0; i < len(parameters); i++ {
+					parameter := parameters[i]
+					if i != 0 {
+						haveStr += ","
+					}
+					//if parameter.TypeInfo == nil {
+					//	haveStr += "missing"
+					//	continue
+					//}
+					haveStr += parameter.TypeInfo.String()
+				}
+				haveStr += ")"
+				wantStr := "("
+				for i := 0; i < len(procDefinition.Parameters); i++ {
+					parameter := procDefinition.Parameters[i]
+					if i != 0 {
+						wantStr += ","
+					}
+					wantStr += parameter.TypeInfo.String()
+				}
+				wantStr += ")"
+				callStr := node.Name.String()
+				p.addErrorToken(fmt.Errorf("Mismatching types on call \"%s\".\nhave %s\nwant %s", callStr, haveStr, wantStr), node.Name)
+			}
 			if len(definitionParameters) != len(parameters) {
 				p.addErrorToken(fmt.Errorf("Expected %d parameters, instead got %d parameters.", len(definitionParameters), len(parameters)), node.Name)
 			}

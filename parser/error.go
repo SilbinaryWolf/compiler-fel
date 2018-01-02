@@ -113,7 +113,12 @@ func (p *Parser) addErrorToken(message error, token token.Token) {
 	if !ok {
 		p.errors[filepath] = make([]error, 0, 10)
 	}
-	message = fmt.Errorf("Line %d | %s", token.Line, message)
+	lineMessage := fmt.Sprintf("Line %d | ", token.Line)
+	indentString := "\n  "
+	for i := 0; i < len(lineMessage); i++ {
+		indentString += " "
+	}
+	message = fmt.Errorf(lineMessage + strings.Replace(message.Error(), "\n", indentString, -1))
 	if DEVELOPER_MODE {
 		// Get where the error message was added from to help
 		// track where error messages are raised.
