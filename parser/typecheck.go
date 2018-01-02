@@ -196,20 +196,21 @@ func (p *Parser) typecheckExpression(scope *Scope, expression *ast.Expression) {
 				p.typecheckExpression(scope, &parameter.Expression)
 			}
 			typeInfo := p.typeinfo.get(node.Name.String())
-			expectedTypeInfo, ok := typeInfo.(*TypeInfo_Procedure)
+			callTypeInfo, ok := typeInfo.(*TypeInfo_Procedure)
 			if !ok {
 				p.addErrorToken(fmt.Errorf("Expected %s to be a procedure.", node.Name.String()), node.Name)
 			}
-			panic("todo: Use result type info from the definition, might need to add it to TypeInfo_Procedure struct")
+			panic("todo: Typecheck the parameters")
+			expectedTypeInfo := callTypeInfo.Definition().TypeInfo
 			if resultTypeInfo == nil {
 				resultTypeInfo = expectedTypeInfo
 			}
 			if !TypeEquals(resultTypeInfo, expectedTypeInfo) {
 				p.addErrorToken(fmt.Errorf("Cannot mix call type %s with %s", expectedTypeInfo.String(), resultTypeInfo.String()), node.Name)
 			}
-			definitionParameters := expectedTypeInfo.Definition().Parameters
+			definitionParameters := callTypeInfo.Definition().Parameters
 			if len(definitionParameters) != len(parameters) {
-				p.addErrorToken(fmt.Errorf("Has %d parameters. %d are expected.", len(parameters), len(definitionParameters)), node.Name)
+				p.addErrorToken(fmt.Errorf("Expected %d parameters, instead got %d parameters.", len(definitionParameters), len(parameters)), node.Name)
 			}
 			continue
 		case *ast.HTMLBlock:
@@ -528,7 +529,6 @@ func (p *Parser) typecheckStatements(topNode ast.Node, scope *Scope) {
 			resultTypeInfo := node.Expression.TypeInfo
 			if !TypeEquals(variableTypeInfo, resultTypeInfo) {
 				nameToken := node.LeftHandSide[0]
-				name := nameToken.String()
 				if variableTypeInfo == nil {
 					p.fatalErrorToken(fmt.Errorf("\"variableTypeInfo\" is nil, this should have a value."), nameToken)
 					continue
@@ -537,7 +537,10 @@ func (p *Parser) typecheckStatements(topNode ast.Node, scope *Scope) {
 					p.fatalErrorToken(fmt.Errorf("\"resultTypeInfo\" is nil, this should have a value."), nameToken)
 					continue
 				}
-				p.addErrorToken(fmt.Errorf("Cannot change \"%s\" from %s to %s", name, variableTypeInfo, resultTypeInfo.String()), nameToken)
+				name := nameToken.String()
+				for i := 1; i < len(node.LeftHandSide); i++ {
+					name += "." + node.LeftHandSide[i].String()
+				}
 				p.addErrorToken(fmt.Errorf("Cannot change \"%s\" from %s to %s", name, variableTypeInfo, resultTypeInfo.String()), nameToken)
 			}
 			continue
@@ -680,6 +683,7 @@ func (p *Parser) typecheckProcedureDefinition(node *ast.ProcedureDefinition, sco
 	var returnType types.TypeInfo
 	if node.TypeIdentifier.Name.Kind != token.Unknown {
 		returnType = p.DetermineType(&node.TypeIdentifier)
+		node.TypeInfo = returnType
 	}
 	// Check return statements
 	// NOTE(Jake): 2017-12-30

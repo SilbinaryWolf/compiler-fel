@@ -36,18 +36,18 @@ myVal.other.name = "jeremy" + "woo" + myVal.other.name + myVal.other.name + meow
 
 // todo(Jake): Function definitions
 append :: (param1 string, param2 string) string {
-	return param1 + "flew"
+	return param1 + "flew" + param2
 }
 
 testProc :: (param1 string) List {
 	return List{
-		name: param1,
+		name: param1+"jeremy",
 	}
 }
 
-myVal.otherValue = append("blest", "test")
+myVal.otherValue = append("blest", "test")+append("meow", "test")
 
-myVal.other = testProc("Ayyy")
+myVal.other = testProc("Ayyy ")
 
 // NOTE(Jake): 2017-12-28, For some reason these values aren't emitting bytecode.
 /*myVal.other = List{
