@@ -513,10 +513,11 @@ Loop:
 					}
 					if t.IsOperator() ||
 						t.Kind == token.Comma ||
-						t.Kind == token.Newline {
+						t.Kind == token.Newline ||
+						t.Kind == token.ParenClose {
 						break
 					}
-					p.addErrorToken(p.expect(t, token.Operator, token.Newline), t)
+					p.addErrorToken(p.expect(t, token.Operator, token.Newline, token.ParenClose), t)
 					return nil
 				}
 				expectOperator = true
@@ -545,28 +546,57 @@ Loop:
 				parameters := make([]*ast.Parameter, 0, 10)
 			CallLoop:
 				for {
+					// NOTE(Jake): 2018-01-03
+					//
+					// Eating the surrounding newlines so we can do the following:
+					//
+					// `blah(
+					//	  "param1"
+					//	  ,
+					//    "param2"
+					// )`
+					//
+					p.eatNewlines()
+					exprNodes := p.parseExpressionNodes(false)
+					p.eatNewlines()
+
+					if exprNodes == nil {
+						p.addErrorToken(fmt.Errorf("Missing value for parameter #%d", len(parameters)), name)
+						return nil
+					}
 					parameter := new(ast.Parameter)
-					parameter.ChildNodes = p.parseExpressionNodes(false)
+					parameter.ChildNodes = exprNodes
 					parameters = append(parameters, parameter)
 					t := p.PeekNextToken()
 					switch t.Kind {
+					case token.Newline:
+						continue CallLoop
 					case token.Comma:
 						p.GetNextToken()
-						//p.eatNewlines()
-						if t := p.PeekNextToken(); t.Kind == token.ParenClose {
+
+						// NOTE(Jake): 2018-01-03
+						//
+						// Needed to allow for trailing commas
+						//
+						p.eatNewlines()
+						switch t := p.PeekNextToken(); t.Kind {
+						case token.ParenClose:
 							p.GetNextToken()
 							break CallLoop
+						case token.Comma:
+							p.addErrorToken(fmt.Errorf("Cannot have more than 1 trailing comma for procedure calls."), t)
+							return nil
 						}
 					case token.ParenClose:
 						p.GetNextToken()
 						break CallLoop
 					default:
 						p.addErrorToken(p.expect(t, token.Comma, token.ParenClose), t)
-						break CallLoop
+						return nil
 					}
 				}
-
 				node.Parameters = parameters
+
 				expectOperator = true
 				infixNodes = append(infixNodes, node)
 				continue Loop
@@ -655,7 +685,7 @@ Loop:
 		case token.String:
 			p.GetNextToken()
 			if expectOperator {
-				panic("Expected operator, not string")
+				panic("Expected operator, not string.")
 			}
 			expectOperator = true
 			infixNodes = append(infixNodes, &ast.Token{Token: t})

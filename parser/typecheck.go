@@ -224,10 +224,14 @@ func (p *Parser) typecheckExpression(scope *Scope, expression *ast.Expression) {
 					if i != 0 {
 						haveStr += ", "
 					}
-					//if parameter.TypeInfo == nil {
-					//	haveStr += "missing"
-					//	continue
-					//}
+					if parameter.TypeInfo == nil {
+						// NOTE(Jake): 2018-01-03
+						//
+						// This should be applied in p.typecheckExpression(scope, &parameter.Expression)
+						//
+						haveStr += "missing"
+						continue
+					}
 					haveStr += parameter.TypeInfo.String()
 				}
 				haveStr += ")"
@@ -236,6 +240,14 @@ func (p *Parser) typecheckExpression(scope *Scope, expression *ast.Expression) {
 					parameter := procDefinition.Parameters[i]
 					if i != 0 {
 						wantStr += ", "
+					}
+					if parameter.TypeInfo == nil {
+						// NOTE(Jake): 2018-01-03
+						//
+						// This should be applied in p.typecheckExpression(scope, &parameter.Expression)
+						//
+						haveStr += "missing"
+						continue
 					}
 					wantStr += parameter.TypeInfo.String()
 				}
@@ -277,12 +289,42 @@ func (p *Parser) typecheckExpression(scope *Scope, expression *ast.Expression) {
 			if node.IsOperator() {
 				continue
 			}
-			var opToken *ast.Token
+
+			var opToken token.Token
 			if i+1 < len(nodes) {
-				opToken = nodes[i+1].(*ast.Token)
+				switch node := nodes[i+1].(type) {
+				case *ast.Token:
+					opToken = node.Token
+				case *ast.TokenList:
+					opToken = node.Tokens()[0]
+				default:
+					panic("Expected *ast.Token or *ast.TokenList")
+				}
 			}
 
 			switch node.Kind {
+			case token.Identifier:
+				name := node.String()
+				variableTypeInfo, ok := scope.Get(name)
+				if !ok {
+					_, ok := scope.GetHTMLDefinition(name)
+					if ok {
+						p.addErrorToken(fmt.Errorf("Undeclared identifier \"%s\". Did you mean \"%s()\" or \"%s{ }\" to reference the \"%s :: html\" component?", name, name, name, name), node.Token)
+						continue
+					}
+					p.addErrorToken(fmt.Errorf("Undeclared identifier \"%s\".", name), node.Token)
+					continue
+				}
+				if resultTypeInfo == nil {
+					resultTypeInfo = variableTypeInfo
+				}
+				if !TypeEquals(resultTypeInfo, variableTypeInfo) {
+					if variableTypeInfo == nil {
+						p.fatalErrorToken(fmt.Errorf("Unable to determine type, typechecker must have failed."), node.Token)
+						return
+					}
+					p.addErrorToken(fmt.Errorf("Identifier \"%s\" must be a %s not %s.", name, resultTypeInfo.String(), variableTypeInfo.String()), node.Token)
+				}
 			case token.String:
 				expectedTypeInfo := p.typeinfo.NewTypeInfoString()
 				if resultTypeInfo == nil {
@@ -311,28 +353,6 @@ func (p *Parser) typecheckExpression(scope *Scope, expression *ast.Expression) {
 				}
 				if !TypeEquals(resultTypeInfo, expectedTypeInfo) {
 					p.addErrorToken(fmt.Errorf("Cannot use %s with %s \"%s\"", resultTypeInfo.String(), expectedTypeInfo.String(), node.String()), node.Token)
-				}
-			case token.Identifier:
-				name := node.String()
-				variableTypeInfo, ok := scope.Get(name)
-				if !ok {
-					_, ok := scope.GetHTMLDefinition(name)
-					if ok {
-						p.addErrorToken(fmt.Errorf("Undeclared identifier \"%s\". Did you mean \"%s()\" or \"%s{ }\" to reference the \"%s :: html\" component?", name, name, name, name), node.Token)
-						continue
-					}
-					p.addErrorToken(fmt.Errorf("Undeclared identifier \"%s\".", name), node.Token)
-					continue
-				}
-				if resultTypeInfo == nil {
-					resultTypeInfo = variableTypeInfo
-				}
-				if !TypeEquals(resultTypeInfo, variableTypeInfo) {
-					if variableTypeInfo == nil {
-						p.fatalErrorToken(fmt.Errorf("Unable to determine type, typechecker must have failed."), node.Token)
-						return
-					}
-					p.addErrorToken(fmt.Errorf("Identifier \"%s\" must be a %s not %s.", name, resultTypeInfo.String(), variableTypeInfo.String()), node.Token)
 				}
 			default:
 				panic(fmt.Sprintf("typecheckExpression: Unhandled token kind: \"%s\" with value: %s", node.Kind.String(), node.String()))
