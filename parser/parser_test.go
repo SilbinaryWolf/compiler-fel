@@ -80,9 +80,12 @@ func BenchmarkParserAndTypecheck(b *testing.B) {
 		p := New()
 		astFiles := make([]*ast.File, 0, 10)
 		astFiles = append(astFiles, parseString(b, p, basicComponentTest))
-		// NOTE(Jake): Test with multiple template files to see how it affects typechecking
-		//			   speed. Might eventually want this in a seperate function so we can compare
-		//			   with 4, 10, 15, 30, 100 template files.
+		// NOTE(Jake): 2018-01-03
+		//
+		// Test with multiple template files to see how it affects typechecking
+		// speed. Might eventually want this in a seperate function so we can compare
+		// with 4, 10, 15, 30, 100 template files.
+		//
 		for i := 0; i < 4; i++ {
 			astFiles = append(astFiles, parseString(b, p, homePageTemplate))
 		}
