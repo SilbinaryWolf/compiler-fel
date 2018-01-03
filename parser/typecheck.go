@@ -148,6 +148,79 @@ func (p *Parser) typecheckArrayLiteral(scope *Scope, literal *ast.ArrayLiteral) 
 	}
 }
 
+func (p *Parser) typecheckCall(scope *Scope, node *ast.Call, resultTypeInfo types.TypeInfo) {
+	typeInfo := p.typeinfo.get(node.Name.String())
+	callTypeInfo, ok := typeInfo.(*TypeInfo_Procedure)
+	if !ok {
+		p.addErrorToken(fmt.Errorf("Expected %s to be a procedure.", node.Name.String()), node.Name)
+		return
+	}
+	//panic("todo: Typecheck the parameters")
+	procDefinition := callTypeInfo.Definition()
+	expectedTypeInfo := procDefinition.TypeInfo
+	if resultTypeInfo == nil {
+		resultTypeInfo = expectedTypeInfo
+	}
+	if !TypeEquals(resultTypeInfo, expectedTypeInfo) {
+		p.addErrorToken(fmt.Errorf("Cannot mix call type %s with %s", expectedTypeInfo.String(), resultTypeInfo.String()), node.Name)
+	}
+	parameters := node.Parameters
+	definitionParameters := procDefinition.Parameters
+	hasMismatchingTypes := len(definitionParameters) != len(parameters)
+	for i := 0; i < len(parameters); i++ {
+		parameter := parameters[i]
+		p.typecheckExpression(scope, &parameter.Expression)
+		if hasMismatchingTypes == false && i < len(definitionParameters) {
+			definitionParameter := definitionParameters[i]
+			if !TypeEquals(parameter.TypeInfo, definitionParameter.TypeInfo) {
+				hasMismatchingTypes = true
+			}
+		}
+	}
+	if hasMismatchingTypes {
+		haveStr := "("
+		for i := 0; i < len(parameters); i++ {
+			parameter := parameters[i]
+			if i != 0 {
+				haveStr += ", "
+			}
+			if parameter.TypeInfo == nil {
+				// NOTE(Jake): 2018-01-03
+				//
+				// This should be applied in p.typecheckExpression(scope, &parameter.Expression)
+				//
+				haveStr += "missing"
+				continue
+			}
+			haveStr += parameter.TypeInfo.String()
+		}
+		haveStr += ")"
+		wantStr := "("
+		for i := 0; i < len(procDefinition.Parameters); i++ {
+			parameter := procDefinition.Parameters[i]
+			if i != 0 {
+				wantStr += ", "
+			}
+			if parameter.TypeInfo == nil {
+				// NOTE(Jake): 2018-01-03
+				//
+				// This should be applied in p.typecheckExpression(scope, &parameter.Expression)
+				//
+				haveStr += "missing"
+				continue
+			}
+			wantStr += parameter.TypeInfo.String()
+		}
+		wantStr += ")"
+		callStr := node.Name.String()
+		if len(definitionParameters) != len(parameters) {
+			p.addErrorToken(fmt.Errorf("Expected %d parameters, instead got %d parameters on call \"%s\".\nhave %s\nwant %s", len(definitionParameters), len(parameters), callStr, haveStr, wantStr), node.Name)
+		} else {
+			p.addErrorToken(fmt.Errorf("Mismatching types on call \"%s\".\nhave %s\nwant %s", callStr, haveStr, wantStr), node.Name)
+		}
+	}
+}
+
 func (p *Parser) typecheckExpression(scope *Scope, expression *ast.Expression) {
 	resultTypeInfo := expression.TypeInfo
 
@@ -190,7 +263,8 @@ func (p *Parser) typecheckExpression(scope *Scope, expression *ast.Expression) {
 			}
 			continue
 		case *ast.Call:
-			typeInfo := p.typeinfo.get(node.Name.String())
+			p.typecheckCall(scope, node, resultTypeInfo)
+			/*typeInfo := p.typeinfo.get(node.Name.String())
 			callTypeInfo, ok := typeInfo.(*TypeInfo_Procedure)
 			if !ok {
 				p.addErrorToken(fmt.Errorf("Expected %s to be a procedure.", node.Name.String()), node.Name)
@@ -258,7 +332,7 @@ func (p *Parser) typecheckExpression(scope *Scope, expression *ast.Expression) {
 				} else {
 					p.addErrorToken(fmt.Errorf("Mismatching types on call \"%s\".\nhave %s\nwant %s", callStr, haveStr, wantStr), node.Name)
 				}
-			}
+			}*/
 			continue
 		case *ast.HTMLBlock:
 			panic("typecheckExpression: todo(Jake): Fix HTMLBlock")
@@ -487,6 +561,8 @@ func (p *Parser) typecheckStatements(topNode ast.Node, scope *Scope) {
 			*ast.ProcedureDefinition:
 			// Skip nodes and child nodes
 			continue
+		case *ast.Call:
+			p.typecheckCall(scope, node, nil)
 		case *ast.HTMLBlock:
 			panic("todo(Jake): Remove below commented out line if this is unused.")
 			//p.typecheckHTMLBlock(node, scope)
@@ -531,7 +607,7 @@ func (p *Parser) typecheckStatements(topNode ast.Node, scope *Scope) {
 				// Check if parameters exist
 			ParameterCheckLoop:
 				for i, _ := range node.Parameters {
-					parameterNode := &node.Parameters[i]
+					parameterNode := node.Parameters[i]
 					paramName := parameterNode.Name.String()
 					for _, field := range structDef.Fields {
 						if paramName == field.Name.String() {
@@ -804,7 +880,8 @@ func (p *Parser) TypecheckAndFinalize(files []*ast.File) {
 				*ast.If,
 				*ast.For,
 				*ast.Block,
-				*ast.HTMLBlock:
+				*ast.HTMLBlock,
+				*ast.Call:
 				// no-op, these are checked in TypecheckFile()
 			case *ast.ProcedureDefinition:
 				if node == nil {

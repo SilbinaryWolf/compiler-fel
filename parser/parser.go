@@ -396,15 +396,15 @@ Loop:
 	return resultNodes
 }
 
-func (p *Parser) parseParameters() []ast.Parameter {
-	resultNodes := make([]ast.Parameter, 0, 5)
+func (p *Parser) parseParameters() []*ast.Parameter {
+	resultNodes := make([]*ast.Parameter, 0, 5)
 
 Loop:
 	for {
 		t := p.GetNextToken()
 		switch t.Kind {
 		case token.Identifier:
-			node := ast.Parameter{
+			node := &ast.Parameter{
 				Name: t,
 			}
 			t := p.GetNextToken()
@@ -525,78 +525,10 @@ Loop:
 				continue Loop
 			case token.ParenOpen:
 				p.GetNextToken()
-
-				// NOTE(Jake): 2017-12-29
-				//
-				// This should ideally be factored out into a seperate
-				// parsing function and be combined with the `div(prop=blah)`
-				//
-				// You would get an `ast.Call` if there were no property names
-				// provided, or you'd get a HTMLNode if property names are
-				// provided.
-				//
-				node := new(ast.Call)
-				node.Name = name
-
-				if t := p.PeekNextToken(); t.Kind == token.ParenClose {
-					p.GetNextToken()
-					panic("todo: Parsing a function with no parameters")
+				node := p.parseProcedureOrHTMLNode(name)
+				if node == nil {
+					return nil
 				}
-
-				parameters := make([]*ast.Parameter, 0, 10)
-			CallLoop:
-				for {
-					// NOTE(Jake): 2018-01-03
-					//
-					// Eating the surrounding newlines so we can do the following:
-					//
-					// `blah(
-					//	  "param1"
-					//	  ,
-					//    "param2"
-					// )`
-					//
-					p.eatNewlines()
-					exprNodes := p.parseExpressionNodes(false)
-					p.eatNewlines()
-
-					if exprNodes == nil {
-						p.addErrorToken(fmt.Errorf("Missing value for parameter #%d", len(parameters)), name)
-						return nil
-					}
-					parameter := new(ast.Parameter)
-					parameter.ChildNodes = exprNodes
-					parameters = append(parameters, parameter)
-					t := p.PeekNextToken()
-					switch t.Kind {
-					case token.Newline:
-						continue CallLoop
-					case token.Comma:
-						p.GetNextToken()
-
-						// NOTE(Jake): 2018-01-03
-						//
-						// Needed to allow for trailing commas
-						//
-						p.eatNewlines()
-						switch t := p.PeekNextToken(); t.Kind {
-						case token.ParenClose:
-							p.GetNextToken()
-							break CallLoop
-						case token.Comma:
-							p.addErrorToken(fmt.Errorf("Cannot have more than 1 trailing comma for procedure calls."), t)
-							return nil
-						}
-					case token.ParenClose:
-						p.GetNextToken()
-						break CallLoop
-					default:
-						p.addErrorToken(p.expect(t, token.Comma, token.ParenClose), t)
-						return nil
-					}
-				}
-				node.Parameters = parameters
-
 				expectOperator = true
 				infixNodes = append(infixNodes, node)
 				continue Loop
@@ -821,6 +753,88 @@ Loop:
 	//panic("todo: Finish parseExpression() func")
 
 	return infixNodes
+}
+
+func (p *Parser) parseProcedureOrHTMLNode(name token.Token) ast.Node {
+	isProcedureNode := true
+	parameters := make([]*ast.Parameter, 0, 10)
+CallLoop:
+	for {
+		// NOTE(Jake): 2018-01-03
+		//
+		// Eating the surrounding newlines so we can do the following:
+		//
+		// `blah(
+		//	  "param1"
+		//	  ,
+		//    "param2"
+		// )`
+		//
+		p.eatNewlines()
+		exprNodes := p.parseExpressionNodes(false)
+		p.eatNewlines()
+
+		if exprNodes == nil {
+			p.addErrorToken(fmt.Errorf("Missing value for parameter #%d", len(parameters)), name)
+			return nil
+		}
+		parameter := new(ast.Parameter)
+		parameter.ChildNodes = exprNodes
+		parameters = append(parameters, parameter)
+		t := p.PeekNextToken()
+		switch t.Kind {
+		case token.Newline:
+			continue CallLoop
+		case token.Comma:
+			p.GetNextToken()
+
+			// NOTE(Jake): 2018-01-03
+			//
+			// Needed to allow for trailing commas
+			//
+			p.eatNewlines()
+			switch t := p.PeekNextToken(); t.Kind {
+			case token.ParenClose:
+				p.GetNextToken()
+				break CallLoop
+			case token.Comma:
+				p.addErrorToken(fmt.Errorf("Cannot have more than 1 trailing comma for procedure calls."), t)
+				return nil
+			}
+		case token.ParenClose:
+			p.GetNextToken()
+			break CallLoop
+		default:
+			p.addErrorToken(p.expect(t, token.Comma, token.ParenClose), t)
+			return nil
+		}
+	}
+	if isProcedureNode {
+		node := new(ast.Call)
+		node.Name = name
+		node.Parameters = parameters
+		return node
+	}
+	node := new(ast.HTMLNode)
+	node.Name = name
+	node.Parameters = parameters
+	p.eatNewlines()
+	t := p.GetNextToken()
+	switch t.Kind {
+	case token.BraceOpen:
+		node.ChildNodes = p.parseStatements()
+	case token.KeywordIf:
+		node.IfExpression.ChildNodes = p.parseExpressionNodes(true)
+		if t := p.GetNextToken(); t.Kind != token.BraceOpen {
+			p.addErrorToken(p.expect(t, token.BraceOpen), t)
+			return nil
+		}
+		node.ChildNodes = p.parseStatements()
+	default:
+		p.addErrorToken(p.expect(t, token.Newline, token.BraceOpen), t)
+	}
+	p.checkHTMLNode(node)
+	return node
 }
 
 func (p *Parser) parseProcedureDefinition(name token.Token) *ast.ProcedureDefinition {

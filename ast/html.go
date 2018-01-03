@@ -20,7 +20,7 @@ type HTMLComponentDefinition struct {
 
 type HTMLNode struct {
 	Name           token.Token
-	Parameters     []Parameter
+	Parameters     []*Parameter
 	HTMLDefinition *HTMLComponentDefinition // optional
 	IfExpression   Expression               // optional
 	Base
