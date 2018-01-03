@@ -41,7 +41,7 @@ append :: (param1 string, param2 string) string {
 
 testProc :: (param1 List) List {
 	return List{
-		name: param1.name+" append jeremy",
+		name: param1.name+" append jeremy"+param1.name,
 	}
 	//param1.name = "blah"
 	//return param1

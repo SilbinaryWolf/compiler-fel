@@ -65,5 +65,8 @@ func debugPrintStack(message string, stack []interface{}) {
 	for i := 0; i < len(stack); i++ {
 		printer.writeValue(stack[i])
 		printer.writeLine()
+
+		// Reset per top level value
+		printer.seenPointer = make(map[string]bool)
 	}
 }
