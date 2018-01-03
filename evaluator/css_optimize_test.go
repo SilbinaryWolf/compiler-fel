@@ -1,12 +1,13 @@
 package evaluator
 
 import (
+	"strings"
+	"testing"
+
 	"github.com/silbinarywolf/compiler-fel/ast"
 	"github.com/silbinarywolf/compiler-fel/data"
 	"github.com/silbinarywolf/compiler-fel/generate"
 	"github.com/silbinarywolf/compiler-fel/parser"
-	"strings"
-	"testing"
 )
 
 func TestOptimizeCSSClass(t *testing.T) {
