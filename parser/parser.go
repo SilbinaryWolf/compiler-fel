@@ -189,6 +189,8 @@ Loop:
 				}
 				p.GetNextToken()
 				node.ChildNodes = p.parseStatements()
+				p.validateHTMLNode(node)
+				resultNodes = append(resultNodes, node)
 			// div {
 			//     ^
 			case token.BraceOpen:
@@ -472,7 +474,7 @@ Loop:
 		case token.Identifier:
 			name := p.GetNextToken()
 			if expectOperator {
-				p.addErrorToken(fmt.Errorf("Expected operator instead got identifier."), name)
+				p.addErrorToken(fmt.Errorf("Expected operator instead got identifier (%s).", name.String()), name)
 				return nil
 			}
 			switch t := p.PeekNextToken(); t.Kind {
@@ -591,14 +593,16 @@ Loop:
 		case token.KeywordTrue, token.KeywordFalse:
 			p.GetNextToken()
 			if expectOperator {
-				panic("Expected operator, not identifier.")
+				p.addErrorToken(fmt.Errorf("Expected operator, instead got true/false keyword (\"%s\").", t.String()), t)
+				return nil
 			}
 			expectOperator = true
 			infixNodes = append(infixNodes, &ast.Token{Token: t})
 		case token.String:
 			p.GetNextToken()
 			if expectOperator {
-				panic("Expected operator, not string.")
+				p.addErrorToken(fmt.Errorf("Expected operator, instead got string (\"%s\").", t.String()), t)
+				return nil
 			}
 			expectOperator = true
 			infixNodes = append(infixNodes, &ast.Token{Token: t})
@@ -621,7 +625,8 @@ Loop:
 		case token.Number:
 			p.GetNextToken()
 			if expectOperator {
-				panic("Expected operator, not number")
+				p.addErrorToken(fmt.Errorf("Expected operator, instead got number (\"%s\").", t.String()), t)
+				return nil
 			}
 			expectOperator = true
 			infixNodes = append(infixNodes, &ast.Token{Token: t})
@@ -646,7 +651,8 @@ Loop:
 			p.GetNextToken()
 			node := p.parseDefinition(token.Token{})
 			if node == nil {
-				panic("parseExpressionNodes: parseDefinition returned nil")
+				p.fatalErrorToken(fmt.Errorf("parseExpressionNodes: parseDefinition returned nil."), t)
+				return nil
 			}
 			infixNodes = append(infixNodes, node)
 		// ie. []string{"item1", "item2", "item3"}
@@ -790,8 +796,7 @@ CallLoop:
 		parameter.ChildNodes = exprNodes
 		parameters = append(parameters, parameter)
 
-		t := p.PeekNextToken()
-		switch t.Kind {
+		switch t := p.PeekNextToken(); t.Kind {
 		case token.Newline:
 			continue CallLoop
 		case token.Comma:
@@ -822,24 +827,29 @@ CallLoop:
 	childStatements := make([]ast.Node, 0, 10)
 	ifExprNodes := make([]ast.Node, 0, 10)
 
-	t := p.GetNextToken()
-	switch t.Kind {
-	case token.Newline:
-		p.eatNewlines()
-		// no-op
-	case token.BraceOpen:
-		childStatements = p.parseStatements()
-		isHTMLNode = true
-	case token.KeywordIf:
-		ifExprNodes = p.parseExpressionNodes(true)
-		if t := p.GetNextToken(); t.Kind != token.BraceOpen {
-			p.addErrorToken(p.expect(t, token.BraceOpen), t)
-			return nil
+	{
+		storeScannerState := p.ScannerState()
+		switch t := p.GetNextToken(); t.Kind {
+		case token.Newline:
+			// no-op
+		case token.BraceOpen:
+			childStatements = p.parseStatements()
+			isHTMLNode = true
+		case token.KeywordIf:
+			ifExprNodes = p.parseExpressionNodes(true)
+			if t := p.GetNextToken(); t.Kind != token.BraceOpen {
+				p.addErrorToken(p.expect(t, token.BraceOpen), t)
+				return nil
+			}
+			childStatements = p.parseStatements()
+			isHTMLNode = true
+		default:
+			if t.IsOperator() {
+				p.SetScannerState(storeScannerState)
+				break
+			}
+			p.addErrorToken(p.expect(t, token.BraceOpen, token.KeywordIf, token.Newline), t)
 		}
-		childStatements = p.parseStatements()
-		isHTMLNode = true
-	default:
-		p.addErrorToken(p.expect(t, token.BraceOpen, token.KeywordIf, token.Newline), t)
 	}
 
 	// todo(Jake): Extend this to allow user configured/whitelisted tag names

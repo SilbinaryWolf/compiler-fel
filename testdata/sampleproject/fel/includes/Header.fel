@@ -49,7 +49,7 @@ testProc :: (param1 List) string {
 	//param1.name = "blah" + param1.name
 }
 
-//myVal.otherValue = append("blest", "test")+append("meow", "test")
+myVal.otherValue = append("blest", "test") + " OI " + append("meow", "test")
 
 // todo(Jake): 2018-01-03
 //

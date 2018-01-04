@@ -148,24 +148,16 @@ func (p *Parser) typecheckArrayLiteral(scope *Scope, literal *ast.ArrayLiteral) 
 	}
 }
 
-func (p *Parser) typecheckCall(scope *Scope, node *ast.Call, resultTypeInfo types.TypeInfo) {
+func (p *Parser) typecheckCall(scope *Scope, node *ast.Call) {
 	typeInfo := p.typeinfo.get(node.Name.String())
 	callTypeInfo, ok := typeInfo.(*TypeInfo_Procedure)
 	if !ok {
 		p.addErrorToken(fmt.Errorf("Expected %s to be a procedure, instead got %T.", node.Name.String(), typeInfo), node.Name)
 		return
 	}
-	node.Definition = callTypeInfo.Definition()
-
-	//panic("todo: Typecheck the parameters")
 	procDefinition := callTypeInfo.Definition()
-	expectedTypeInfo := procDefinition.TypeInfo
-	if resultTypeInfo == nil {
-		resultTypeInfo = expectedTypeInfo
-	}
-	if !TypeEquals(resultTypeInfo, expectedTypeInfo) {
-		p.addErrorToken(fmt.Errorf("Cannot mix call type %s with %s", expectedTypeInfo.String(), resultTypeInfo.String()), node.Name)
-	}
+	node.Definition = procDefinition
+
 	parameters := node.Parameters
 	definitionParameters := procDefinition.Parameters
 	hasMismatchingTypes := len(definitionParameters) != len(parameters)
@@ -265,7 +257,16 @@ func (p *Parser) typecheckExpression(scope *Scope, expression *ast.Expression) {
 			}
 			continue
 		case *ast.Call:
-			p.typecheckCall(scope, node, resultTypeInfo)
+			p.typecheckCall(scope, node)
+			if node.Definition != nil {
+				expectedTypeInfo := node.Definition.TypeInfo
+				if resultTypeInfo == nil {
+					resultTypeInfo = expectedTypeInfo
+				}
+				if !TypeEquals(resultTypeInfo, expectedTypeInfo) {
+					p.addErrorToken(fmt.Errorf("Cannot mix call type %s with %s", expectedTypeInfo.String(), resultTypeInfo.String()), node.Name)
+				}
+			}
 			continue
 		case *ast.HTMLBlock:
 			panic("typecheckExpression: todo(Jake): Fix HTMLBlock")
@@ -279,34 +280,18 @@ func (p *Parser) typecheckExpression(scope *Scope, expression *ast.Expression) {
 			p.typecheckHTMLBlock(node, scope)*/
 		case *ast.TokenList:
 			tokens := node.Tokens()
-			concatPropertyName := tokens[0].String()
-			for i := 1; i < len(tokens); i++ {
-				concatPropertyName += "." + tokens[i].String()
-			}
 			expectedTypeInfo := p.getTypeFromLeftHandSide(tokens, scope)
 			if resultTypeInfo == nil {
 				resultTypeInfo = expectedTypeInfo
 			}
 			if !TypeEquals(resultTypeInfo, expectedTypeInfo) {
-				p.addErrorToken(fmt.Errorf("Cannot mix variable \"%s\" type %s with %s", concatPropertyName, expectedTypeInfo.String(), resultTypeInfo.String()), tokens[0])
+				p.addErrorToken(fmt.Errorf("Cannot mix variable \"%s\" type %s with %s", node.String(), expectedTypeInfo.String(), resultTypeInfo.String()), tokens[0])
 			}
 			//panic("todo(Jake): tokenlist")
 			continue
 		case *ast.Token:
 			if node.IsOperator() {
 				continue
-			}
-
-			var opToken token.Token
-			if i+1 < len(nodes) {
-				switch node := nodes[i+1].(type) {
-				case *ast.Token:
-					opToken = node.Token
-				case *ast.TokenList:
-					opToken = node.Tokens()[0]
-				default:
-					panic("Expected *ast.Token or *ast.TokenList")
-				}
 			}
 
 			switch node.Kind {
@@ -338,6 +323,22 @@ func (p *Parser) typecheckExpression(scope *Scope, expression *ast.Expression) {
 					resultTypeInfo = expectedTypeInfo
 				}
 				if !TypeEquals(resultTypeInfo, expectedTypeInfo) {
+					// NOTE(Jake): 2018-01-04
+					//
+					// Need to make mixing types error messages consistent. Either by removing
+					// the look-ahead for an operator token or by improving the check.
+					//
+					var opToken token.Token
+					if i+1 < len(nodes) {
+						switch node := nodes[i+1].(type) {
+						case *ast.Token:
+							opToken = node.Token
+						case *ast.TokenList:
+							opToken = node.Tokens()[0]
+						default:
+							panic(fmt.Sprintf("Expected *ast.Token or *ast.TokenList, not %T", node))
+						}
+					}
 					p.addErrorToken(fmt.Errorf("Cannot %s (%s) %s %s (\"%s\"), mismatching types.", resultTypeInfo.String(), leftToken.String(), opToken.String(), expectedTypeInfo.String(), node.String()), node.Token)
 				}
 			case token.Number:
@@ -495,7 +496,7 @@ func (p *Parser) typecheckStatements(topNode ast.Node, scope *Scope) {
 			// Skip nodes and child nodes
 			continue
 		case *ast.Call:
-			p.typecheckCall(scope, node, nil)
+			p.typecheckCall(scope, node)
 		case *ast.HTMLBlock:
 			panic("todo(Jake): Remove below commented out line if this is unused.")
 			//p.typecheckHTMLBlock(node, scope)
@@ -593,17 +594,18 @@ func (p *Parser) typecheckStatements(topNode ast.Node, scope *Scope) {
 			resultTypeInfo := node.Expression.TypeInfo
 			if !TypeEquals(variableTypeInfo, resultTypeInfo) {
 				nameToken := node.LeftHandSide[0]
-				if variableTypeInfo == nil {
-					p.fatalErrorToken(fmt.Errorf("\"variableTypeInfo\" is nil, this should have a value."), nameToken)
-					continue
-				}
-				if resultTypeInfo == nil {
-					p.fatalErrorToken(fmt.Errorf("\"resultTypeInfo\" is nil, this should have a value."), nameToken)
-					continue
-				}
 				name := nameToken.String()
 				for i := 1; i < len(node.LeftHandSide); i++ {
 					name += "." + node.LeftHandSide[i].String()
+				}
+				if variableTypeInfo == nil {
+					p.fatalErrorToken(fmt.Errorf("\"variableTypeInfo\" is nil, \"%s\" should have type info.", name), nameToken)
+					continue
+				}
+				if resultTypeInfo == nil {
+					panic(node.Expression.String())
+					p.fatalErrorToken(fmt.Errorf("\"resultTypeInfo\" is nil, right-side of \"%s\" should have type info.", name), nameToken)
+					continue
 				}
 				p.addErrorToken(fmt.Errorf("Cannot change \"%s\" from %s to %s", name, variableTypeInfo, resultTypeInfo.String()), nameToken)
 			}

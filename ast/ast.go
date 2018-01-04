@@ -1,6 +1,8 @@
 package ast
 
 import (
+	"fmt"
+
 	"github.com/silbinarywolf/compiler-fel/token"
 	"github.com/silbinarywolf/compiler-fel/types"
 )
@@ -127,6 +129,33 @@ type Expression struct {
 	Base
 }
 
+func (exprNode *Expression) String() string {
+	result := ""
+	for i, node := range exprNode.ChildNodes {
+		if i != 0 {
+			result += " | "
+		}
+		switch node := node.(type) {
+		case *Call:
+			result += node.Name.String() + "("
+			for i, parameter := range node.Parameters {
+				if i != 0 {
+					result += ","
+				}
+				result += parameter.Expression.String()
+			}
+			result += ")"
+		case *Token:
+			result += node.String()
+		case *TokenList:
+			result += node.String()
+		default:
+			panic(fmt.Sprintf("Expression:String: Unhandled type %T", node))
+		}
+	}
+	return result
+}
+
 type OpStatement struct {
 	LeftHandSide []token.Token
 	Operator     token.Token
@@ -147,12 +176,12 @@ type Token struct {
 	token.Token
 }
 
-type TokenList struct {
-	tokens []token.Token
-}
-
 func (node *Token) Nodes() []Node {
 	return nil
+}
+
+type TokenList struct {
+	tokens []token.Token
 }
 
 func NewTokenList(tokens []token.Token) *TokenList {
@@ -167,6 +196,15 @@ func (node *TokenList) Tokens() []token.Token {
 
 func (node *TokenList) Nodes() []Node {
 	return nil
+}
+
+func (node *TokenList) String() string {
+	tokens := node.Tokens()
+	concatPropertyName := tokens[0].String()
+	for i := 1; i < len(tokens); i++ {
+		concatPropertyName += "." + tokens[i].String()
+	}
+	return concatPropertyName
 }
 
 type StructDefinition struct {
