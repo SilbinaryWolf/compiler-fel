@@ -56,18 +56,14 @@ testProc :: (param1 List) string {
 // Refactor so procedure calls / HTML elements use the same parsing code.
 // Currently can't just call a procedure unless its in a set/declare statement.
 //
-t := testProc(
+testProc(
 
 
 
 	myVal.other
 	
-
-	,
-
-	"hey"
-
 	)
+
 latest := myVal.other.name + " woooo"
 
 // NOTE(Jake): 2017-12-28, For some reason these values aren't emitting bytecode.

@@ -44,13 +44,11 @@ func (p *Parser) Parse(filecontentsAsBytes []byte, filepath string) *ast.File {
 	return resultNode
 }
 
-func (p *Parser) checkHTMLNode(node *ast.HTMLNode) {
+func (p *Parser) validateHTMLNode(node *ast.HTMLNode) {
 	name := node.Name.String()
 	if len(node.ChildNodes) > 0 && util.IsSelfClosingTagName(name) {
 		p.addErrorToken(fmt.Errorf("%s is a self-closing tag and cannot have child elements.", name), node.Name)
-	}
-
-	//
+	} //
 	// todo(Jake): Extend this to allow user configured/whitelisted tag names
 	//
 	//isValidHTML5TagName := util.IsValidHTML5TagName(name)
@@ -198,32 +196,15 @@ Loop:
 					Name: name,
 				}
 				node.ChildNodes = p.parseStatements()
-				p.checkHTMLNode(node)
+				p.validateHTMLNode(node)
 				resultNodes = append(resultNodes, node)
 			// div(class="hey")  -or-  div(class="hey") if expr {
 			//    ^						  ^
 			case token.ParenOpen:
-				node := &ast.HTMLNode{
-					Name: name,
+				node := p.parseProcedureOrHTMLNode(name)
+				if node == nil {
+					return nil
 				}
-				node.Parameters = p.parseParameters()
-				t := p.GetNextToken()
-				switch t.Kind {
-				case token.Newline:
-					// no-op
-				case token.BraceOpen:
-					node.ChildNodes = p.parseStatements()
-				case token.KeywordIf:
-					node.IfExpression.ChildNodes = p.parseExpressionNodes(true)
-					if t := p.GetNextToken(); t.Kind != token.BraceOpen {
-						p.addErrorToken(p.expect(t, token.BraceOpen), t)
-						return nil
-					}
-					node.ChildNodes = p.parseStatements()
-				default:
-					p.addErrorToken(p.expect(t, token.Newline, token.BraceOpen), t)
-				}
-				p.checkHTMLNode(node)
 				resultNodes = append(resultNodes, node)
 			// PrintThisVariable \n
 			// ^
@@ -756,7 +737,8 @@ Loop:
 }
 
 func (p *Parser) parseProcedureOrHTMLNode(name token.Token) ast.Node {
-	isProcedureNode := true
+	hasDeterminedMode := false
+	isHTMLNode := false
 	parameters := make([]*ast.Parameter, 0, 10)
 CallLoop:
 	for {
@@ -771,6 +753,29 @@ CallLoop:
 		// )`
 		//
 		p.eatNewlines()
+
+		storeScannerState := p.ScannerState()
+		name := p.GetNextToken()
+		equalOp := p.GetNextToken()
+		if name.Kind == token.Identifier &&
+			equalOp.Kind == token.Equal {
+			if hasDeterminedMode && !isHTMLNode {
+				p.addErrorToken(fmt.Errorf("Cannot mix named and unnamed parameter, parameter #%d.", len(parameters)), name)
+			}
+			isHTMLNode = true
+			hasDeterminedMode = true
+		} else {
+			if hasDeterminedMode && isHTMLNode {
+				p.addErrorToken(fmt.Errorf("Cannot mix named and unnamed parameter, parameter #%d.", len(parameters)), name)
+			}
+			hasDeterminedMode = true
+		}
+		if !isHTMLNode {
+			p.SetScannerState(storeScannerState)
+		}
+		//panic(isHTMLNode)
+		//panic(fmt.Sprintf("%d", name.Line) + " " + name.Filepath + ": " + name.String())
+
 		exprNodes := p.parseExpressionNodes(false)
 		p.eatNewlines()
 
@@ -779,8 +784,12 @@ CallLoop:
 			return nil
 		}
 		parameter := new(ast.Parameter)
+		if isHTMLNode {
+			parameter.Name = name
+		}
 		parameter.ChildNodes = exprNodes
 		parameters = append(parameters, parameter)
+
 		t := p.PeekNextToken()
 		switch t.Kind {
 		case token.Newline:
@@ -809,7 +818,37 @@ CallLoop:
 			return nil
 		}
 	}
-	if isProcedureNode {
+
+	childStatements := make([]ast.Node, 0, 10)
+	ifExprNodes := make([]ast.Node, 0, 10)
+
+	t := p.GetNextToken()
+	switch t.Kind {
+	case token.Newline:
+		p.eatNewlines()
+		// no-op
+	case token.BraceOpen:
+		childStatements = p.parseStatements()
+		isHTMLNode = true
+	case token.KeywordIf:
+		ifExprNodes = p.parseExpressionNodes(true)
+		if t := p.GetNextToken(); t.Kind != token.BraceOpen {
+			p.addErrorToken(p.expect(t, token.BraceOpen), t)
+			return nil
+		}
+		childStatements = p.parseStatements()
+		isHTMLNode = true
+	default:
+		p.addErrorToken(p.expect(t, token.BraceOpen, token.KeywordIf, token.Newline), t)
+	}
+
+	// todo(Jake): Extend this to allow user configured/whitelisted tag names
+	//isValidHTML5TagName := util.IsValidHTML5TagName(name.String())
+	//if isValidHTML5TagName {
+	//	isHTMLNode = true
+	//}
+
+	if !isHTMLNode {
 		node := new(ast.Call)
 		node.Name = name
 		node.Parameters = parameters
@@ -818,22 +857,9 @@ CallLoop:
 	node := new(ast.HTMLNode)
 	node.Name = name
 	node.Parameters = parameters
-	p.eatNewlines()
-	t := p.GetNextToken()
-	switch t.Kind {
-	case token.BraceOpen:
-		node.ChildNodes = p.parseStatements()
-	case token.KeywordIf:
-		node.IfExpression.ChildNodes = p.parseExpressionNodes(true)
-		if t := p.GetNextToken(); t.Kind != token.BraceOpen {
-			p.addErrorToken(p.expect(t, token.BraceOpen), t)
-			return nil
-		}
-		node.ChildNodes = p.parseStatements()
-	default:
-		p.addErrorToken(p.expect(t, token.Newline, token.BraceOpen), t)
-	}
-	p.checkHTMLNode(node)
+	node.ChildNodes = childStatements
+	node.IfExpression.ChildNodes = ifExprNodes
+	p.validateHTMLNode(node)
 	return node
 }
 

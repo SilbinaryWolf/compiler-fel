@@ -528,6 +528,14 @@ func (emit *Emitter) emitStatement(opcodes []bytecode.Code, node ast.Node) []byt
 			})
 			emit.stackPos++
 		}
+	case *ast.Call:
+		opcodes = emit.emitCall(opcodes, node)
+		resultTypeInfo := node.Definition.TypeInfo
+		if resultTypeInfo != nil {
+			opcodes = append(opcodes, bytecode.Code{
+				Kind: bytecode.Pop,
+			})
+		}
 	case *ast.ArrayAppendStatement:
 		leftHandSide := node.LeftHandSide
 		var storeOffset int
@@ -664,6 +672,8 @@ func (emit *Emitter) emitStatement(opcodes []bytecode.Code, node ast.Node) []byt
 			break
 		}
 		opcodes[jumpCodeOffset].Value = len(opcodes)
+	case *ast.HTMLNode:
+		panic(fmt.Sprintf("emitStatement: Todo HTMLNode"))
 	case *ast.HTMLComponentDefinition:
 		//panic(fmt.Sprintf("emitStatement: Todo HTMLComponentDef"))
 	case *ast.StructDefinition,

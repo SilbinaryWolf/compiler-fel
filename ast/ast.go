@@ -35,6 +35,7 @@ type File struct {
 type Call struct {
 	Name       token.Token
 	Parameters []*Parameter
+	Definition *ProcedureDefinition
 }
 
 func (node *Call) Nodes() []Node {
