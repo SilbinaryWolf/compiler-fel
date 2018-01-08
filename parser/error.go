@@ -119,26 +119,35 @@ func (p *Parser) addErrorToken(message error, token token.Token) {
 		indentString += " "
 	}
 	message = fmt.Errorf(lineMessage + strings.Replace(message.Error(), "\n", indentString, -1))
+
+	// Get where the error message was added from to help
+	// track where error messages are raised.
 	if DEVELOPER_MODE {
-		// Get where the error message was added from to help
-		// track where error messages are raised.
-
-		pc, file, line, ok := runtime.Caller(1)
+		// NOTE(Jake): 2018-01-09
+		//
+		// Added code to get the last 3 layers of the call stack for improved
+		// debugging in the typechecker.
+		//
+		callIndex := 1
+		pc, file, line, ok := runtime.Caller(callIndex)
 		details := runtime.FuncForPC(pc)
-
-		// Go up one call stack higher if one of these functions
-		if name := details.Name(); strings.Contains(name, "fatalErrorToken") ||
-			strings.Contains(name, "fatalError") {
-			pc, file, line, ok = runtime.Caller(2)
-		}
-
-		if ok && details != nil {
-			// Reduce full filepath to just the scope of the `compiler-fel` repo
-			fileParts := strings.Split(file, "/")
-			if len(fileParts) >= 3 {
-				file = fileParts[len(fileParts)-3] + "/" + fileParts[len(fileParts)-2] + "/" + fileParts[len(fileParts)-1]
+		for i := 0; i < 3; i++ {
+			// Go up one call stack higher if one of these functions
+			if name := details.Name(); strings.Contains(name, "fatalErrorToken") ||
+				strings.Contains(name, "fatalError") {
+				callIndex++
 			}
-			message = fmt.Errorf("%s\n-- Line: %d | %s", message, line, file)
+			pc, file, line, ok = runtime.Caller(callIndex)
+
+			if ok {
+				// Reduce full filepath to just the scope of the `compiler-fel` repo
+				fileParts := strings.Split(file, "/")
+				if len(fileParts) >= 3 {
+					file = fileParts[len(fileParts)-3] + "/" + fileParts[len(fileParts)-2] + "/" + fileParts[len(fileParts)-1]
+				}
+				message = fmt.Errorf("%s\n-- Line: %d | %s", message, line, file)
+			}
+			callIndex++
 		}
 	}
 	p.errors[filepath] = append(p.errors[filepath], message)

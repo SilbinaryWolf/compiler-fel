@@ -285,6 +285,10 @@ func (p *Parser) typecheckExpression(scope *Scope, expression *ast.Expression) {
 				resultTypeInfo = expectedTypeInfo
 			}
 			if !TypeEquals(resultTypeInfo, expectedTypeInfo) {
+				if expectedTypeInfo == nil {
+					p.fatalErrorToken(fmt.Errorf("Unable to determine type, typechecker must have failed."), tokens[0])
+					return
+				}
 				p.addErrorToken(fmt.Errorf("Cannot mix variable \"%s\" type %s with %s", node.String(), expectedTypeInfo.String(), resultTypeInfo.String()), tokens[0])
 			}
 			//panic("todo(Jake): tokenlist")
@@ -381,6 +385,10 @@ func (p *Parser) typecheckHTMLBlock(htmlBlock *ast.HTMLBlock, scope *Scope) {
 
 func (p *Parser) getTypeFromLeftHandSide(leftHandSideTokens []token.Token, scope *Scope) types.TypeInfo {
 	nameToken := leftHandSideTokens[0]
+	if nameToken.Kind != token.Identifier {
+		p.fatalErrorToken(fmt.Errorf("Expected identifier on left hand side, instead got %s.", nameToken.Kind.String()), nameToken)
+		return nil
+	}
 	name := nameToken.String()
 	variableTypeInfo, ok := scope.Get(name)
 	if !ok {
@@ -730,7 +738,6 @@ func (p *Parser) typecheckStruct(node *ast.StructDefinition, scope *Scope) {
 }
 
 func (p *Parser) typecheckProcedureDefinition(node *ast.ProcedureDefinition, scope *Scope) {
-	errorCount := 0
 	for i := 0; i < len(node.Parameters); i++ {
 		parameter := &node.Parameters[i]
 		typeinfo := p.DetermineType(&parameter.TypeIdentifier)
@@ -741,7 +748,7 @@ func (p *Parser) typecheckProcedureDefinition(node *ast.ProcedureDefinition, sco
 		parameter.TypeInfo = typeinfo
 		scope.Set(parameter.Name.String(), typeinfo)
 	}
-	if errorCount > 0 {
+	if p.HasErrors() {
 		return
 	}
 	p.typecheckStatements(node, scope)
@@ -755,7 +762,8 @@ func (p *Parser) typecheckProcedureDefinition(node *ast.ProcedureDefinition, sco
 	// NOTE(Jake): 2017-12-30
 	//
 	// The code below is probably super slow compared
-	// to if we just added a flag to `typecheckStatements`
+	// to if we just added a flag/callback to `typecheckStatements`
+	// this would probably be faster.
 	//
 	nodes := node.ChildNodes
 	nodeStack := make([]ast.Node, 0, len(nodes))
@@ -816,7 +824,8 @@ func (p *Parser) TypecheckAndFinalize(files []*ast.File) {
 				*ast.For,
 				*ast.Block,
 				*ast.HTMLBlock,
-				*ast.Call:
+				*ast.Call,
+				*ast.Return:
 				// no-op, these are checked in TypecheckFile()
 			case *ast.ProcedureDefinition:
 				if node == nil {
