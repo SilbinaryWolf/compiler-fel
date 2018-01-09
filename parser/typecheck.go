@@ -281,17 +281,15 @@ func (p *Parser) typecheckExpression(scope *Scope, expression *ast.Expression) {
 		case *ast.TokenList:
 			tokens := node.Tokens()
 			expectedTypeInfo := p.getTypeFromLeftHandSide(tokens, scope)
+			if expectedTypeInfo == nil {
+				continue
+			}
 			if resultTypeInfo == nil {
 				resultTypeInfo = expectedTypeInfo
 			}
 			if !TypeEquals(resultTypeInfo, expectedTypeInfo) {
-				if expectedTypeInfo == nil {
-					p.fatalErrorToken(fmt.Errorf("Unable to determine type, typechecker must have failed."), tokens[0])
-					return
-				}
 				p.addErrorToken(fmt.Errorf("Cannot mix variable \"%s\" type %s with %s", node.String(), expectedTypeInfo.String(), resultTypeInfo.String()), tokens[0])
 			}
-			//panic("todo(Jake): tokenlist")
 			continue
 		case *ast.Token:
 			if node.IsOperator() {
@@ -738,6 +736,8 @@ func (p *Parser) typecheckStruct(node *ast.StructDefinition, scope *Scope) {
 }
 
 func (p *Parser) typecheckProcedureDefinition(node *ast.ProcedureDefinition, scope *Scope) {
+	scope = NewScope(scope)
+
 	for i := 0; i < len(node.Parameters); i++ {
 		parameter := &node.Parameters[i]
 		typeinfo := p.DetermineType(&parameter.TypeIdentifier)
@@ -832,7 +832,7 @@ func (p *Parser) TypecheckAndFinalize(files []*ast.File) {
 					p.fatalError(fmt.Errorf("Found nil top-level %T.", node))
 					continue
 				}
-				p.typecheckProcedureDefinition(node, NewScope(scope))
+				p.typecheckProcedureDefinition(node, scope)
 			case *ast.StructDefinition:
 				if node == nil {
 					p.fatalError(fmt.Errorf("Found nil top-level %T.", node))

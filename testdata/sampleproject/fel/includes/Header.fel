@@ -44,9 +44,9 @@ append :: (param1 string, param2 string) string {
 // Need to decide if procedures can or cannot have side-effects, currently if you modify
 // an object in a procedure, it stays modified.
 //
+
 testProc :: (param1 List) string {
 	return param1.name+" append jeremy"+param1.name
-	//param1.name = "blah" + param1.name
 }
 
 myVal.otherValue = append("blest", "test") + " OI " + append("meow", "test")
@@ -56,13 +56,7 @@ myVal.otherValue = append("blest", "test") + " OI " + append("meow", "test")
 // Refactor so procedure calls / HTML elements use the same parsing code.
 // Currently can't just call a procedure unless its in a set/declare statement.
 //
-testProc(
-
-
-
-	myVal.other
-	
-	)
+testProc(myVal.other)
 
 latest := myVal.other.name + " woooo"
 
