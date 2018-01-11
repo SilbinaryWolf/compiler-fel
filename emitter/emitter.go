@@ -266,21 +266,15 @@ func (emit *Emitter) emitHTMLNode(opcodes []bytecode.Code, node *ast.Call) []byt
 		panic("todo(Jake): Handle node with HTMLDefinition information attached")
 	}
 
+	// todo(Jake): Push HTMLnode into current context
+	for _, node := range node.Nodes() {
+		emit.emitStatement(opcodes, node)
+	}
+	// todo(Jake): Pop HTMLNode from current context
+
 	debugOpcodes(opcodes)
 	panic(fmt.Sprintf("%v", definition))
 	panic("todo(Jake): emitHTMLNode")
-}
-
-func (emit *Emitter) emitCall(opcodes []bytecode.Code, node *ast.Call) []bytecode.Code {
-	switch node.Kind() {
-	case ast.CallProcedure:
-		return emit.emitProcedureCall(opcodes, node)
-	case ast.CallHTMLNode:
-		return emit.emitHTMLNode(opcodes, node)
-	default:
-		panic(fmt.Errorf("emitCall: Unhandled call kind: %s", node.Name))
-	}
-	return nil
 }
 
 func (emit *Emitter) emitExpression(opcodes []bytecode.Code, topNode *ast.Expression) []bytecode.Code {
@@ -295,7 +289,17 @@ func (emit *Emitter) emitExpression(opcodes []bytecode.Code, topNode *ast.Expres
 		case *ast.TokenList:
 			opcodes, _ = emit.emitVariableIdentWithProperty(opcodes, node.Tokens())
 		case *ast.Call:
-			opcodes = emit.emitCall(opcodes, node)
+			switch node.Kind() {
+			case ast.CallProcedure:
+				opcodes = emit.emitProcedureCall(opcodes, node)
+			case ast.CallHTMLNode:
+				if len(node.Nodes()) > 0 {
+					panic("emitExpression: Cannot have sub-elements for HTMLNode in an expression.")
+				}
+				opcodes = emit.emitHTMLNode(opcodes, node)
+			default:
+				panic(fmt.Errorf("emitExpression: Unhandled *ast.Call kind: %s", node.Name))
+			}
 		case *ast.Token:
 			switch t := node.Token; t.Kind {
 			case token.Identifier:
@@ -552,12 +556,19 @@ func (emit *Emitter) emitStatement(opcodes []bytecode.Code, node ast.Node) []byt
 			emit.stackPos++
 		}
 	case *ast.Call:
-		opcodes = emit.emitCall(opcodes, node)
-		resultTypeInfo := node.Definition.TypeInfo
-		if resultTypeInfo != nil {
-			opcodes = append(opcodes, bytecode.Code{
-				Kind: bytecode.Pop,
-			})
+		switch node.Kind() {
+		case ast.CallProcedure:
+			opcodes = emit.emitProcedureCall(opcodes, node)
+			resultTypeInfo := node.Definition.TypeInfo
+			if resultTypeInfo != nil {
+				opcodes = append(opcodes, bytecode.Code{
+					Kind: bytecode.Pop,
+				})
+			}
+		case ast.CallHTMLNode:
+			opcodes = emit.emitHTMLNode(opcodes, node)
+		default:
+			panic(fmt.Errorf("emitExpression: Unhandled *ast.Call kind: %s", node.Name))
 		}
 	case *ast.ArrayAppendStatement:
 		leftHandSide := node.LeftHandSide
