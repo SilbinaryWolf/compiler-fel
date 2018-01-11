@@ -12,9 +12,11 @@ import (
 
 type Parser struct {
 	scanner.Scanner
-	typeinfo                      TypeInfoManager
-	errors                        map[string][]error
-	typecheckHtmlNodeDependencies map[string]*ast.HTMLNode
+	typeinfo TypeInfoManager
+	errors   map[string][]error
+
+	// Typechecking-only
+	typecheckHtmlNodeDependencies map[string]*ast.Call
 }
 
 func New() *Parser {
@@ -44,7 +46,7 @@ func (p *Parser) Parse(filecontentsAsBytes []byte, filepath string) *ast.File {
 	return resultNode
 }
 
-func (p *Parser) validateHTMLNode(node *ast.HTMLNode) {
+func (p *Parser) validateHTMLNode(node *ast.Call) {
 	name := node.Name.String()
 	if len(node.ChildNodes) > 0 && util.IsSelfClosingTagName(name) {
 		p.addErrorToken(fmt.Errorf("%s is a self-closing tag and cannot have child elements.", name), node.Name)
@@ -175,9 +177,8 @@ Loop:
 			// div if {expr} {
 			//     ^
 			case token.KeywordIf:
-				node := &ast.HTMLNode{
-					Name: name,
-				}
+				node := ast.NewHTMLNode()
+				node.Name = name
 				node.IfExpression.ChildNodes = p.parseExpressionNodes(true)
 				if t := p.GetNextToken(); t.Kind != token.BraceOpen {
 					p.addErrorToken(p.expect(t, token.BraceOpen), t)
@@ -194,9 +195,8 @@ Loop:
 			// div {
 			//     ^
 			case token.BraceOpen:
-				node := &ast.HTMLNode{
-					Name: name,
-				}
+				node := ast.NewHTMLNode()
+				node.Name = name
 				node.ChildNodes = p.parseStatements()
 				p.validateHTMLNode(node)
 				resultNodes = append(resultNodes, node)
@@ -742,7 +742,7 @@ Loop:
 	return infixNodes
 }
 
-func (p *Parser) parseProcedureOrHTMLNode(name token.Token) ast.Node {
+func (p *Parser) parseProcedureOrHTMLNode(name token.Token) *ast.Call {
 	hasDeterminedMode := false
 	isHTMLNode := false
 	parameters := make([]*ast.Parameter, 0, 10)
@@ -859,12 +859,12 @@ CallLoop:
 	//}
 
 	if !isHTMLNode {
-		node := new(ast.Call)
+		node := ast.NewCall()
 		node.Name = name
 		node.Parameters = parameters
 		return node
 	}
-	node := new(ast.HTMLNode)
+	node := ast.NewHTMLNode()
 	node.Name = name
 	node.Parameters = parameters
 	node.ChildNodes = childStatements
@@ -992,8 +992,8 @@ func (p *Parser) parseDefinition(name token.Token) ast.Node {
 			// Check HTML nodes
 			htmlNodeCount := 0
 			for _, itNode := range childNodes {
-				_, ok := itNode.(*ast.HTMLNode)
-				if !ok {
+				node, ok := itNode.(*ast.Call)
+				if !ok || node.Kind() != ast.CallHTMLNode {
 					continue
 				}
 				htmlNodeCount++

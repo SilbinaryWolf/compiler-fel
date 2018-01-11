@@ -7,6 +7,14 @@ import (
 	"github.com/silbinarywolf/compiler-fel/types"
 )
 
+type CallKind int
+
+const (
+	CallUnknown CallKind = 0 + iota
+	CallProcedure
+	CallHTMLNode
+)
+
 /*type TypeKind int
 
 const (
@@ -34,14 +42,36 @@ type File struct {
 	Base
 }
 
+// todo(Jake): 2018-01-09
+//
+// Refactor HTMLNode into Call
+//
 type Call struct {
+	kind CallKind
+	// Shared
 	Name       token.Token
 	Parameters []*Parameter
 	Definition *ProcedureDefinition
+	// HTMLNode only
+	HTMLDefinition *HTMLComponentDefinition // optional
+	IfExpression   Expression               // optional
+	Base
 }
 
-func (node *Call) Nodes() []Node {
-	return nil
+func NewCall() *Call {
+	node := new(Call)
+	node.kind = CallProcedure
+	return node
+}
+
+func NewHTMLNode() *Call {
+	node := new(Call)
+	node.kind = CallHTMLNode
+	return node
+}
+
+func (node *Call) Kind() CallKind {
+	return node.kind
 }
 
 /*type Block struct {

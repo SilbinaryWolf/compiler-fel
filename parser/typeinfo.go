@@ -11,9 +11,10 @@ type TypeInfoManager struct {
 	registeredTypes map[string]TypeInfo
 
 	// built-in
-	intInfo    TypeInfo_Int
-	floatInfo  TypeInfo_Float
-	stringInfo TypeInfo_String
+	intInfo      TypeInfo_Int
+	floatInfo    TypeInfo_Float
+	stringInfo   TypeInfo_String
+	htmlNodeInfo TypeInfo_HTMLNode
 }
 
 func (manager *TypeInfoManager) Init() {
@@ -106,6 +107,28 @@ func (manager *TypeInfoManager) NewProcedureInfo(definiton *ast.ProcedureDefinit
 	result.definition = definiton
 	return result
 }
+
+// HTMLNode
+type TypeInfo_HTMLNode struct{}
+
+func (info *TypeInfo_HTMLNode) String() string { return "html node" }
+
+func (manager *TypeInfoManager) NewHTMLNode(name string) *TypeInfo_HTMLNode {
+	return &manager.htmlNodeInfo
+}
+
+// HTMLComponentNode
+/*type TypeInfo_HTMLComponentNode struct {
+	name       string
+	definition *ast.HTMLComponentDefinition
+}
+
+func NewHTMLComponentNode(name string) TypeInfo {
+	result := new(TypeInfo_HTMLComponentNode)
+	result.name = definition.Name.String()
+	//result.definition = definiton
+	return result
+}*/
 
 // Struct
 type TypeInfo_Struct struct {

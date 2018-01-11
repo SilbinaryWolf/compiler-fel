@@ -242,7 +242,7 @@ func (emit *Emitter) emitVariableIdentWithProperty(
 	return opcodes, lastPropertyField.Index
 }
 
-func (emit *Emitter) emitCall(opcodes []bytecode.Code, node *ast.Call) []bytecode.Code {
+func (emit *Emitter) emitProcedureCall(opcodes []bytecode.Code, node *ast.Call) []bytecode.Code {
 	name := node.Name.String()
 	block, ok := emit.symbols[name]
 	if !ok {
@@ -258,6 +258,29 @@ func (emit *Emitter) emitCall(opcodes []bytecode.Code, node *ast.Call) []bytecod
 		Value: block,
 	})
 	return opcodes
+}
+
+func (emit *Emitter) emitHTMLNode(opcodes []bytecode.Code, node *ast.Call) []bytecode.Code {
+	definition := node.HTMLDefinition
+	if definition != nil {
+		panic("todo(Jake): Handle node with HTMLDefinition information attached")
+	}
+
+	debugOpcodes(opcodes)
+	panic(fmt.Sprintf("%v", definition))
+	panic("todo(Jake): emitHTMLNode")
+}
+
+func (emit *Emitter) emitCall(opcodes []bytecode.Code, node *ast.Call) []bytecode.Code {
+	switch node.Kind() {
+	case ast.CallProcedure:
+		return emit.emitProcedureCall(opcodes, node)
+	case ast.CallHTMLNode:
+		return emit.emitHTMLNode(opcodes, node)
+	default:
+		panic(fmt.Errorf("emitCall: Unhandled call kind: %s", node.Name))
+	}
+	return nil
 }
 
 func (emit *Emitter) emitExpression(opcodes []bytecode.Code, topNode *ast.Expression) []bytecode.Code {
@@ -672,8 +695,6 @@ func (emit *Emitter) emitStatement(opcodes []bytecode.Code, node ast.Node) []byt
 			break
 		}
 		opcodes[jumpCodeOffset].Value = len(opcodes)
-	case *ast.HTMLNode:
-		panic(fmt.Sprintf("emitStatement: Todo HTMLNode"))
 	case *ast.HTMLComponentDefinition:
 		//panic(fmt.Sprintf("emitStatement: Todo HTMLComponentDef"))
 	case *ast.StructDefinition,

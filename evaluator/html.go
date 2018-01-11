@@ -65,7 +65,7 @@ func (program *Program) evaluateHTMLNodeChildren(nodes []ast.Node, scope *Scope)
 	scope = NewScope(scope)
 	for _, itNode := range nodes {
 		switch node := itNode.(type) {
-		case *ast.HTMLNode:
+		case *ast.Call:
 			if node.HTMLDefinition != nil {
 				subResultDataNode := program.evaluteHTMLComponent(node, scope)
 				resultNodes = append(resultNodes, subResultDataNode)
@@ -127,7 +127,7 @@ func (program *Program) evaluateHTMLNodeChildren(nodes []ast.Node, scope *Scope)
 	return resultNodes
 }
 
-func (program *Program) evaluteHTMLComponent(topNode *ast.HTMLNode, scope *Scope) *data.HTMLComponentNode {
+func (program *Program) evaluteHTMLComponent(topNode *ast.Call, scope *Scope) *data.HTMLComponentNode {
 	// Get children nodes
 	childNodes := program.evaluateHTMLNodeChildren(topNode.Nodes(), scope)
 
@@ -180,7 +180,7 @@ func (program *Program) evaluteHTMLComponent(topNode *ast.HTMLNode, scope *Scope
 	resultDataNode.Name = topNode.HTMLDefinition.Name.String()
 	for _, itNode := range topNode.HTMLDefinition.ChildNodes {
 		switch node := itNode.(type) {
-		case *ast.HTMLNode:
+		case *ast.Call:
 			if node.HTMLDefinition != nil {
 				subResultDataNode := program.evaluteHTMLComponent(node, componentScope)
 				resultNodes = append(resultNodes, subResultDataNode)
@@ -219,7 +219,7 @@ func (program *Program) evaluateHTMLBlock(node *ast.HTMLBlock, scope *Scope) *da
 	return resultNode
 }
 
-func (program *Program) evaluateHTMLNode(node *ast.HTMLNode, scope *Scope) *data.HTMLNode {
+func (program *Program) evaluateHTMLNode(node *ast.Call, scope *Scope) *data.HTMLNode {
 	if len(node.IfExpression.ChildNodes) > 0 {
 		iResult := program.evaluateExpression(&node.IfExpression, scope)
 		resultBool := iResult.(*data.Bool)

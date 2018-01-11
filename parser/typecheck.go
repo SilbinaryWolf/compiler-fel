@@ -149,6 +149,17 @@ func (p *Parser) typecheckArrayLiteral(scope *Scope, literal *ast.ArrayLiteral) 
 }
 
 func (p *Parser) typecheckCall(scope *Scope, node *ast.Call) {
+	switch node.Kind() {
+	case ast.CallProcedure:
+		p.typecheckProcedureCall(scope, node)
+	case ast.CallHTMLNode:
+		p.typecheckHTMLNode(scope, node)
+	default:
+		p.fatalErrorToken(fmt.Errorf("Unhandled ast.Call kind: %s", node.Name), node.Name)
+	}
+}
+
+func (p *Parser) typecheckProcedureCall(scope *Scope, node *ast.Call) {
 	typeInfo := p.typeinfo.get(node.Name.String())
 	callTypeInfo, ok := typeInfo.(*TypeInfo_Procedure)
 	if !ok {
@@ -258,15 +269,21 @@ func (p *Parser) typecheckExpression(scope *Scope, expression *ast.Expression) {
 			continue
 		case *ast.Call:
 			p.typecheckCall(scope, node)
-			if node.Definition != nil {
-				expectedTypeInfo := node.Definition.TypeInfo
-				if resultTypeInfo == nil {
-					resultTypeInfo = expectedTypeInfo
+			switch node.Kind() {
+			case ast.CallProcedure:
+				if node.Definition != nil {
+					expectedTypeInfo := node.Definition.TypeInfo
+					if resultTypeInfo == nil {
+						resultTypeInfo = expectedTypeInfo
+					}
+					if !TypeEquals(resultTypeInfo, expectedTypeInfo) {
+						p.addErrorToken(fmt.Errorf("Cannot mix call type %s with %s", expectedTypeInfo.String(), resultTypeInfo.String()), node.Name)
+					}
 				}
-				if !TypeEquals(resultTypeInfo, expectedTypeInfo) {
-					p.addErrorToken(fmt.Errorf("Cannot mix call type %s with %s", expectedTypeInfo.String(), resultTypeInfo.String()), node.Name)
-				}
+			default:
+				panic(fmt.Sprintf("typecheckExpression:Call: Unhandled call kind: %s", node.Kind()))
 			}
+
 			continue
 		case *ast.HTMLBlock:
 			panic("typecheckExpression: todo(Jake): Fix HTMLBlock")
@@ -376,10 +393,10 @@ func (p *Parser) typecheckExpression(scope *Scope, expression *ast.Expression) {
 	expression.TypeInfo = resultTypeInfo
 }
 
-func (p *Parser) typecheckHTMLBlock(htmlBlock *ast.HTMLBlock, scope *Scope) {
-	scope = NewScope(scope)
-	p.typecheckStatements(htmlBlock, scope)
-}
+//func (p *Parser) typecheckHTMLBlock(htmlBlock *ast.HTMLBlock, scope *Scope) {
+//	scope = NewScope(scope)
+//	p.typecheckStatements(htmlBlock, scope)
+//}
 
 func (p *Parser) getTypeFromLeftHandSide(leftHandSideTokens []token.Token, scope *Scope) types.TypeInfo {
 	nameToken := leftHandSideTokens[0]
@@ -417,6 +434,69 @@ func (p *Parser) getTypeFromLeftHandSide(leftHandSideTokens []token.Token, scope
 		variableTypeInfo = structField.TypeInfo
 	}
 	return variableTypeInfo
+}
+
+func (p *Parser) typecheckHTMLNode(scope *Scope, node *ast.Call) {
+	p.typecheckExpression(scope, &node.IfExpression)
+
+	for i, _ := range node.Parameters {
+		p.typecheckExpression(scope, &node.Parameters[i].Expression)
+	}
+
+	name := node.Name.String()
+	isValidHTML5TagName := util.IsValidHTML5TagName(name)
+	if isValidHTML5TagName {
+		return
+	}
+	htmlComponentDefinition, ok := scope.GetHTMLDefinition(name)
+	if !ok {
+		if name != strings.ToLower(name) {
+			// NOTE(Jake): 2017-12-28
+			//			   Hit this error while developing and decided that if the convention is that non-HTML5 spec
+			//			   elements
+			p.addErrorToken(fmt.Errorf("\"%s\" is an undefined component. If you want to use a standard HTML5 element, the name must all be in lowercase.", name), node.Name)
+			return
+		}
+		p.addErrorToken(fmt.Errorf("\"%s\" is not a valid HTML5 element or defined component.", name), node.Name)
+		return
+	}
+	//fmt.Printf("%s -- %d\n", htmlComponentDefinition.Name.String(), len(p.typecheckHtmlDefinitionStack))
+	//for _, itHtmlDefinition := range p.typecheckHtmlDefinitionStack {
+	//	if htmlComponentDefinition == itHtmlDefinition {
+	//		p.addErrorLine(fmt.Errorf("Cannot reference self in \"%s :: html\".", htmlComponentDefinition.Name.String()), node.Name.Line)
+	//		//continue Loop
+	//		return
+	//	}
+	//}
+	if p.typecheckHtmlNodeDependencies != nil {
+		p.typecheckHtmlNodeDependencies[name] = node
+	}
+	node.HTMLDefinition = htmlComponentDefinition
+	structDef := node.HTMLDefinition.Struct
+	if structDef != nil && len(structDef.Fields) > 0 {
+		// Check if parameters exist
+	ParameterCheckLoop:
+		for i, _ := range node.Parameters {
+			parameterNode := node.Parameters[i]
+			paramName := parameterNode.Name.String()
+			for _, field := range structDef.Fields {
+				if paramName == field.Name.String() {
+					parameterType := parameterNode.TypeInfo
+					componentStructType := field.TypeInfo
+					if parameterType != componentStructType {
+						if field.TypeInfo == nil {
+							p.fatalError(fmt.Errorf("Struct field \"%s\" is missing type info.", paramName))
+							return
+						}
+						p.addErrorToken(fmt.Errorf("\"%s\" must be of type %s, not %s", paramName, componentStructType.String(), parameterType.String()), parameterNode.Name)
+					}
+					continue ParameterCheckLoop
+				}
+			}
+			p.addErrorToken(fmt.Errorf("\"%s\" is not a property on \"%s :: html\"", paramName, name), parameterNode.Name)
+			continue
+		}
+	}
 }
 
 func (p *Parser) typecheckHTMLDefinition(htmlDefinition *ast.HTMLComponentDefinition, parentScope *Scope) {
@@ -468,7 +548,7 @@ func (p *Parser) typecheckHTMLDefinition(htmlDefinition *ast.HTMLComponentDefini
 	if p.typecheckHtmlNodeDependencies != nil {
 		panic("typecheckHtmlNodeDependencies must be nil before being re-assigned")
 	}
-	p.typecheckHtmlNodeDependencies = make(map[string]*ast.HTMLNode)
+	p.typecheckHtmlNodeDependencies = make(map[string]*ast.Call)
 	p.typecheckStatements(htmlDefinition, scope)
 	htmlDefinition.Dependencies = p.typecheckHtmlNodeDependencies
 	p.typecheckHtmlNodeDependencies = nil
@@ -506,67 +586,6 @@ func (p *Parser) typecheckStatements(topNode ast.Node, scope *Scope) {
 		case *ast.HTMLBlock:
 			panic("todo(Jake): Remove below commented out line if this is unused.")
 			//p.typecheckHTMLBlock(node, scope)
-		case *ast.HTMLNode:
-			p.typecheckExpression(scope, &node.IfExpression)
-
-			for i, _ := range node.Parameters {
-				p.typecheckExpression(scope, &node.Parameters[i].Expression)
-			}
-
-			name := node.Name.String()
-			isValidHTML5TagName := util.IsValidHTML5TagName(name)
-			if isValidHTML5TagName {
-				continue
-			}
-			htmlComponentDefinition, ok := scope.GetHTMLDefinition(name)
-			if !ok {
-				if name != strings.ToLower(name) {
-					// NOTE(Jake): 2017-12-28
-					//			   Hit this error while developing and decided that if the convention is that non-HTML5 spec
-					//			   elements
-					p.addErrorToken(fmt.Errorf("\"%s\" is an undefined component. If you want to use a standard HTML5 element, the name must all be in lowercase.", name), node.Name)
-					continue
-				}
-				p.addErrorToken(fmt.Errorf("\"%s\" is not a valid HTML5 element or defined component.", name), node.Name)
-				continue
-			}
-			//fmt.Printf("%s -- %d\n", htmlComponentDefinition.Name.String(), len(p.typecheckHtmlDefinitionStack))
-			//for _, itHtmlDefinition := range p.typecheckHtmlDefinitionStack {
-			//	if htmlComponentDefinition == itHtmlDefinition {
-			//		p.addErrorLine(fmt.Errorf("Cannot reference self in \"%s :: html\".", htmlComponentDefinition.Name.String()), node.Name.Line)
-			//		//continue Loop
-			//		return
-			//	}
-			//}
-			if p.typecheckHtmlNodeDependencies != nil {
-				p.typecheckHtmlNodeDependencies[name] = node
-			}
-			node.HTMLDefinition = htmlComponentDefinition
-			structDef := node.HTMLDefinition.Struct
-			if structDef != nil && len(structDef.Fields) > 0 {
-				// Check if parameters exist
-			ParameterCheckLoop:
-				for i, _ := range node.Parameters {
-					parameterNode := node.Parameters[i]
-					paramName := parameterNode.Name.String()
-					for _, field := range structDef.Fields {
-						if paramName == field.Name.String() {
-							parameterType := parameterNode.TypeInfo
-							componentStructType := field.TypeInfo
-							if parameterType != componentStructType {
-								if field.TypeInfo == nil {
-									p.fatalError(fmt.Errorf("Struct field \"%s\" is missing type info.", paramName))
-									return
-								}
-								p.addErrorToken(fmt.Errorf("\"%s\" must be of type %s, not %s", paramName, componentStructType.String(), parameterType.String()), parameterNode.Name)
-							}
-							continue ParameterCheckLoop
-						}
-					}
-					p.addErrorToken(fmt.Errorf("\"%s\" is not a property on \"%s :: html\"", paramName, name), parameterNode.Name)
-					continue
-				}
-			}
 		case *ast.Return:
 			p.typecheckExpression(scope, &node.Expression)
 			continue
@@ -815,8 +834,7 @@ func (p *Parser) TypecheckAndFinalize(files []*ast.File) {
 		scope := globalScope
 		for _, itNode := range file.ChildNodes {
 			switch node := itNode.(type) {
-			case *ast.HTMLNode,
-				*ast.DeclareStatement,
+			case *ast.DeclareStatement,
 				*ast.OpStatement,
 				*ast.ArrayAppendStatement,
 				*ast.Expression,
@@ -935,7 +953,7 @@ func (p *Parser) TypecheckAndFinalize(files []*ast.File) {
 
 	// Get nested dependencies
 	for _, htmlDefinition := range globalScope.htmlDefinitions {
-		nodeStack := make([]*ast.HTMLNode, 0, 50)
+		nodeStack := make([]*ast.Call, 0, 50)
 		for _, subNode := range htmlDefinition.Dependencies {
 			nodeStack = append(nodeStack, subNode)
 		}

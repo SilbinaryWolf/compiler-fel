@@ -11,17 +11,17 @@ type HTMLBlock struct {
 
 type HTMLComponentDefinition struct {
 	Name                token.Token
-	Dependencies        map[string]*HTMLNode
+	Dependencies        map[string]*Call
 	Struct              *StructDefinition
 	CSSDefinition       *CSSDefinition       // optional
 	CSSConfigDefinition *CSSConfigDefinition // optional
 	Base
 }
 
-type HTMLNode struct {
+/*type HTMLNode struct {
 	Name           token.Token
 	Parameters     []*Parameter
 	HTMLDefinition *HTMLComponentDefinition // optional
 	IfExpression   Expression               // optional
 	Base
-}
+}*/
