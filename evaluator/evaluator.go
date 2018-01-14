@@ -89,7 +89,10 @@ func (program *Program) RunProject(projectDirpath string) error {
 		}
 		astFile := p.Parse(filecontentsAsBytes, filepath)
 		if astFile == nil {
-			panic("Unexpected parse error (Parse() returned a nil ast.File node)")
+			if p.HasErrors() {
+				p.PrintErrors()
+			}
+			return fmt.Errorf("Parse errors in config.fel in root of project directory")
 		}
 		configAstFile = astFile
 		p.TypecheckFile(configAstFile, nil)
@@ -181,7 +184,10 @@ func (program *Program) RunProject(projectDirpath string) error {
 		}
 		astFile := p.Parse(filecontentsAsBytes, filepath)
 		if astFile == nil {
-			return fmt.Errorf("Unexpected parse error (Parse() returned a nil ast.File node)")
+			if p.HasErrors() {
+				p.PrintErrors()
+			}
+			return fmt.Errorf("Empty source file: %s.", filepath)
 		}
 		if p.Scanner.HasErrors() {
 			p.PrintErrors()
@@ -210,6 +216,10 @@ func (program *Program) RunProject(projectDirpath string) error {
 		info := emitter.New()
 		for _, astFile := range astFiles {
 			if strings.Contains(astFile.Filepath, "Header.fel") {
+				if len(astFile.Nodes()) == 0 {
+					panic("Missing parsed nodes from file.")
+				}
+
 				json, _ := json.MarshalIndent(astFile, "", "   ")
 				fmt.Printf("%s\nJSON AST\n---------------\n", string(json))
 

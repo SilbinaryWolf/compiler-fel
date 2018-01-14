@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 
 	"github.com/silbinarywolf/compiler-fel/ast"
+	"github.com/silbinarywolf/compiler-fel/errors"
 	"github.com/silbinarywolf/compiler-fel/scanner"
 	"github.com/silbinarywolf/compiler-fel/token"
 	"github.com/silbinarywolf/compiler-fel/util"
@@ -12,7 +13,7 @@ import (
 
 type Parser struct {
 	scanner.Scanner
-	ErrorHandler
+	errors.ErrorHandler
 
 	// Typechecking-only
 	// NOTE(Jake): 2018-01-14
@@ -25,11 +26,18 @@ type Parser struct {
 
 func New() *Parser {
 	p := new(Parser)
+
 	p.ErrorHandler.Init()
+	p.ErrorHandler.SetDeveloperMode(true)
+
 	p.typeinfo.Init()
 	//p.typecheckHtmlDefinitionDependencies = make(map[string]*ast.HTMLComponentDefinition)
 	//p.typecheckHtmlDefinitionStack = make([]*ast.HTMLComponentDefinition, 0, 20)
 	return p
+}
+
+func (p *Parser) HasErrors() bool {
+	return p.Scanner.HasErrors() || p.ErrorHandler.HasErrors()
 }
 
 func (p *Parser) ParseFile(filepath string) (*ast.File, error) {
@@ -38,13 +46,21 @@ func (p *Parser) ParseFile(filepath string) (*ast.File, error) {
 		return nil, err
 	}
 	result := p.Parse(filecontentsAsBytes, filepath)
+	if result == nil {
+		return nil, fmt.Errorf("Parse error.")
+	}
 	return result, nil
 }
 
 func (p *Parser) Parse(filecontentsAsBytes []byte, filepath string) *ast.File {
-	p.Scanner = *scanner.New(filecontentsAsBytes, filepath)
+	p.Scanner.Init(filecontentsAsBytes, filepath)
 	resultNode := &ast.File{
 		Filepath: filepath,
+	}
+	t := p.PeekNextToken()
+	if t.Kind == token.EOF {
+		p.AddError(t, fmt.Errorf("Empty source file: %s", filepath))
+		return nil
 	}
 	resultNode.ChildNodes = p.parseStatements()
 	return resultNode
@@ -53,8 +69,8 @@ func (p *Parser) Parse(filecontentsAsBytes []byte, filepath string) *ast.File {
 func (p *Parser) validateHTMLNode(node *ast.Call) {
 	name := node.Name.String()
 	if len(node.ChildNodes) > 0 && util.IsSelfClosingTagName(name) {
-		p.addErrorToken(fmt.Errorf("%s is a self-closing tag and cannot have child elements.", name), node.Name)
-	} //
+		p.AddError(node.Name, fmt.Errorf("%s is a self-closing tag and cannot have child elements.", name))
+	}
 	// todo(Jake): Extend this to allow user configured/whitelisted tag names
 	//
 	//isValidHTML5TagName := util.IsValidHTML5TagName(name)
@@ -72,7 +88,7 @@ func (p *Parser) NewDeclareStatement(name token.Token, typeIdent ast.Type, expre
 
 	nameString := name.String()
 	if len(nameString) > 0 && nameString[len(nameString)-1] == '-' {
-		p.addErrorToken(fmt.Errorf("Declaring variable name ending with - is illegal."), name)
+		p.AddError(name, fmt.Errorf("Declaring variable name ending with - is illegal."))
 	}
 
 	return node
@@ -124,7 +140,7 @@ Loop:
 				for {
 					t := p.GetNextToken()
 					if t.Kind != token.Identifier {
-						p.addErrorToken(expect(t, token.Identifier), t)
+						p.AddExpectError(t, token.Identifier)
 						return nil
 					}
 					leftHandSide = append(leftHandSide, t)
@@ -138,11 +154,11 @@ Loop:
 				operatorToken := p.GetNextToken()
 				if operatorToken.Kind == token.BracketOpen {
 					if t := p.GetNextToken(); t.Kind != token.BracketClose {
-						p.addErrorToken(expect(t, token.BracketClose), t)
+						p.AddExpectError(t, token.BracketClose)
 						continue
 					}
 					if t := p.GetNextToken(); t.Kind != token.Equal {
-						p.addErrorToken(expect(t, token.Equal), t)
+						p.AddExpectError(t, token.Equal)
 						continue
 					}
 
@@ -153,13 +169,13 @@ Loop:
 					continue
 				}
 				if operatorToken.Kind == token.DeclareSet {
-					p.addErrorToken(fmt.Errorf("Cannot use := on a property."), operatorToken)
+					p.AddError(operatorToken, fmt.Errorf("Cannot use := on a property."))
 					continue
 				}
 
 				if operatorToken.Kind != token.Equal &&
 					operatorToken.Kind != token.AddEqual {
-					p.addErrorToken(expect(operatorToken, token.Equal, token.AddEqual), operatorToken)
+					p.AddExpectError(operatorToken, operatorToken, token.Equal, token.AddEqual)
 					continue
 				}
 
@@ -185,13 +201,19 @@ Loop:
 				node.Name = name
 				node.IfExpression.ChildNodes = p.parseExpressionNodes(true)
 				if t := p.GetNextToken(); t.Kind != token.BraceOpen {
-					p.addErrorToken(expect(t, token.BraceOpen), t)
+					p.AddExpectError(t, token.BraceOpen)
 					return nil
 				}
-				if t := p.GetNextToken(); t.Kind == token.BraceOpen {
-					expect(t, token.BraceOpen)
-					return nil
-				}
+				// NOTE(Jake): 2018-01-14
+				//
+				// This code seems like a mistake, but perhaps its solving
+				// a quirk I've forgotten about. To be deleted if its not
+				// needed.
+				//
+				//if t := p.GetNextToken(); t.Kind == token.BraceOpen {
+				//	p.AddExpectError(t, token.BraceOpen)
+				//	return nil
+				//}
 				p.GetNextToken()
 				node.ChildNodes = p.parseStatements()
 				p.validateHTMLNode(node)
@@ -257,7 +279,7 @@ Loop:
 					resultNodes = append(resultNodes, node)
 					continue
 				}
-				p.addErrorToken(fmt.Errorf("Unexpected %s (%s) after identifier (%s).", t.Kind.String(), t.String(), name.String()), t)
+				p.AddError(t, fmt.Errorf("Unexpected %s (%s) after identifier (%s).", t.Kind.String(), t.String(), name.String()))
 				return nil
 			}
 		// :: css {
@@ -294,7 +316,7 @@ Loop:
 			//
 			exprNodes := p.parseExpressionNodes(true)
 			if t := p.GetNextToken(); t.Kind != token.BraceOpen {
-				p.addErrorToken(expect(t, token.BraceOpen), t)
+				p.AddExpectError(t, token.BraceOpen)
 				return nil
 			}
 			node := new(ast.If)
@@ -320,7 +342,7 @@ Loop:
 				case token.BraceOpen:
 					p.GetNextToken()
 				default:
-					p.addErrorToken(expect(t, token.BraceOpen, token.KeywordIf), t)
+					p.AddExpectError(t, token.BraceOpen, token.KeywordIf)
 					return nil
 				}
 				node.ElseNodes = p.parseStatements()
@@ -329,7 +351,7 @@ Loop:
 			p.GetNextToken()
 			varName := p.GetNextToken()
 			if varName.Kind != token.Identifier {
-				p.addErrorToken(expect(varName, token.Identifier), varName)
+				p.AddExpectError(varName, token.Identifier)
 				return nil
 			}
 			t := p.GetNextToken()
@@ -344,12 +366,12 @@ Loop:
 			case token.Comma:
 				secondVarName := p.GetNextToken()
 				if secondVarName.Kind != token.Identifier {
-					p.addErrorToken(expect(secondVarName, token.Identifier), secondVarName)
+					p.AddExpectError(secondVarName, token.Identifier)
 					return nil
 				}
 				t = p.GetNextToken()
 				if t.Kind != token.DeclareSet {
-					p.addErrorToken(expect(t, token.DeclareSet), t)
+					p.AddExpectError(t, token.DeclareSet)
 					return nil
 				}
 				node = new(ast.For)
@@ -358,11 +380,11 @@ Loop:
 				node.RecordName = secondVarName
 				node.Array.ChildNodes = p.parseExpressionNodes(false)
 			default:
-				p.addErrorToken(expect(t, token.DeclareSet, token.Comma), t)
+				p.AddExpectError(t, token.DeclareSet, token.Comma)
 				return nil
 			}
 			if t := p.GetNextToken(); t.Kind != token.BraceOpen {
-				p.addErrorToken(expect(t, token.BraceOpen), t)
+				p.AddExpectError(t, token.BraceOpen)
 				return nil
 			}
 			node.ChildNodes = p.parseStatements()
@@ -376,42 +398,7 @@ Loop:
 			break Loop
 		default:
 			p.GetNextToken()
-			p.addErrorToken(unexpected(t), t)
-			return nil
-		}
-	}
-	return resultNodes
-}
-
-func (p *Parser) parseParameters() []*ast.Parameter {
-	resultNodes := make([]*ast.Parameter, 0, 5)
-
-Loop:
-	for {
-		t := p.GetNextToken()
-		switch t.Kind {
-		case token.Identifier:
-			node := &ast.Parameter{
-				Name: t,
-			}
-			t := p.GetNextToken()
-			if t.Kind != token.Equal {
-				p.addErrorToken(expect(t, token.Equal), t)
-			}
-			node.ChildNodes = p.parseExpressionNodes(false)
-			t = p.GetNextToken()
-			if t.Kind != token.Comma && t.Kind != token.ParenClose {
-				p.addErrorToken(expect(t, token.Comma, token.ParenClose), t)
-				return nil
-			}
-			resultNodes = append(resultNodes, node)
-			if t.Kind == token.ParenClose {
-				break Loop
-			}
-		case token.ParenClose:
-			break Loop
-		default:
-			p.addErrorToken(expect(t, token.Identifier), t)
+			p.AddUnexpectedErrorWithContext(t, "statements")
 			return nil
 		}
 	}
@@ -436,7 +423,7 @@ func (p *Parser) parseType() ast.Type {
 		for {
 			t = p.GetNextToken()
 			if t.Kind != token.BracketClose {
-				p.addErrorToken(expect(t, token.BracketClose), t)
+				p.AddExpectError(t, token.BracketClose)
 				return ast.Type{}
 			}
 			t = p.GetNextToken()
@@ -448,7 +435,7 @@ func (p *Parser) parseType() ast.Type {
 		}
 	}
 	if t.Kind != token.Identifier {
-		p.addErrorToken(expect(t, token.Identifier, token.BracketOpen), t)
+		p.AddExpectError(t, token.Identifier, token.BracketOpen)
 		return ast.Type{}
 	}
 	result.Name = t
@@ -478,7 +465,7 @@ Loop:
 		case token.Identifier:
 			name := p.GetNextToken()
 			if expectOperator {
-				p.addErrorToken(fmt.Errorf("Expected operator instead got identifier (%s).", name.String()), name)
+				p.AddError(name, fmt.Errorf("Expected operator instead got identifier (%s).", name.String()))
 				return nil
 			}
 			switch t := p.PeekNextToken(); t.Kind {
@@ -490,7 +477,7 @@ Loop:
 					identToken := p.GetNextToken()
 					tokens = append(tokens, identToken)
 					if identToken.Kind != token.Identifier {
-						p.addErrorToken(expect(identToken, token.Identifier), identToken)
+						p.AddExpectError(identToken, token.Identifier)
 						return nil
 					}
 					t := p.PeekNextToken()
@@ -504,7 +491,7 @@ Loop:
 						t.Kind == token.ParenClose {
 						break
 					}
-					p.addErrorToken(expect(t, token.Operator, token.Newline, token.ParenClose), t)
+					p.AddExpectError(t, token.Operator, token.Newline, token.ParenClose)
 					return nil
 				}
 				expectOperator = true
@@ -549,18 +536,18 @@ Loop:
 					}
 					if propertyName.Kind != token.Identifier {
 						if i == 0 {
-							p.addErrorToken(fmt.Errorf("Expected identifier after %s{ not %s", name, propertyName.Kind.String()), propertyName)
+							p.AddError(propertyName, fmt.Errorf("Expected identifier after %s{ not %s", name, propertyName.Kind.String()))
 							return nil
 						}
-						p.addErrorToken(fmt.Errorf("Expected identifier after \"%s\" not %s", errorMsgLastToken, propertyName.Kind.String()), propertyName)
+						p.AddError(propertyName, fmt.Errorf("Expected identifier after \"%s\" not %s", errorMsgLastToken, propertyName.Kind.String()))
 						return nil
 					}
 					if t := p.GetNextToken(); t.Kind != token.Colon {
 						if i == 0 {
-							p.addErrorToken(fmt.Errorf("Expected : after \"%s{%s\"", name.String(), propertyName.String()), t)
+							p.AddError(t, fmt.Errorf("Expected : after \"%s{%s\"", name.String(), propertyName.String()))
 							return nil
 						}
-						p.addErrorToken(fmt.Errorf("Expected : after property \"%s\"", propertyName.String()), t)
+						p.AddError(t, fmt.Errorf("Expected : after property \"%s\"", propertyName.String()))
 						return nil
 					}
 					exprNodes := p.parseExpressionNodes(false)
@@ -574,7 +561,7 @@ Loop:
 					case token.Comma:
 						// OK
 					default:
-						p.addErrorToken(expect(t, token.BraceClose, token.Comma), t)
+						p.AddExpectError(t, token.BraceClose, token.Comma)
 						return nil
 					}
 					p.eatNewlines()
@@ -597,7 +584,7 @@ Loop:
 		case token.KeywordTrue, token.KeywordFalse:
 			p.GetNextToken()
 			if expectOperator {
-				p.addErrorToken(fmt.Errorf("Expected operator, instead got true/false keyword (\"%s\").", t.String()), t)
+				p.AddError(t, fmt.Errorf("Expected operator, instead got true/false keyword (\"%s\").", t.String()))
 				return nil
 			}
 			expectOperator = true
@@ -605,7 +592,7 @@ Loop:
 		case token.String:
 			p.GetNextToken()
 			if expectOperator {
-				p.addErrorToken(fmt.Errorf("Expected operator, instead got string (\"%s\").", t.String()), t)
+				p.AddError(t, fmt.Errorf("Expected operator, instead got string (\"%s\").", t.String()))
 				return nil
 			}
 			expectOperator = true
@@ -629,7 +616,7 @@ Loop:
 		case token.Number:
 			p.GetNextToken()
 			if expectOperator {
-				p.addErrorToken(fmt.Errorf("Expected operator, instead got number (\"%s\").", t.String()), t)
+				p.AddError(t, fmt.Errorf("Expected operator, instead got number (\"%s\").", t.String()))
 				return nil
 			}
 			expectOperator = true
@@ -655,8 +642,7 @@ Loop:
 			p.GetNextToken()
 			node := p.parseDefinition(token.Token{})
 			if node == nil {
-				p.fatalErrorToken(fmt.Errorf("parseExpressionNodes: parseDefinition returned nil."), t)
-				return nil
+				p.PanicError(t, fmt.Errorf("parseExpressionNodes: parseDefinition returned nil."))
 			}
 			infixNodes = append(infixNodes, node)
 		// ie. []string{"item1", "item2", "item3"}
@@ -666,7 +652,7 @@ Loop:
 				return nil
 			}
 			if t := p.GetNextToken(); t.Kind != token.BraceOpen {
-				p.addErrorToken(expect(t, token.BraceOpen), t)
+				p.AddExpectError(t, token.BraceOpen)
 				return nil
 			}
 
@@ -684,27 +670,27 @@ Loop:
 					childNodes = append(childNodes, expr)
 					break ArrayLiteralLoop
 				case token.EOF:
-					p.addErrorToken(unexpected(sep), sep)
+					p.AddUnexpectedErrorWithContext(sep, "array literal")
 					return nil
 				}
-				p.addErrorToken(fmt.Errorf("Expected , or } after array item #%d, not %s.", i, sep.Kind.String()), sep)
+				p.AddError(sep, fmt.Errorf("Expected , or } after array item #%d, not %s.", i, sep.Kind.String()))
 				return nil
+			}
+
+			if len(childNodes) == 0 {
+				p.AddError(typeIdent.Name, fmt.Errorf("Cannot have array literal with zero elements."))
 			}
 
 			node := new(ast.ArrayLiteral)
 			node.TypeIdentifier = typeIdent
 			node.ChildNodes = childNodes
 
-			if len(node.ChildNodes) == 0 {
-				p.addErrorToken(fmt.Errorf("Cannot have array literal with zero elements."), node.TypeIdentifier.Name)
-			}
-
 			infixNodes = append(infixNodes, node)
 			continue Loop
 		default:
 			if t.IsOperator() {
 				if !expectOperator {
-					p.addErrorToken(fmt.Errorf("Expected identifiers or string, instead got operator \"%s\".", t.String()), t)
+					p.AddError(t, fmt.Errorf("Expected identifiers or string, instead got operator \"%s\".", t.String()))
 					return nil
 				}
 				p.GetNextToken()
@@ -722,7 +708,7 @@ Loop:
 				operatorNodes = append(operatorNodes, &ast.Token{Token: t})
 				continue
 			}
-			p.fatalErrorToken(fmt.Errorf("Unhandled token type: \"%s\" (value: %s)", t.Kind.String(), t.String()), t)
+			p.PanicError(t, fmt.Errorf("Unhandled token type: \"%s\" (value: %s)", t.Kind.String(), t.String()))
 			return nil
 		}
 	}
@@ -770,13 +756,13 @@ CallLoop:
 		if name.Kind == token.Identifier &&
 			equalOp.Kind == token.Equal {
 			if hasDeterminedMode && !isHTMLNode {
-				p.addErrorToken(fmt.Errorf("Cannot mix named and unnamed parameter, parameter #%d.", len(parameters)), name)
+				p.AddError(name, fmt.Errorf("Cannot use named parameter after unnamed parameter, parameter #%d.", len(parameters)))
 			}
 			isHTMLNode = true
 			hasDeterminedMode = true
 		} else {
 			if hasDeterminedMode && isHTMLNode {
-				p.addErrorToken(fmt.Errorf("Cannot mix named and unnamed parameter, parameter #%d.", len(parameters)), name)
+				p.AddError(name, fmt.Errorf("Cannot use unnamed parameter after named parameter, parameter #%d.", len(parameters)))
 			}
 			hasDeterminedMode = true
 		}
@@ -790,7 +776,7 @@ CallLoop:
 		p.eatNewlines()
 
 		if exprNodes == nil {
-			p.addErrorToken(fmt.Errorf("Missing value for parameter #%d", len(parameters)), name)
+			p.AddError(name, fmt.Errorf("Missing value for parameter #%d", len(parameters)))
 			return nil
 		}
 		parameter := new(ast.Parameter)
@@ -816,14 +802,14 @@ CallLoop:
 				p.GetNextToken()
 				break CallLoop
 			case token.Comma:
-				p.addErrorToken(fmt.Errorf("Cannot have more than 1 trailing comma for procedure calls."), t)
+				p.AddError(t, fmt.Errorf("Cannot have more than 1 trailing comma for procedure calls."))
 				return nil
 			}
 		case token.ParenClose:
 			p.GetNextToken()
 			break CallLoop
 		default:
-			p.addErrorToken(expect(t, token.Comma, token.ParenClose), t)
+			p.AddExpectError(t, token.Comma, token.ParenClose)
 			return nil
 		}
 	}
@@ -842,7 +828,7 @@ CallLoop:
 		case token.KeywordIf:
 			ifExprNodes = p.parseExpressionNodes(true)
 			if t := p.GetNextToken(); t.Kind != token.BraceOpen {
-				p.addErrorToken(expect(t, token.BraceOpen), t)
+				p.AddExpectError(t, token.BraceOpen)
 				return nil
 			}
 			childStatements = p.parseStatements()
@@ -852,7 +838,7 @@ CallLoop:
 				p.SetScannerState(storeScannerState)
 				break
 			}
-			p.addErrorToken(expect(t, token.BraceOpen, token.KeywordIf, token.Newline), t)
+			p.AddExpectError(t, token.BraceOpen, token.KeywordIf, token.Newline)
 		}
 	}
 
@@ -886,7 +872,7 @@ func (p *Parser) parseProcedureDefinition(name token.Token) *ast.ProcedureDefini
 		for {
 			name := p.GetNextToken()
 			if name.Kind != token.Identifier {
-				p.addErrorToken(expect(name, token.ParenClose, token.Identifier), name)
+				p.AddExpectError(name, token.ParenClose, token.Identifier)
 				return nil
 			}
 			typeIdent := p.parseType()
@@ -907,7 +893,7 @@ func (p *Parser) parseProcedureDefinition(name token.Token) *ast.ProcedureDefini
 			if t.Kind == token.ParenClose {
 				break
 			}
-			p.addErrorToken(expect(t, token.Comma, token.ParenClose), t)
+			p.AddExpectError(t, token.Comma, token.ParenClose)
 			return nil
 		}
 	}
@@ -919,7 +905,7 @@ func (p *Parser) parseProcedureDefinition(name token.Token) *ast.ProcedureDefini
 		}
 	}
 	if t := p.GetNextToken(); t.Kind != token.BraceOpen {
-		p.addErrorToken(expect(t, token.BraceOpen), t)
+		p.AddExpectError(t, token.BraceOpen)
 		return nil
 	}
 	node := new(ast.ProcedureDefinition)
@@ -944,21 +930,21 @@ func (p *Parser) parseDefinition(name token.Token) ast.Node {
 		switch keyword {
 		case "css":
 			if t := p.GetNextToken(); t.Kind != token.BraceOpen {
-				p.addErrorToken(expect(t, token.BraceOpen), t)
+				p.AddExpectError(t, token.BraceOpen)
 				return nil
 			}
 			node := p.parseCSS(name)
 			return node
 		case "css_config":
 			if t := p.GetNextToken(); t.Kind != token.BraceOpen {
-				p.addErrorToken(expect(t, token.BraceOpen), t)
+				p.AddExpectError(t, token.BraceOpen)
 				return nil
 			}
 			node := p.parseCSSConfigRuleDefinition(name)
 			return node
 		case "struct":
 			if t := p.GetNextToken(); t.Kind != token.BraceOpen {
-				p.addErrorToken(expect(t, token.BraceOpen), t)
+				p.AddExpectError(t, token.BraceOpen)
 				return nil
 			}
 			//
@@ -978,7 +964,7 @@ func (p *Parser) parseDefinition(name token.Token) ast.Node {
 					field.Expression = node.Expression
 					fields = append(fields, field)
 				default:
-					p.addErrorToken(fmt.Errorf("Expected statement, instead got %T.", itNode), name)
+					p.AddError(name, fmt.Errorf("Expected statement, instead got %T.", itNode))
 					return nil
 				}
 			}
@@ -988,7 +974,7 @@ func (p *Parser) parseDefinition(name token.Token) ast.Node {
 			return node
 		case "html":
 			if t := p.GetNextToken(); t.Kind != token.BraceOpen {
-				p.addErrorToken(expect(t, token.BraceOpen), t)
+				p.AddExpectError(t, token.BraceOpen)
 				return nil
 			}
 			childNodes := p.parseStatements()
@@ -1008,7 +994,7 @@ func (p *Parser) parseDefinition(name token.Token) ast.Node {
 					nameString = name.String() + " "
 				}
 				if htmlNodeCount == 0 {
-					p.addErrorToken(fmt.Errorf("\"%s:: html\" must contain one HTML node at the top-level.", nameString), name)
+					p.AddError(name, fmt.Errorf("\"%s:: html\" must contain one HTML node at the top-level.", nameString))
 				}
 				// NOTE: No longer applicable.
 				//if htmlNodeCount > 1 {
@@ -1025,14 +1011,14 @@ func (p *Parser) parseDefinition(name token.Token) ast.Node {
 					switch node := itNode.(type) {
 					case *ast.StructDefinition:
 						if structDef != nil {
-							p.addErrorToken(fmt.Errorf("Cannot declare \":: struct\" twice in the same HTML component."), node.Name)
-							p.addErrorToken(fmt.Errorf("Cannot declare \":: struct\" twice in the same HTML component."), structDef.Name)
+							p.AddError(node.Name, fmt.Errorf("Cannot declare \":: struct\" twice in the same HTML component."))
+							p.AddError(structDef.Name, fmt.Errorf("Cannot declare \":: struct\" twice in the same HTML component."))
 							break RetrievePropertyDefinitionLoop
 						}
 						structDef = node
 					case *ast.CSSDefinition:
 						if cssDef != nil {
-							p.addErrorToken(fmt.Errorf("Cannot declare \":: css\" twice in the same HTML component."), node.Name)
+							p.AddError(node.Name, fmt.Errorf("Cannot declare \":: css\" twice in the same HTML component."))
 							break RetrievePropertyDefinitionLoop
 						}
 						cssDef = node
@@ -1056,7 +1042,7 @@ func (p *Parser) parseDefinition(name token.Token) ast.Node {
 			return node
 		}
 	}
-	p.addErrorToken(fmt.Errorf("Unexpected keyword '%s' for definition (::) type. Expected 'css', 'html', 'struct' or () on Line %d", keyword, keywordToken.Line), keywordToken)
+	p.AddError(keywordToken, fmt.Errorf("Unexpected keyword '%s' for definition (::) type. Expected 'css', 'html', 'struct' or () on Line %d", keyword, keywordToken.Line))
 	return nil
 }
 
@@ -1087,11 +1073,11 @@ func (p *Parser) parseCSSConfigRuleDefinition(name token.Token) *ast.CSSConfigDe
 						}
 						configRule.Modify = value
 					default:
-						p.addErrorToken(fmt.Errorf("Invalid config key \"%s\". Expected \"modify\".", name), node.Name)
+						p.AddError(node.Name, fmt.Errorf("Invalid config key \"%s\". Expected \"modify\".", name))
 						return nil
 					}
 				case *ast.DeclareStatement:
-					p.addErrorToken(fmt.Errorf("Cannot declare variables in a css_config block. Did you mean to use : instead of :="), node.Name)
+					p.AddError(node.Name, fmt.Errorf("Cannot declare variables in a css_config block. Did you mean to use : instead of :="))
 					return nil
 				default:
 					panic(fmt.Sprintf("parseCSSConfigRuleDefinition:propertyLoop: Unknown type %T", node))
@@ -1110,13 +1096,13 @@ func (p *Parser) parseCSSConfigRuleDefinition(name token.Token) *ast.CSSConfigDe
 							case token.Multiply:
 								rulePartList = append(rulePartList, operator)
 							default:
-								p.addErrorToken(fmt.Errorf("Only supports * wildcard, not %s", operator), selectorPartNode.Token)
+								p.AddError(selectorPartNode.Token, fmt.Errorf("Only supports * wildcard, not %s", operator))
 								return nil
 							}
 							continue
 						}
 						if selectorPartNode.Kind != token.Identifier {
-							p.addErrorToken(fmt.Errorf("Expected identifier, instead got %s", selectorPartNode.Kind.String()), selectorPartNode.Token)
+							p.AddError(selectorPartNode.Token, fmt.Errorf("Expected identifier, instead got %s", selectorPartNode.Kind.String()))
 							return nil
 						}
 						name := selectorPartNode.String()
@@ -1139,7 +1125,7 @@ func (p *Parser) parseCSSConfigRuleDefinition(name token.Token) *ast.CSSConfigDe
 
 			cssConfigDefinition.Rules = append(cssConfigDefinition.Rules, configRule)
 		case *ast.DeclareStatement:
-			p.addErrorToken(fmt.Errorf("Cannot declare variables in a css_config block."), node.Name)
+			p.AddError(node.Name, fmt.Errorf("Cannot declare variables in a css_config block."))
 			return nil
 		default:
 			panic(fmt.Sprintf("parseCSSConfigRuleDefinition: Unknown type %T", node))
@@ -1156,7 +1142,7 @@ func (p *Parser) parseCSSConfigRuleDefinition(name token.Token) *ast.CSSConfigDe
 
 func (p *Parser) getBoolFromCSSConfigProperty(node *ast.CSSProperty) (bool, bool) {
 	if len(node.ChildNodes) == 0 && len(node.ChildNodes) > 1 {
-		p.addErrorToken(fmt.Errorf("Expected \"true\" or \"false\" after \"%s\".", node.Name.String()), node.Name)
+		p.AddError(node.Name, fmt.Errorf("Expected \"true\" or \"false\" after \"%s\".", node.Name.String()))
 		return false, false
 	}
 	itNode := node.ChildNodes[0]
@@ -1164,7 +1150,7 @@ func (p *Parser) getBoolFromCSSConfigProperty(node *ast.CSSProperty) (bool, bool
 	case *ast.Token:
 		t := node.Token
 		if t.Kind != token.KeywordTrue && t.Kind != token.KeywordFalse {
-			p.addErrorToken(fmt.Errorf("Expected \"true\" or \"false\" after \"%s\".", t.String()), t)
+			p.AddError(t, fmt.Errorf("Expected \"true\" or \"false\" after \"%s\".", t.String()))
 			return false, false
 		}
 		valueString := node.String()
@@ -1179,11 +1165,11 @@ func (p *Parser) getBoolFromCSSConfigProperty(node *ast.CSSProperty) (bool, bool
 			ok = true
 		}
 		if !ok {
-			p.addErrorToken(fmt.Errorf("Expected \"true\" or \"false\" after \"%s\".", t.String()), t)
+			p.AddError(t, fmt.Errorf("Expected \"true\" or \"false\" after \"%s\".", t.String()))
 			return false, false
 		}
 		return value, ok
 	}
-	p.fatalErrorToken(fmt.Errorf("Unknown type %T", node), node.Name)
+	p.PanicError(node.Name, fmt.Errorf("Unknown type %T", node))
 	return false, false
 }

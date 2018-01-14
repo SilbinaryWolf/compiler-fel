@@ -54,16 +54,16 @@ func (p *Parser) typecheckStructLiteral(scope *Scope, literal *ast.StructLiteral
 	name := literal.Name.String()
 	def, ok := scope.GetStructDefinition(name)
 	if !ok {
-		p.addErrorToken(fmt.Errorf("Undeclared \"%s :: struct\"", name), literal.Name)
+		p.AddError(literal.Name, fmt.Errorf("Undeclared \"%s :: struct\"", name))
 		return
 	}
 	if len(def.Fields) == 0 && len(literal.Fields) > 0 {
-		p.addErrorToken(fmt.Errorf("Struct %s does not have any fields.", name), literal.Name)
+		p.AddError(literal.Name, fmt.Errorf("Struct %s does not have any fields.", name))
 		return
 	}
 	literal.TypeInfo = p.typeinfo.get(name)
 	if literal.TypeInfo == nil {
-		p.fatalErrorToken(fmt.Errorf("Missing type info for \"%s :: struct\".", name), literal.Name)
+		p.PanicError(literal.Name, fmt.Errorf("Missing type info for \"%s :: struct\".", name))
 		return
 	}
 
@@ -71,7 +71,7 @@ func (p *Parser) typecheckStructLiteral(scope *Scope, literal *ast.StructLiteral
 	for _, defField := range def.Fields {
 		defTypeInfo := defField.Expression.TypeInfo
 		if defTypeInfo == nil {
-			p.fatalErrorToken(fmt.Errorf("Missing type info from field \"%s\" on \"%s :: struct\".", defField.Name.String(), name), defField.Name)
+			p.PanicError(defField.Name, fmt.Errorf("Missing type info from field \"%s\" on \"%s :: struct\".", defField.Name.String(), name))
 			return
 		}
 		defName := defField.Name.String()
@@ -83,7 +83,7 @@ func (p *Parser) typecheckStructLiteral(scope *Scope, literal *ast.StructLiteral
 			p.typecheckExpression(scope, &property.Expression)
 			litTypeInfo := property.Expression.TypeInfo
 			if litTypeInfo != defTypeInfo {
-				p.addErrorToken(fmt.Errorf("Mismatching type, expected \"%s\" but got \"%s\"", defField.TypeIdentifier.Name.String(), property.Expression.TypeInfo.String()), property.Name)
+				p.AddError(property.Name, fmt.Errorf("Mismatching type, expected \"%s\" but got \"%s\"", defField.TypeIdentifier.Name.String(), property.Expression.TypeInfo.String()))
 			}
 		}
 	}
@@ -95,7 +95,7 @@ func (p *Parser) typecheckStructLiteral(scope *Scope, literal *ast.StructLiteral
 			hasFieldNameOnDef = hasFieldNameOnDef || defField.Name.String() == propertyName
 		}
 		if !hasFieldNameOnDef {
-			p.addErrorToken(fmt.Errorf("Field \"%s\" does not exist on \"%s :: struct\"", propertyName, name), property.Name)
+			p.AddError(property.Name, fmt.Errorf("Field \"%s\" does not exist on \"%s :: struct\"", propertyName, name))
 		}
 	}
 }
@@ -112,7 +112,7 @@ func (p *Parser) typecheckArrayLiteral(scope *Scope, literal *ast.ArrayLiteral) 
 	typeIdentString := typeIdentName.String()
 	typeInfo := p.DetermineType(&literal.TypeIdentifier)
 	if typeInfo == nil {
-		p.addErrorToken(fmt.Errorf("Undeclared type \"%s\" used for array literal", typeIdentString), typeIdentName)
+		p.AddError(typeIdentName, fmt.Errorf("Undeclared type \"%s\" used for array literal", typeIdentString))
 		return
 	}
 	literal.TypeInfo = typeInfo
@@ -120,7 +120,7 @@ func (p *Parser) typecheckArrayLiteral(scope *Scope, literal *ast.ArrayLiteral) 
 	//
 	resultTypeInfo, ok := typeInfo.(*TypeInfo_Array)
 	if !ok {
-		p.fatalErrorToken(fmt.Errorf("Expected array type but got \"%s\".", typeIdentString), typeIdentName)
+		p.PanicError(typeIdentName, fmt.Errorf("Expected array type but got \"%s\".", typeIdentString))
 		return
 	}
 	underlyingTypeInfo := resultTypeInfo.Underlying()
@@ -155,7 +155,7 @@ func (p *Parser) typecheckCall(scope *Scope, node *ast.Call) {
 	case ast.CallHTMLNode:
 		p.typecheckHTMLNode(scope, node)
 	default:
-		p.fatalErrorToken(fmt.Errorf("Unhandled ast.Call kind: %s", node.Name), node.Name)
+		p.PanicError(node.Name, fmt.Errorf("Unhandled ast.Call kind: %s", node.Name))
 	}
 }
 
@@ -163,7 +163,11 @@ func (p *Parser) typecheckProcedureCall(scope *Scope, node *ast.Call) {
 	typeInfo := p.typeinfo.get(node.Name.String())
 	callTypeInfo, ok := typeInfo.(*TypeInfo_Procedure)
 	if !ok {
-		p.addErrorToken(fmt.Errorf("Expected %s to be a procedure, instead got %T.", node.Name.String(), typeInfo), node.Name)
+		// todo(Jake): 2018-01-14
+		//
+		//
+		//
+		p.PanicError(node.Name, fmt.Errorf("Expected %s to be a procedure, instead got %T.", node.Name.String(), typeInfo))
 		return
 	}
 	procDefinition := callTypeInfo.Definition()
@@ -219,9 +223,9 @@ func (p *Parser) typecheckProcedureCall(scope *Scope, node *ast.Call) {
 		wantStr += ")"
 		callStr := node.Name.String()
 		if len(definitionParameters) != len(parameters) {
-			p.addErrorToken(fmt.Errorf("Expected %d parameters, instead got %d parameters on call \"%s\".\nhave %s\nwant %s", len(definitionParameters), len(parameters), callStr, haveStr, wantStr), node.Name)
+			p.AddError(node.Name, fmt.Errorf("Expected %d parameters, instead got %d parameters on call \"%s\".\nhave %s\nwant %s", len(definitionParameters), len(parameters), callStr, haveStr, wantStr))
 		} else {
-			p.addErrorToken(fmt.Errorf("Mismatching types on call \"%s\".\nhave %s\nwant %s", callStr, haveStr, wantStr), node.Name)
+			p.AddError(node.Name, fmt.Errorf("Mismatching types on call \"%s\".\nhave %s\nwant %s", callStr, haveStr, wantStr))
 		}
 	}
 }
@@ -234,7 +238,7 @@ func (p *Parser) typecheckExpression(scope *Scope, expression *ast.Expression) {
 		typeIdentString := typeIdent.String()
 		resultTypeInfo = p.DetermineType(&expression.TypeIdentifier)
 		if resultTypeInfo == nil {
-			p.addErrorToken(fmt.Errorf("Undeclared type %s", typeIdentString), typeIdent)
+			p.AddError(typeIdent, fmt.Errorf("Undeclared type %s", typeIdentString))
 			return
 		}
 	}
@@ -247,14 +251,14 @@ func (p *Parser) typecheckExpression(scope *Scope, expression *ast.Expression) {
 			p.typecheckStructLiteral(scope, node)
 			expectedTypeInfo := node.TypeInfo
 			if expectedTypeInfo == nil {
-				p.fatalError(fmt.Errorf("Missing type info for \"%s :: struct\".", node.Name.String()))
+				p.PanicError(node.Name, fmt.Errorf("Missing type info for \"%s :: struct\".", node.Name.String()))
 				continue
 			}
 			if resultTypeInfo == nil {
 				resultTypeInfo = expectedTypeInfo
 			}
 			if !TypeEquals(resultTypeInfo, expectedTypeInfo) {
-				p.addErrorToken(fmt.Errorf("Cannot mix struct literal %s with %s", expectedTypeInfo.String(), resultTypeInfo.String()), node.Name)
+				p.AddError(node.Name, fmt.Errorf("Cannot mix struct literal %s with %s", expectedTypeInfo.String(), resultTypeInfo.String()))
 			}
 			continue
 		case *ast.ArrayLiteral:
@@ -264,7 +268,7 @@ func (p *Parser) typecheckExpression(scope *Scope, expression *ast.Expression) {
 				resultTypeInfo = expectedTypeInfo
 			}
 			if !TypeEquals(resultTypeInfo, expectedTypeInfo) {
-				p.addErrorToken(fmt.Errorf("Cannot mix array literal %s with %s", expectedTypeInfo.String(), resultTypeInfo.String()), node.TypeIdentifier.Name)
+				p.AddError(node.TypeIdentifier.Name, fmt.Errorf("Cannot mix array literal %s with %s", expectedTypeInfo.String(), resultTypeInfo.String()))
 			}
 			continue
 		case *ast.Call:
@@ -277,7 +281,7 @@ func (p *Parser) typecheckExpression(scope *Scope, expression *ast.Expression) {
 						resultTypeInfo = expectedTypeInfo
 					}
 					if !TypeEquals(resultTypeInfo, expectedTypeInfo) {
-						p.addErrorToken(fmt.Errorf("Cannot mix call type %s with %s", expectedTypeInfo.String(), resultTypeInfo.String()), node.Name)
+						p.AddError(node.Name, fmt.Errorf("Cannot mix call type %s with %s", expectedTypeInfo.String(), resultTypeInfo.String()))
 					}
 				}
 			default:
@@ -305,7 +309,7 @@ func (p *Parser) typecheckExpression(scope *Scope, expression *ast.Expression) {
 				resultTypeInfo = expectedTypeInfo
 			}
 			if !TypeEquals(resultTypeInfo, expectedTypeInfo) {
-				p.addErrorToken(fmt.Errorf("Cannot mix variable \"%s\" type %s with %s", node.String(), expectedTypeInfo.String(), resultTypeInfo.String()), tokens[0])
+				p.AddError(tokens[0], fmt.Errorf("Cannot mix variable \"%s\" type %s with %s", node.String(), expectedTypeInfo.String(), resultTypeInfo.String()))
 			}
 			continue
 		case *ast.Token:
@@ -320,10 +324,10 @@ func (p *Parser) typecheckExpression(scope *Scope, expression *ast.Expression) {
 				if !ok {
 					_, ok := scope.GetHTMLDefinition(name)
 					if ok {
-						p.addErrorToken(fmt.Errorf("Undeclared identifier \"%s\". Did you mean \"%s()\" or \"%s{ }\" to reference the \"%s :: html\" component?", name, name, name, name), node.Token)
+						p.AddError(node.Token, fmt.Errorf("Undeclared identifier \"%s\". Did you mean \"%s()\" or \"%s{ }\" to reference the \"%s :: html\" component?", name, name, name, name))
 						continue
 					}
-					p.addErrorToken(fmt.Errorf("Undeclared identifier \"%s\".", name), node.Token)
+					p.AddError(node.Token, fmt.Errorf("Undeclared identifier \"%s\".", name))
 					continue
 				}
 				if resultTypeInfo == nil {
@@ -331,10 +335,10 @@ func (p *Parser) typecheckExpression(scope *Scope, expression *ast.Expression) {
 				}
 				if !TypeEquals(resultTypeInfo, variableTypeInfo) {
 					if variableTypeInfo == nil {
-						p.fatalErrorToken(fmt.Errorf("Unable to determine type, typechecker must have failed."), node.Token)
+						p.PanicError(node.Token, fmt.Errorf("Unable to determine type, typechecker must have failed."))
 						return
 					}
-					p.addErrorToken(fmt.Errorf("Identifier \"%s\" must be a %s not %s.", name, resultTypeInfo.String(), variableTypeInfo.String()), node.Token)
+					p.AddError(node.Token, fmt.Errorf("Identifier \"%s\" must be a %s not %s.", name, resultTypeInfo.String(), variableTypeInfo.String()))
 				}
 			case token.String:
 				expectedTypeInfo := p.typeinfo.NewTypeInfoString()
@@ -358,7 +362,7 @@ func (p *Parser) typecheckExpression(scope *Scope, expression *ast.Expression) {
 							panic(fmt.Sprintf("Expected *ast.Token or *ast.TokenList, not %T", node))
 						}
 					}
-					p.addErrorToken(fmt.Errorf("Cannot %s (%s) %s %s (\"%s\"), mismatching types.", resultTypeInfo.String(), leftToken.String(), opToken.String(), expectedTypeInfo.String(), node.String()), node.Token)
+					p.AddError(node.Token, fmt.Errorf("Cannot %s (%s) %s %s (\"%s\"), mismatching types.", resultTypeInfo.String(), leftToken.String(), opToken.String(), expectedTypeInfo.String(), node.String()))
 				}
 			case token.Number:
 				IntTypeInfo := p.typeinfo.NewTypeInfoInt()
@@ -371,7 +375,7 @@ func (p *Parser) typecheckExpression(scope *Scope, expression *ast.Expression) {
 					}
 				}
 				if !TypeEquals(resultTypeInfo, IntTypeInfo) && !TypeEquals(resultTypeInfo, FloatTypeInfo) {
-					p.addErrorToken(fmt.Errorf("Cannot use %s with number \"%s\"", resultTypeInfo.String(), node.String()), node.Token)
+					p.AddError(node.Token, fmt.Errorf("Cannot use %s with number \"%s\"", resultTypeInfo.String(), node.String()))
 				}
 			case token.KeywordTrue, token.KeywordFalse:
 				expectedTypeInfo := types.Bool()
@@ -379,7 +383,7 @@ func (p *Parser) typecheckExpression(scope *Scope, expression *ast.Expression) {
 					resultTypeInfo = expectedTypeInfo
 				}
 				if !TypeEquals(resultTypeInfo, expectedTypeInfo) {
-					p.addErrorToken(fmt.Errorf("Cannot use %s with %s \"%s\"", resultTypeInfo.String(), expectedTypeInfo.String(), node.String()), node.Token)
+					p.AddError(node.Token, fmt.Errorf("Cannot use %s with %s \"%s\"", resultTypeInfo.String(), expectedTypeInfo.String(), node.String()))
 				}
 			default:
 				panic(fmt.Sprintf("typecheckExpression: Unhandled token kind: \"%s\" with value: %s", node.Kind.String(), node.String()))
@@ -401,17 +405,17 @@ func (p *Parser) typecheckExpression(scope *Scope, expression *ast.Expression) {
 func (p *Parser) getTypeFromLeftHandSide(leftHandSideTokens []token.Token, scope *Scope) types.TypeInfo {
 	nameToken := leftHandSideTokens[0]
 	if nameToken.Kind != token.Identifier {
-		p.fatalErrorToken(fmt.Errorf("Expected identifier on left hand side, instead got %s.", nameToken.Kind.String()), nameToken)
+		p.PanicError(nameToken, fmt.Errorf("Expected identifier on left hand side, instead got %s.", nameToken.Kind.String()))
 		return nil
 	}
 	name := nameToken.String()
 	variableTypeInfo, ok := scope.Get(name)
 	if !ok {
-		p.addErrorToken(fmt.Errorf("Undeclared variable \"%s\".", name), nameToken)
+		p.AddError(nameToken, fmt.Errorf("Undeclared variable \"%s\".", name))
 		return nil
 	}
 	if variableTypeInfo == nil {
-		p.fatalErrorToken(fmt.Errorf("Variable declared \"%s\" but it has \"nil\" type information, this is a bug in typechecking scope.", name), nameToken)
+		p.PanicError(nameToken, fmt.Errorf("Variable declared \"%s\" but it has \"nil\" type information, this is a bug in typechecking scope.", name))
 		return nil
 	}
 	var concatPropertyName bytes.Buffer
@@ -422,13 +426,13 @@ func (p *Parser) getTypeFromLeftHandSide(leftHandSideTokens []token.Token, scope
 		concatPropertyName.WriteString(propertyName)
 		structInfo, ok := variableTypeInfo.(*TypeInfo_Struct)
 		if !ok {
-			p.addErrorToken(fmt.Errorf("Property \"%s\" does not exist on type \"%s\".", concatPropertyName.String(), variableTypeInfo.String()), nameToken)
+			p.AddError(nameToken, fmt.Errorf("Property \"%s\" does not exist on type \"%s\".", concatPropertyName.String(), variableTypeInfo.String()))
 			return nil
 		}
 		structDef := structInfo.Definition()
 		structField := structDef.GetFieldByName(propertyName)
 		if structField == nil {
-			p.addErrorToken(fmt.Errorf("Property \"%s\" does not exist on \"%s :: struct\".", concatPropertyName.String(), structDef.Name), nameToken)
+			p.AddError(nameToken, fmt.Errorf("Property \"%s\" does not exist on \"%s :: struct\".", concatPropertyName.String(), structDef.Name))
 			return nil
 		}
 		variableTypeInfo = structField.TypeInfo
@@ -451,13 +455,10 @@ func (p *Parser) typecheckHTMLNode(scope *Scope, node *ast.Call) {
 	htmlComponentDefinition, ok := scope.GetHTMLDefinition(name)
 	if !ok {
 		if name != strings.ToLower(name) {
-			// NOTE(Jake): 2017-12-28
-			//			   Hit this error while developing and decided that if the convention is that non-HTML5 spec
-			//			   elements
-			p.addErrorToken(fmt.Errorf("\"%s\" is an undefined component. If you want to use a standard HTML5 element, the name must all be in lowercase.", name), node.Name)
+			p.AddError(node.Name, fmt.Errorf("\"%s\" is an undefined component. If you want to use a standard HTML5 element, the name must all be in lowercase.", name))
 			return
 		}
-		p.addErrorToken(fmt.Errorf("\"%s\" is not a valid HTML5 element or defined component.", name), node.Name)
+		p.AddError(node.Name, fmt.Errorf("\"%s\" is not a valid HTML5 element or defined component.", name))
 		return
 	}
 	//fmt.Printf("%s -- %d\n", htmlComponentDefinition.Name.String(), len(p.typecheckHtmlDefinitionStack))
@@ -485,15 +486,15 @@ func (p *Parser) typecheckHTMLNode(scope *Scope, node *ast.Call) {
 					componentStructType := field.TypeInfo
 					if parameterType != componentStructType {
 						if field.TypeInfo == nil {
-							p.fatalError(fmt.Errorf("Struct field \"%s\" is missing type info.", paramName))
+							p.PanicMessage(fmt.Errorf("Struct field \"%s\" is missing type info.", paramName))
 							return
 						}
-						p.addErrorToken(fmt.Errorf("\"%s\" must be of type %s, not %s", paramName, componentStructType.String(), parameterType.String()), parameterNode.Name)
+						p.AddError(parameterNode.Name, fmt.Errorf("\"%s\" must be of type %s, not %s", paramName, componentStructType.String(), parameterType.String()))
 					}
 					continue ParameterCheckLoop
 				}
 			}
-			p.addErrorToken(fmt.Errorf("\"%s\" is not a property on \"%s :: html\"", paramName, name), parameterNode.Name)
+			p.AddError(parameterNode.Name, fmt.Errorf("\"%s\" is not a property on \"%s :: html\"", paramName, name))
 			continue
 		}
 	}
@@ -515,7 +516,7 @@ func (p *Parser) typecheckHTMLDefinition(htmlDefinition *ast.HTMLComponentDefini
 	if structDef, ok := parentScope.GetStructDefinition(name); ok {
 		if htmlDefinition.Struct != nil {
 			anonymousStructDef := htmlDefinition.Struct
-			p.addErrorToken(fmt.Errorf("Cannot have  \"%s :: struct\" and embedded \":: struct\" inside \"%s :: html\"", structDef.Name.String(), htmlDefinition.Name.String()), anonymousStructDef.Name)
+			p.AddError(anonymousStructDef.Name, fmt.Errorf("Cannot have \"%s :: struct\" and embedded \":: struct\" inside \"%s :: html\"", structDef.Name.String(), htmlDefinition.Name.String()))
 		} else {
 			htmlDefinition.Struct = structDef
 		}
@@ -535,10 +536,10 @@ func (p *Parser) typecheckHTMLDefinition(htmlDefinition *ast.HTMLComponentDefini
 			_, ok := scope.Get(name)
 			if ok {
 				if name == "children" {
-					p.addErrorToken(fmt.Errorf("Cannot use \"children\" as it's a reserved property."), propertyNode.Name)
+					p.AddError(propertyNode.Name, fmt.Errorf("Cannot use \"children\" as it's a reserved property."))
 					continue
 				}
-				p.addErrorToken(fmt.Errorf("Property \"%s\" declared twice.", name), propertyNode.Name)
+				p.AddError(propertyNode.Name, fmt.Errorf("Property \"%s\" declared twice.", name))
 				continue
 			}
 			scope.Set(name, propertyNode.TypeInfo)
@@ -598,16 +599,22 @@ func (p *Parser) typecheckStatements(topNode ast.Node, scope *Scope) {
 			}
 			variableTypeInfo, isArray := arrayTypeInfo.(*TypeInfo_Array)
 			if !isArray {
-				// todo(Jake): 2017-12-25, Retrieve the whole string for the token list and use instead of "name"
-				p.addErrorToken(fmt.Errorf("Cannot do \"%s []=\" as it's not an array type.", name), nameToken)
+				// todo(Jake): 2017-12-25
+				//
+				// Retrieve the whole string for the token list and use instead of "name"
+				//
+				p.AddError(nameToken, fmt.Errorf("Cannot do \"%s []=\" as it's not an array type.", name))
 				continue
 			}
 			p.typecheckExpression(scope, &node.Expression)
 			resultTypeInfo := node.Expression.TypeInfo
 			if !TypeEquals(variableTypeInfo.Underlying(), resultTypeInfo) {
-				// todo(Jake): 2017-12-25, test these... as the error messages are untested
-				p.addErrorToken(fmt.Errorf("Cannot change \"%s\" from %s to %s", name, variableTypeInfo, resultTypeInfo.String()), nameToken)
-				p.addErrorToken(fmt.Errorf("Cannot change \"%s\" from %s to %s", name, variableTypeInfo, resultTypeInfo.String()), nameToken)
+				// todo(Jake): 2017-12-25
+				//
+				// test these... as the error messages are untested
+				//
+				p.AddError(nameToken, fmt.Errorf("Cannot change \"%s\" from %s to %s", name, variableTypeInfo, resultTypeInfo.String()))
+				p.AddError(nameToken, fmt.Errorf("Cannot change \"%s\" from %s to %s", name, variableTypeInfo, resultTypeInfo.String()))
 			}
 			continue
 		case *ast.OpStatement:
@@ -624,15 +631,14 @@ func (p *Parser) typecheckStatements(topNode ast.Node, scope *Scope) {
 					name += "." + node.LeftHandSide[i].String()
 				}
 				if variableTypeInfo == nil {
-					p.fatalErrorToken(fmt.Errorf("\"variableTypeInfo\" is nil, \"%s\" should have type info.", name), nameToken)
+					p.PanicError(nameToken, fmt.Errorf("\"variableTypeInfo\" is nil, \"%s\" should have type info.", name))
 					continue
 				}
 				if resultTypeInfo == nil {
-					panic(node.Expression.String())
-					p.fatalErrorToken(fmt.Errorf("\"resultTypeInfo\" is nil, right-side of \"%s\" should have type info.", name), nameToken)
+					p.PanicError(nameToken, fmt.Errorf("\"resultTypeInfo\" is nil, right-side of \"%s\" should have type info.", name))
 					continue
 				}
-				p.addErrorToken(fmt.Errorf("Cannot change \"%s\" from %s to %s", name, variableTypeInfo, resultTypeInfo.String()), nameToken)
+				p.AddError(nameToken, fmt.Errorf("Cannot change \"%s\" from %s to %s", name, variableTypeInfo, resultTypeInfo.String()))
 			}
 			continue
 		case *ast.DeclareStatement:
@@ -641,7 +647,7 @@ func (p *Parser) typecheckStatements(topNode ast.Node, scope *Scope) {
 			name := node.Name.String()
 			_, ok := scope.GetFromThisScope(name)
 			if ok {
-				p.addErrorToken(fmt.Errorf("Cannot redeclare \"%s\".", name), node.Name)
+				p.AddError(node.Name, fmt.Errorf("Cannot redeclare \"%s\".", name))
 				continue
 			}
 			scope.Set(name, expr.TypeInfo)
@@ -683,7 +689,7 @@ func (p *Parser) typecheckStatements(topNode ast.Node, scope *Scope) {
 			iTypeInfo := node.Array.TypeInfo
 			typeInfo, ok := iTypeInfo.(*TypeInfo_Array)
 			if !ok {
-				p.addErrorToken(fmt.Errorf("Cannot use type %s as array.", iTypeInfo.String()), node.RecordName)
+				p.AddError(node.RecordName, fmt.Errorf("Cannot use type %s as array.", iTypeInfo.String()))
 				continue
 			}
 			if node.IsDeclareSet {
@@ -703,7 +709,7 @@ func (p *Parser) typecheckStatements(topNode ast.Node, scope *Scope) {
 				indexName := node.IndexName.String()
 				_, ok = scope.GetFromThisScope(indexName)
 				if ok {
-					p.addErrorToken(fmt.Errorf("Cannot redeclare \"%s\" in for-loop.", indexName), node.IndexName)
+					p.AddError(node.IndexName, fmt.Errorf("Cannot redeclare \"%s\" in for-loop.", indexName))
 					continue
 				}
 				scope.Set(indexName, p.typeinfo.NewTypeInfoInt())
@@ -713,7 +719,7 @@ func (p *Parser) typecheckStatements(topNode ast.Node, scope *Scope) {
 			name := node.RecordName.String()
 			_, ok = scope.GetFromThisScope(name)
 			if ok {
-				p.addErrorToken(fmt.Errorf("Cannot redeclare \"%s\" in for-loop.", name), node.RecordName)
+				p.AddError(node.RecordName, fmt.Errorf("Cannot redeclare \"%s\" in for-loop.", name))
 				continue
 			}
 			scope.Set(name, typeInfo.Underlying())
@@ -741,13 +747,13 @@ func (p *Parser) typecheckStruct(node *ast.StructDefinition, scope *Scope) {
 		structField := &node.Fields[i]
 		typeIdent := structField.TypeIdentifier.Name
 		if typeIdent.Kind == token.Unknown {
-			p.addErrorToken(fmt.Errorf("Missing type identifier on \"%s :: struct\" field \"%s\"", structField.Name, node.Name.String()), structField.Name)
+			p.AddError(structField.Name, fmt.Errorf("Missing type identifier on \"%s :: struct\" field \"%s\"", structField.Name, node.Name.String()))
 			continue
 		}
 		typeIdentString := typeIdent.String()
 		resultTypeInfo := p.DetermineType(&structField.TypeIdentifier)
 		if resultTypeInfo == nil {
-			p.addErrorToken(fmt.Errorf("Undeclared type %s", typeIdentString), typeIdent)
+			p.AddError(typeIdent, fmt.Errorf("Undeclared type %s", typeIdentString))
 			return
 		}
 		structField.TypeInfo = resultTypeInfo
@@ -761,7 +767,7 @@ func (p *Parser) typecheckProcedureDefinition(node *ast.ProcedureDefinition, sco
 		parameter := &node.Parameters[i]
 		typeinfo := p.DetermineType(&parameter.TypeIdentifier)
 		if typeinfo == nil {
-			p.addErrorToken(fmt.Errorf("Unknown type %s on parameter %s", parameter.TypeIdentifier.String(), parameter.Name), parameter.TypeIdentifier.Name)
+			p.AddError(parameter.TypeIdentifier.Name, fmt.Errorf("Unknown type %s on parameter %s", parameter.TypeIdentifier.String(), parameter.Name))
 			continue
 		}
 		parameter.TypeInfo = typeinfo
@@ -800,14 +806,14 @@ func (p *Parser) typecheckProcedureDefinition(node *ast.ProcedureDefinition, sco
 			}
 			t := returnNode.TypeIdentifier.Name
 			if returnType == nil {
-				p.addErrorToken(fmt.Errorf("Return statement %s doesn't match procedure type void", returnNode.TypeInfo.String()), t)
+				p.AddError(t, fmt.Errorf("Return statement %s doesn't match procedure type void", returnNode.TypeInfo.String()))
 				continue
 			}
 			if returnNode.TypeInfo == nil {
-				p.addErrorToken(fmt.Errorf("Return statement void doesn't match procedure type %s", returnType.String()), t)
+				p.AddError(t, fmt.Errorf("Return statement void doesn't match procedure type %s", returnType.String()))
 				continue
 			}
-			p.addErrorToken(fmt.Errorf("Return statement %s doesn't match procedure type %s", returnNode.TypeInfo.String(), returnType.String()), t)
+			p.AddError(t, fmt.Errorf("Return statement %s doesn't match procedure type %s", returnNode.TypeInfo.String(), returnType.String()))
 			continue
 		}
 
@@ -847,25 +853,25 @@ func (p *Parser) TypecheckAndFinalize(files []*ast.File) {
 				// no-op, these are checked in TypecheckFile()
 			case *ast.ProcedureDefinition:
 				if node == nil {
-					p.fatalError(fmt.Errorf("Found nil top-level %T.", node))
+					p.PanicMessage(fmt.Errorf("Found nil top-level %T.", node))
 					continue
 				}
 				p.typecheckProcedureDefinition(node, scope)
 			case *ast.StructDefinition:
 				if node == nil {
-					p.fatalError(fmt.Errorf("Found nil top-level %T.", node))
+					p.PanicMessage(fmt.Errorf("Found nil top-level %T.", node))
 					continue
 				}
 				if node.Name.Kind == token.Unknown {
-					p.addErrorToken(fmt.Errorf("Cannot declare anonymous \":: struct\" block."), node.Name)
+					p.AddError(node.Name, fmt.Errorf("Cannot declare anonymous \":: struct\" block."))
 					continue
 				}
 				name := node.Name.String()
 				existingNode, ok := scope.structDefinitions[name]
 				if ok {
 					errorMessage := fmt.Errorf("Cannot declare \"%s :: struct\" more than once in global scope.", name)
-					p.addErrorToken(errorMessage, existingNode.Name)
-					p.addErrorToken(errorMessage, node.Name)
+					p.AddError(existingNode.Name, errorMessage)
+					p.AddError(node.Name, errorMessage)
 					continue
 				}
 
@@ -876,25 +882,25 @@ func (p *Parser) TypecheckAndFinalize(files []*ast.File) {
 				p.typeinfo.register(name, typeinfo)
 			case *ast.HTMLComponentDefinition:
 				if node == nil {
-					p.fatalError(fmt.Errorf("Found nil top-level %T.", node))
+					p.PanicMessage(fmt.Errorf("Found nil top-level %T.", node))
 					continue
 				}
 				if node.Name.Kind == token.Unknown {
-					p.addErrorToken(fmt.Errorf("Cannot declare anonymous \":: html\" block."), node.Name)
+					p.AddError(node.Name, fmt.Errorf("Cannot declare anonymous \":: html\" block."))
 					continue
 				}
 				name := node.Name.String()
 				existingNode, ok := scope.htmlDefinitions[name]
 				if ok {
 					errorMessage := fmt.Errorf("Cannot declare \"%s :: html\" more than once in global scope.", name)
-					p.addErrorToken(errorMessage, existingNode.Name)
-					p.addErrorToken(errorMessage, node.Name)
+					p.AddError(existingNode.Name, errorMessage)
+					p.AddError(node.Name, errorMessage)
 					continue
 				}
 				scope.htmlDefinitions[name] = node
 			case *ast.CSSDefinition:
 				if node == nil {
-					p.fatalError(fmt.Errorf("Found nil top-level %T.", node))
+					p.PanicMessage(fmt.Errorf("Found nil top-level %T.", node))
 					continue
 				}
 				if node.Name.Kind == token.Unknown {
@@ -904,26 +910,26 @@ func (p *Parser) TypecheckAndFinalize(files []*ast.File) {
 				existingNode, ok := scope.cssDefinitions[name]
 				if ok {
 					errorMessage := fmt.Errorf("Cannot declare \"%s :: css\" more than once in global scope.", name)
-					p.addErrorToken(errorMessage, existingNode.Name)
-					p.addErrorToken(errorMessage, node.Name)
+					p.AddError(existingNode.Name, errorMessage)
+					p.AddError(node.Name, errorMessage)
 					continue
 				}
 				scope.cssDefinitions[name] = node
 			case *ast.CSSConfigDefinition:
 				if node == nil {
-					p.fatalError(fmt.Errorf("Found nil top-level %T.", node))
+					p.PanicMessage(fmt.Errorf("Found nil top-level %T.", node))
 					continue
 				}
 				if node.Name.Kind == token.Unknown {
-					p.addErrorToken(fmt.Errorf("Cannot declare anonymous \":: css_config\" block."), node.Name)
+					p.AddError(node.Name, fmt.Errorf("Cannot declare anonymous \":: css_config\" block."))
 					continue
 				}
 				name := node.Name.String()
 				existingNode, ok := scope.cssConfigDefinitions[name]
 				if ok {
 					errorMessage := fmt.Errorf("Cannot declare \"%s :: css_config\" more than once in global scope.", name)
-					p.addErrorToken(errorMessage, existingNode.Name)
-					p.addErrorToken(errorMessage, node.Name)
+					p.AddError(existingNode.Name, errorMessage)
+					p.AddError(node.Name, errorMessage)
 					continue
 				}
 				scope.cssConfigDefinitions[name] = node
@@ -948,7 +954,7 @@ func (p *Parser) TypecheckAndFinalize(files []*ast.File) {
 		if ok {
 			continue
 		}
-		p.addErrorToken(fmt.Errorf("\"%s :: css_config\" has no matching \":: css\" or \":: html\" block.", name), cssConfigDefinition.Name)
+		p.AddError(cssConfigDefinition.Name, fmt.Errorf("\"%s :: css_config\" has no matching \":: css\" or \":: html\" block.", name))
 	}
 
 	// Get nested dependencies
@@ -987,7 +993,7 @@ func (p *Parser) TypecheckAndFinalize(files []*ast.File) {
 		if !ok {
 			continue
 		}
-		p.addErrorToken(fmt.Errorf("Cannot use \"%s\". Cyclic references are not allowed.", name), node.Name)
+		p.AddError(node.Name, fmt.Errorf("Cannot use \"%s\". Cyclic references are not allowed.", name))
 	}
 
 	// Typecheck

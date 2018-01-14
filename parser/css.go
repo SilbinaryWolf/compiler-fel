@@ -44,6 +44,9 @@ func (p *Parser) parseCSS(name token.Token) *ast.CSSDefinition {
 	p.SetScanMode(scanner.ModeCSS)
 	node.ChildNodes = p.parseCSSStatements()
 	p.SetScanMode(scanner.ModeDefault)
+	if node.ChildNodes == nil {
+		return nil
+	}
 
 	//{
 	//	json, _ := json.MarshalIndent(resultNodes, "", "   ")
@@ -64,7 +67,7 @@ func (p *Parser) parseCSSProperty(tokenList []ast.Node) *ast.CSSProperty {
 
 		tokenNode, ok := itNode.(*ast.Token)
 		if !ok {
-			p.fatalError(fmt.Errorf("Expected property to be identifier, not %T", itNode))
+			p.PanicMessage(fmt.Errorf("Expected property to be identifier, not %T", itNode))
 		}
 		if tokenNode.Kind == token.Whitespace {
 			continue
@@ -80,13 +83,13 @@ func (p *Parser) parseCSSProperty(tokenList []ast.Node) *ast.CSSProperty {
 
 		tokenNode, ok := itNode.(*ast.Token)
 		if !ok {
-			p.fatalErrorToken(fmt.Errorf("Expected *ast.Token not %T, near \"%s:\"", itNode, name.String()), name)
+			p.PanicError(name, fmt.Errorf("Expected *ast.Token not %T, near \"%s:\"", itNode, name.String()))
 		}
 		if tokenNode.Kind == token.Whitespace {
 			continue
 		}
 		if tokenNode.Kind != token.Colon {
-			p.fatalErrorToken(fmt.Errorf("parseCSSStatements(): Expected : after property name, not \"%s\" (Data: %s).", tokenNode.Kind.String(), tokenNode.Data), tokenNode.Token)
+			p.PanicError(tokenNode.Token, fmt.Errorf("parseCSSStatements(): Expected : after property name, not \"%s\" (Data: %s).", tokenNode.Kind.String(), tokenNode.Data))
 		}
 		// Found it!
 		break
@@ -169,7 +172,7 @@ Loop:
 			}
 		case token.BraceOpen:
 			if len(tokenList) == 0 {
-				p.addErrorToken(fmt.Errorf("Unexpected {, expected identifiers preceding for CSS rule."), t)
+				p.AddError(t, fmt.Errorf("Unexpected {, expected identifiers preceding for CSS rule."))
 				return nil
 			}
 
@@ -258,7 +261,8 @@ Loop:
 				panic(fmt.Sprintf("parseCSSStatements(): Unexpected token in attribute after operator on Line %d", value.Line))
 			}
 			if t := p.GetNextToken(); t.Kind != token.BracketClose {
-				p.fatalErrorToken(expect(t, token.BracketClose), t)
+				p.AddExpectError(t, token.BracketClose)
+				return nil
 			}
 		case token.ParenOpen:
 			nodes := p.parseCSSStatements()
@@ -275,7 +279,7 @@ Loop:
 		case token.EOF:
 			panic("parseCSSStatements(): Reached end of file, Should be closed with }")
 		default:
-			p.fatalErrorToken(unexpected(t), t)
+			p.PanicError(t, fmt.Errorf("Unhandled token in parseCSSStatements()"))
 		}
 	}
 

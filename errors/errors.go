@@ -1,4 +1,4 @@
-package parser
+package errors
 
 import (
 	"fmt"
@@ -8,17 +8,23 @@ import (
 	"github.com/silbinarywolf/compiler-fel/token"
 )
 
-// Adds additional info that tells the developer where a parser error was raised in Golang
-const DEVELOPER_MODE = true
-
-const FatalErrorMessage = "Fatal parsing error occurred. Please notify the developer(s)."
+const fatalErrorMessage = "Fatal parsing error occurred. Please notify the developer(s)."
 
 type ErrorHandler struct {
-	errors map[string][]error
+	errors  map[string][]error
+	devMode bool
 }
 
 func (e *ErrorHandler) Init() {
+	if e.errors != nil {
+		panic("Cannot initialize error handler more than once.")
+	}
 	e.errors = make(map[string][]error)
+	e.devMode = false
+}
+
+func (e *ErrorHandler) SetDeveloperMode(value bool) {
+	e.devMode = value
 }
 
 type ParserError struct {
@@ -30,20 +36,20 @@ func (parserError *ParserError) Error() string {
 	return parserError.Message.Error()
 }
 
-func unexpected(thisToken token.Token) error {
+func unexpected(thisToken token.Token, context string) error {
 	if thisToken.IsKeyword() {
-		return fmt.Errorf("Unexpected keyword \"%s\".", thisToken.String())
+		return fmt.Errorf("Unexpected keyword \"%s\" in %s.", thisToken.String(), context)
 	}
 	if thisToken.IsOperator() {
-		return fmt.Errorf("Unexpected operator \"%s\".", thisToken.String())
+		return fmt.Errorf("Unexpected operator \"%s\" in %s.", thisToken.String(), context)
 	}
 	switch thisToken.Kind {
 	case token.Identifier:
-		return fmt.Errorf("Unexpected identifier \"%s\".", thisToken.String())
+		return fmt.Errorf("Unexpected identifier \"%s\" in %s.", thisToken.String(), context)
 	case token.EOF:
-		return fmt.Errorf("Unexpectedly reached end of file.")
+		return fmt.Errorf("Unexpectedly reached end of file in %s.", context)
 	}
-	return fmt.Errorf("Unexpected %s", thisToken.Kind)
+	return fmt.Errorf("Unexpected %s in %s", thisToken.Kind, context)
 }
 
 func expect(thisToken token.Token, expectedList ...interface{}) *ParserError {
@@ -96,30 +102,19 @@ func expect(thisToken token.Token, expectedList ...interface{}) *ParserError {
 	}
 }
 
-//func (p *Parser) GetErrors() []error {
-//	return p.errors
-//}
-
 func (e *ErrorHandler) HasErrors() bool {
 	return len(e.errors) > 0
 }
 
-func (p *Parser) HasErrors() bool {
-	return p.Scanner.Error != nil || p.ErrorHandler.HasErrors()
+func (e *ErrorHandler) AddUnexpectedErrorWithContext(t token.Token, context string) {
+	e.AddError(t, unexpected(t, context))
 }
 
-/*func (p *Parser) addError(message error) {
-	// todo(Jake): Expose this function to AST/token/etc data to retrieve line number
-	//message = fmt.Errorf("Line %d - %s", -99, message)
-	filepath := p.Filepath
-	_, ok := p.errors[filepath]
-	if !ok {
-		p.errors[filepath] = make([]error, 0, 10)
-	}
-	p.errors[filepath] = append(p.errors[filepath], message)
-}*/
+func (e *ErrorHandler) AddExpectError(t token.Token, expectedList ...interface{}) {
+	e.AddError(t, expect(t, expectedList))
+}
 
-func (e *ErrorHandler) addErrorToken(message error, token token.Token) {
+func (e *ErrorHandler) AddError(token token.Token, message error) {
 	filepath := token.Filepath
 	_, ok := e.errors[filepath]
 	if !ok {
@@ -134,7 +129,7 @@ func (e *ErrorHandler) addErrorToken(message error, token token.Token) {
 
 	// Get where the error message was added from to help
 	// track where error messages are raised.
-	if DEVELOPER_MODE {
+	if e.devMode {
 		// NOTE(Jake): 2018-01-09
 		//
 		// Added code to get the last 3 layers of the call stack for improved
@@ -165,48 +160,40 @@ func (e *ErrorHandler) addErrorToken(message error, token token.Token) {
 	e.errors[filepath] = append(e.errors[filepath], message)
 }
 
-func (p *Parser) fatalError(message error) {
+func (e *ErrorHandler) PanicMessage(message error) {
 	fmt.Printf("%s\n", message)
-	p.PrintErrors()
-	panic(FatalErrorMessage)
+	e.PrintErrors()
+	panic(fatalErrorMessage)
 }
 
-func (p *Parser) fatalErrorToken(message error, token token.Token) {
-	p.addErrorToken(message, token)
-	p.PrintErrors()
-	panic(FatalErrorMessage)
+func (e *ErrorHandler) PanicError(t token.Token, message error) {
+	e.AddError(t, fmt.Errorf("%s %s", "**FATAL ERROR**", message))
+	e.PrintErrors()
+	panic(fatalErrorMessage)
 }
 
-// todo(Jake): 2018-01-14
-//
-// Decouple PrintErrors() to use ErrorHandler.
-// Perhaps moving forward, the error handler can belong in
-// it's own package and be applied to the "scanner.Scanner" class.
-//
-// This way it's functionality will be available across scanning tokens
-// and parsing.
-//
-func (p *Parser) PrintErrors() {
+func (e *ErrorHandler) PrintErrors() {
+	errors := e.errors
 	errorCount := 0
-	for _, errorList := range p.errors {
+	for _, errorList := range errors {
 		errorCount += len(errorList)
 	}
-	if p.Scanner.Error != nil {
-		errorCount += 1
-	}
+	//if p.Scanner.Error != nil {
+	//	errorCount += 1
+	//}
 	if errorCount > 0 {
 		errorOrErrors := "errors"
 		if errorCount == 1 {
 			errorOrErrors = "error"
 		}
 		fmt.Printf("Found %d %s...\n", errorCount, errorOrErrors)
-		if p.Scanner.Error != nil {
-			fmt.Printf("File: %s\n", p.Scanner.Filepath)
-			fmt.Printf("- %s \n", p.Scanner.Error)
-		}
+		//if p.Scanner.Error != nil {
+		//	fmt.Printf("File: %s\n", p.Scanner.Filepath)
+		//	fmt.Printf("- %s \n", p.Scanner.Error)
+		//}
 
 		isFirst := true
-		for filepath, errorList := range p.errors {
+		for filepath, errorList := range errors {
 			fmt.Printf("File: %s\n", filepath)
 			for _, err := range errorList {
 				fmt.Printf("- %v \n", err)
