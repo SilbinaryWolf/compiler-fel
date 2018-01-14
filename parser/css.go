@@ -258,7 +258,7 @@ Loop:
 				panic(fmt.Sprintf("parseCSSStatements(): Unexpected token in attribute after operator on Line %d", value.Line))
 			}
 			if t := p.GetNextToken(); t.Kind != token.BracketClose {
-				p.fatalErrorToken(p.expect(t, token.BracketClose), t)
+				p.fatalErrorToken(expect(t, token.BracketClose), t)
 			}
 		case token.ParenOpen:
 			nodes := p.parseCSSStatements()
@@ -275,7 +275,7 @@ Loop:
 		case token.EOF:
 			panic("parseCSSStatements(): Reached end of file, Should be closed with }")
 		default:
-			p.fatalErrorToken(p.unexpected(t), t)
+			p.fatalErrorToken(unexpected(t), t)
 		}
 	}
 

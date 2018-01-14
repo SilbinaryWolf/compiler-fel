@@ -12,16 +12,20 @@ import (
 
 type Parser struct {
 	scanner.Scanner
-	typeinfo TypeInfoManager
-	errors   map[string][]error
+	ErrorHandler
 
 	// Typechecking-only
+	// NOTE(Jake): 2018-01-14
+	//
+	// Want to potentially decouple the checker structure data
+	// from the parser in the future.
+	typeinfo                      TypeInfoManager
 	typecheckHtmlNodeDependencies map[string]*ast.Call
 }
 
 func New() *Parser {
 	p := new(Parser)
-	p.errors = make(map[string][]error)
+	p.ErrorHandler.Init()
 	p.typeinfo.Init()
 	//p.typecheckHtmlDefinitionDependencies = make(map[string]*ast.HTMLComponentDefinition)
 	//p.typecheckHtmlDefinitionStack = make([]*ast.HTMLComponentDefinition, 0, 20)
@@ -120,7 +124,7 @@ Loop:
 				for {
 					t := p.GetNextToken()
 					if t.Kind != token.Identifier {
-						p.addErrorToken(p.expect(t, token.Identifier), t)
+						p.addErrorToken(expect(t, token.Identifier), t)
 						return nil
 					}
 					leftHandSide = append(leftHandSide, t)
@@ -134,11 +138,11 @@ Loop:
 				operatorToken := p.GetNextToken()
 				if operatorToken.Kind == token.BracketOpen {
 					if t := p.GetNextToken(); t.Kind != token.BracketClose {
-						p.addErrorToken(p.expect(t, token.BracketClose), t)
+						p.addErrorToken(expect(t, token.BracketClose), t)
 						continue
 					}
 					if t := p.GetNextToken(); t.Kind != token.Equal {
-						p.addErrorToken(p.expect(t, token.Equal), t)
+						p.addErrorToken(expect(t, token.Equal), t)
 						continue
 					}
 
@@ -155,7 +159,7 @@ Loop:
 
 				if operatorToken.Kind != token.Equal &&
 					operatorToken.Kind != token.AddEqual {
-					p.addErrorToken(p.expect(operatorToken, token.Equal, token.AddEqual), operatorToken)
+					p.addErrorToken(expect(operatorToken, token.Equal, token.AddEqual), operatorToken)
 					continue
 				}
 
@@ -181,11 +185,11 @@ Loop:
 				node.Name = name
 				node.IfExpression.ChildNodes = p.parseExpressionNodes(true)
 				if t := p.GetNextToken(); t.Kind != token.BraceOpen {
-					p.addErrorToken(p.expect(t, token.BraceOpen), t)
+					p.addErrorToken(expect(t, token.BraceOpen), t)
 					return nil
 				}
 				if t := p.GetNextToken(); t.Kind == token.BraceOpen {
-					p.expect(t, token.BraceOpen)
+					expect(t, token.BraceOpen)
 					return nil
 				}
 				p.GetNextToken()
@@ -290,7 +294,7 @@ Loop:
 			//
 			exprNodes := p.parseExpressionNodes(true)
 			if t := p.GetNextToken(); t.Kind != token.BraceOpen {
-				p.addErrorToken(p.expect(t, token.BraceOpen), t)
+				p.addErrorToken(expect(t, token.BraceOpen), t)
 				return nil
 			}
 			node := new(ast.If)
@@ -316,7 +320,7 @@ Loop:
 				case token.BraceOpen:
 					p.GetNextToken()
 				default:
-					p.addErrorToken(p.expect(t, token.BraceOpen, token.KeywordIf), t)
+					p.addErrorToken(expect(t, token.BraceOpen, token.KeywordIf), t)
 					return nil
 				}
 				node.ElseNodes = p.parseStatements()
@@ -325,7 +329,7 @@ Loop:
 			p.GetNextToken()
 			varName := p.GetNextToken()
 			if varName.Kind != token.Identifier {
-				p.addErrorToken(p.expect(varName, token.Identifier), varName)
+				p.addErrorToken(expect(varName, token.Identifier), varName)
 				return nil
 			}
 			t := p.GetNextToken()
@@ -340,12 +344,12 @@ Loop:
 			case token.Comma:
 				secondVarName := p.GetNextToken()
 				if secondVarName.Kind != token.Identifier {
-					p.addErrorToken(p.expect(secondVarName, token.Identifier), secondVarName)
+					p.addErrorToken(expect(secondVarName, token.Identifier), secondVarName)
 					return nil
 				}
 				t = p.GetNextToken()
 				if t.Kind != token.DeclareSet {
-					p.addErrorToken(p.expect(t, token.DeclareSet), t)
+					p.addErrorToken(expect(t, token.DeclareSet), t)
 					return nil
 				}
 				node = new(ast.For)
@@ -354,11 +358,11 @@ Loop:
 				node.RecordName = secondVarName
 				node.Array.ChildNodes = p.parseExpressionNodes(false)
 			default:
-				p.addErrorToken(p.expect(t, token.DeclareSet, token.Comma), t)
+				p.addErrorToken(expect(t, token.DeclareSet, token.Comma), t)
 				return nil
 			}
 			if t := p.GetNextToken(); t.Kind != token.BraceOpen {
-				p.addErrorToken(p.expect(t, token.BraceOpen), t)
+				p.addErrorToken(expect(t, token.BraceOpen), t)
 				return nil
 			}
 			node.ChildNodes = p.parseStatements()
@@ -372,7 +376,7 @@ Loop:
 			break Loop
 		default:
 			p.GetNextToken()
-			p.addErrorToken(p.unexpected(t), t)
+			p.addErrorToken(unexpected(t), t)
 			return nil
 		}
 	}
@@ -392,12 +396,12 @@ Loop:
 			}
 			t := p.GetNextToken()
 			if t.Kind != token.Equal {
-				p.addErrorToken(p.expect(t, token.Equal), t)
+				p.addErrorToken(expect(t, token.Equal), t)
 			}
 			node.ChildNodes = p.parseExpressionNodes(false)
 			t = p.GetNextToken()
 			if t.Kind != token.Comma && t.Kind != token.ParenClose {
-				p.addErrorToken(p.expect(t, token.Comma, token.ParenClose), t)
+				p.addErrorToken(expect(t, token.Comma, token.ParenClose), t)
 				return nil
 			}
 			resultNodes = append(resultNodes, node)
@@ -407,7 +411,7 @@ Loop:
 		case token.ParenClose:
 			break Loop
 		default:
-			p.addErrorToken(p.expect(t, token.Identifier), t)
+			p.addErrorToken(expect(t, token.Identifier), t)
 			return nil
 		}
 	}
@@ -432,7 +436,7 @@ func (p *Parser) parseType() ast.Type {
 		for {
 			t = p.GetNextToken()
 			if t.Kind != token.BracketClose {
-				p.addErrorToken(p.expect(t, token.BracketClose), t)
+				p.addErrorToken(expect(t, token.BracketClose), t)
 				return ast.Type{}
 			}
 			t = p.GetNextToken()
@@ -444,7 +448,7 @@ func (p *Parser) parseType() ast.Type {
 		}
 	}
 	if t.Kind != token.Identifier {
-		p.addErrorToken(p.expect(t, token.Identifier, token.BracketOpen), t)
+		p.addErrorToken(expect(t, token.Identifier, token.BracketOpen), t)
 		return ast.Type{}
 	}
 	result.Name = t
@@ -486,7 +490,7 @@ Loop:
 					identToken := p.GetNextToken()
 					tokens = append(tokens, identToken)
 					if identToken.Kind != token.Identifier {
-						p.addErrorToken(p.expect(identToken, token.Identifier), identToken)
+						p.addErrorToken(expect(identToken, token.Identifier), identToken)
 						return nil
 					}
 					t := p.PeekNextToken()
@@ -500,7 +504,7 @@ Loop:
 						t.Kind == token.ParenClose {
 						break
 					}
-					p.addErrorToken(p.expect(t, token.Operator, token.Newline, token.ParenClose), t)
+					p.addErrorToken(expect(t, token.Operator, token.Newline, token.ParenClose), t)
 					return nil
 				}
 				expectOperator = true
@@ -570,7 +574,7 @@ Loop:
 					case token.Comma:
 						// OK
 					default:
-						p.addErrorToken(p.expect(t, token.BraceClose, token.Comma), t)
+						p.addErrorToken(expect(t, token.BraceClose, token.Comma), t)
 						return nil
 					}
 					p.eatNewlines()
@@ -662,7 +666,7 @@ Loop:
 				return nil
 			}
 			if t := p.GetNextToken(); t.Kind != token.BraceOpen {
-				p.addErrorToken(p.expect(t, token.BraceOpen), t)
+				p.addErrorToken(expect(t, token.BraceOpen), t)
 				return nil
 			}
 
@@ -680,7 +684,7 @@ Loop:
 					childNodes = append(childNodes, expr)
 					break ArrayLiteralLoop
 				case token.EOF:
-					p.addErrorToken(p.unexpected(sep), sep)
+					p.addErrorToken(unexpected(sep), sep)
 					return nil
 				}
 				p.addErrorToken(fmt.Errorf("Expected , or } after array item #%d, not %s.", i, sep.Kind.String()), sep)
@@ -819,7 +823,7 @@ CallLoop:
 			p.GetNextToken()
 			break CallLoop
 		default:
-			p.addErrorToken(p.expect(t, token.Comma, token.ParenClose), t)
+			p.addErrorToken(expect(t, token.Comma, token.ParenClose), t)
 			return nil
 		}
 	}
@@ -838,7 +842,7 @@ CallLoop:
 		case token.KeywordIf:
 			ifExprNodes = p.parseExpressionNodes(true)
 			if t := p.GetNextToken(); t.Kind != token.BraceOpen {
-				p.addErrorToken(p.expect(t, token.BraceOpen), t)
+				p.addErrorToken(expect(t, token.BraceOpen), t)
 				return nil
 			}
 			childStatements = p.parseStatements()
@@ -848,7 +852,7 @@ CallLoop:
 				p.SetScannerState(storeScannerState)
 				break
 			}
-			p.addErrorToken(p.expect(t, token.BraceOpen, token.KeywordIf, token.Newline), t)
+			p.addErrorToken(expect(t, token.BraceOpen, token.KeywordIf, token.Newline), t)
 		}
 	}
 
@@ -882,7 +886,7 @@ func (p *Parser) parseProcedureDefinition(name token.Token) *ast.ProcedureDefini
 		for {
 			name := p.GetNextToken()
 			if name.Kind != token.Identifier {
-				p.addErrorToken(p.expect(name, token.ParenClose, token.Identifier), name)
+				p.addErrorToken(expect(name, token.ParenClose, token.Identifier), name)
 				return nil
 			}
 			typeIdent := p.parseType()
@@ -903,7 +907,7 @@ func (p *Parser) parseProcedureDefinition(name token.Token) *ast.ProcedureDefini
 			if t.Kind == token.ParenClose {
 				break
 			}
-			p.addErrorToken(p.expect(t, token.Comma, token.ParenClose), t)
+			p.addErrorToken(expect(t, token.Comma, token.ParenClose), t)
 			return nil
 		}
 	}
@@ -915,7 +919,7 @@ func (p *Parser) parseProcedureDefinition(name token.Token) *ast.ProcedureDefini
 		}
 	}
 	if t := p.GetNextToken(); t.Kind != token.BraceOpen {
-		p.addErrorToken(p.expect(t, token.BraceOpen), t)
+		p.addErrorToken(expect(t, token.BraceOpen), t)
 		return nil
 	}
 	node := new(ast.ProcedureDefinition)
@@ -940,21 +944,21 @@ func (p *Parser) parseDefinition(name token.Token) ast.Node {
 		switch keyword {
 		case "css":
 			if t := p.GetNextToken(); t.Kind != token.BraceOpen {
-				p.addErrorToken(p.expect(t, token.BraceOpen), t)
+				p.addErrorToken(expect(t, token.BraceOpen), t)
 				return nil
 			}
 			node := p.parseCSS(name)
 			return node
 		case "css_config":
 			if t := p.GetNextToken(); t.Kind != token.BraceOpen {
-				p.addErrorToken(p.expect(t, token.BraceOpen), t)
+				p.addErrorToken(expect(t, token.BraceOpen), t)
 				return nil
 			}
 			node := p.parseCSSConfigRuleDefinition(name)
 			return node
 		case "struct":
 			if t := p.GetNextToken(); t.Kind != token.BraceOpen {
-				p.addErrorToken(p.expect(t, token.BraceOpen), t)
+				p.addErrorToken(expect(t, token.BraceOpen), t)
 				return nil
 			}
 			//
@@ -984,7 +988,7 @@ func (p *Parser) parseDefinition(name token.Token) ast.Node {
 			return node
 		case "html":
 			if t := p.GetNextToken(); t.Kind != token.BraceOpen {
-				p.addErrorToken(p.expect(t, token.BraceOpen), t)
+				p.addErrorToken(expect(t, token.BraceOpen), t)
 				return nil
 			}
 			childNodes := p.parseStatements()

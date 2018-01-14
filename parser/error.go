@@ -13,6 +13,14 @@ const DEVELOPER_MODE = true
 
 const FatalErrorMessage = "Fatal parsing error occurred. Please notify the developer(s)."
 
+type ErrorHandler struct {
+	errors map[string][]error
+}
+
+func (e *ErrorHandler) Init() {
+	e.errors = make(map[string][]error)
+}
+
 type ParserError struct {
 	Message error
 	Token   token.Token
@@ -22,7 +30,7 @@ func (parserError *ParserError) Error() string {
 	return parserError.Message.Error()
 }
 
-func (p *Parser) unexpected(thisToken token.Token) error {
+func unexpected(thisToken token.Token) error {
 	if thisToken.IsKeyword() {
 		return fmt.Errorf("Unexpected keyword \"%s\".", thisToken.String())
 	}
@@ -38,7 +46,7 @@ func (p *Parser) unexpected(thisToken token.Token) error {
 	return fmt.Errorf("Unexpected %s", thisToken.Kind)
 }
 
-func (p *Parser) expect(thisToken token.Token, expectedList ...interface{}) *ParserError {
+func expect(thisToken token.Token, expectedList ...interface{}) *ParserError {
 
 	// todo(Jake): switch to using a buffer as that uses less allocations
 	//			   ie. increase speed from 6500ns to 15ns
@@ -92,8 +100,12 @@ func (p *Parser) expect(thisToken token.Token, expectedList ...interface{}) *Par
 //	return p.errors
 //}
 
+func (e *ErrorHandler) HasErrors() bool {
+	return len(e.errors) > 0
+}
+
 func (p *Parser) HasErrors() bool {
-	return p.Scanner.Error != nil || len(p.errors) > 0
+	return p.Scanner.Error != nil || p.ErrorHandler.HasErrors()
 }
 
 /*func (p *Parser) addError(message error) {
@@ -107,11 +119,11 @@ func (p *Parser) HasErrors() bool {
 	p.errors[filepath] = append(p.errors[filepath], message)
 }*/
 
-func (p *Parser) addErrorToken(message error, token token.Token) {
+func (e *ErrorHandler) addErrorToken(message error, token token.Token) {
 	filepath := token.Filepath
-	_, ok := p.errors[filepath]
+	_, ok := e.errors[filepath]
 	if !ok {
-		p.errors[filepath] = make([]error, 0, 10)
+		e.errors[filepath] = make([]error, 0, 10)
 	}
 	lineMessage := fmt.Sprintf("Line %d | ", token.Line)
 	indentString := "\n  "
@@ -150,7 +162,7 @@ func (p *Parser) addErrorToken(message error, token token.Token) {
 			callIndex++
 		}
 	}
-	p.errors[filepath] = append(p.errors[filepath], message)
+	e.errors[filepath] = append(e.errors[filepath], message)
 }
 
 func (p *Parser) fatalError(message error) {
@@ -165,6 +177,15 @@ func (p *Parser) fatalErrorToken(message error, token token.Token) {
 	panic(FatalErrorMessage)
 }
 
+// todo(Jake): 2018-01-14
+//
+// Decouple PrintErrors() to use ErrorHandler.
+// Perhaps moving forward, the error handler can belong in
+// it's own package and be applied to the "scanner.Scanner" class.
+//
+// This way it's functionality will be available across scanning tokens
+// and parsing.
+//
 func (p *Parser) PrintErrors() {
 	errorCount := 0
 	for _, errorList := range p.errors {
