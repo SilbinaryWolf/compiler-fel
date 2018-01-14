@@ -15,6 +15,16 @@ const (
 	CallHTMLNode
 )
 
+var callKindToString = []string{
+	CallUnknown:   "unknown call kind",
+	CallProcedure: "procedure",
+	CallHTMLNode:  "html node",
+}
+
+func (kind CallKind) String() string {
+	return callKindToString[kind]
+}
+
 /*type TypeKind int
 
 const (
