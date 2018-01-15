@@ -146,17 +146,12 @@ type ArrayLiteral struct {
 
 type StructLiteral struct {
 	Name     token.Token
-	Fields   []StructLiteralField
+	Fields   []Parameter
 	TypeInfo types.TypeInfo
 }
 
 func (node *StructLiteral) Nodes() []Node {
 	return nil
-}
-
-type StructLiteralField struct {
-	Name token.Token
-	Expression
 }
 
 type Return struct {

@@ -25,7 +25,8 @@ const (
 	ReplaceStructFieldVar
 	PushAllocStruct
 	PushAllocInternalStruct
-	PushNewContextNode
+	PushHTMLNode
+	PopHTMLNode
 	ConditionalEqual
 	Add
 	AddString
@@ -60,7 +61,8 @@ var kindToString = []string{
 	ReplaceStructFieldVar:   "ReplaceStructFieldVar",
 	PushAllocStruct:         "PushAllocStruct",
 	PushAllocInternalStruct: "PushAllocInternalStruct",
-	PushNewContextNode:      "PushNewContextNode",
+	PushHTMLNode:            "PushHTMLNode",
+	PopHTMLNode:             "PopHTMLNode",
 	ConditionalEqual:        "ConditionalEqual",
 	Add:                     "Add",
 	AddString:               "AddString",

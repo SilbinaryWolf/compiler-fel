@@ -73,8 +73,8 @@ func (program *Program) executeBytecode(codeBlock *bytecode.Block) {
 			internalType := code.Value.(reflect.Type)
 			structData := reflect.Indirect(reflect.New(internalType)).Interface()
 			program.registerStack = append(program.registerStack, structData)
-		case bytecode.PushNewContextNode:
-			panic("PushNewContextNode: Not currently supported")
+		case bytecode.PushHTMLNode:
+			panic("PushHTMLNode: Not currently supported")
 			/*var node interface{}
 			switch code.Value.(bytecode.NodeContextType) {
 			case bytecode.NodeCSSDefinition:

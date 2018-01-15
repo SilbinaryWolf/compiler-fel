@@ -527,7 +527,7 @@ Loop:
 				}
 
 				var errorMsgLastToken token.Token
-				fields := make([]ast.StructLiteralField, 0, 10)
+				fields := make([]ast.Parameter, 0, 10)
 			StructLiteralLoop:
 				for i := 0; true; i++ {
 					propertyName := p.GetNextToken()
@@ -551,7 +551,7 @@ Loop:
 						return nil
 					}
 					exprNodes := p.parseExpressionNodes(false)
-					node := ast.StructLiteralField{}
+					node := ast.Parameter{}
 					node.Name = propertyName
 					node.ChildNodes = exprNodes
 					fields = append(fields, node)
@@ -736,81 +736,87 @@ func (p *Parser) parseProcedureOrHTMLNode(name token.Token) *ast.Call {
 	hasDeterminedMode := false
 	isHTMLNode := false
 	parameters := make([]*ast.Parameter, 0, 10)
-CallLoop:
-	for {
-		// NOTE(Jake): 2018-01-03
-		//
-		// Eating the surrounding newlines so we can do the following:
-		//
-		// `blah(
-		//	  "param1"
-		//	  ,
-		//    "param2"
-		// )`
-		//
-		p.eatNewlines()
 
-		storeScannerState := p.ScannerState()
-		name := p.GetNextToken()
-		equalOp := p.GetNextToken()
-		if name.Kind == token.Identifier &&
-			equalOp.Kind == token.Equal {
-			if hasDeterminedMode && !isHTMLNode {
-				p.AddError(name, fmt.Errorf("Cannot use named parameter after unnamed parameter, parameter #%d.", len(parameters)))
-			}
-			isHTMLNode = true
-			hasDeterminedMode = true
-		} else {
-			if hasDeterminedMode && isHTMLNode {
-				p.AddError(name, fmt.Errorf("Cannot use unnamed parameter after named parameter, parameter #%d.", len(parameters)))
-			}
-			hasDeterminedMode = true
-		}
-		if !isHTMLNode {
-			p.SetScannerState(storeScannerState)
-		}
-		//panic(isHTMLNode)
-		//panic(fmt.Sprintf("%d", name.Line) + " " + name.Filepath + ": " + name.String())
+	// Eat all newlines after (
+	p.eatNewlines()
 
-		exprNodes := p.parseExpressionNodes(false)
-		p.eatNewlines()
-
-		if exprNodes == nil {
-			p.AddError(name, fmt.Errorf("Missing value for parameter #%d", len(parameters)))
-			return nil
-		}
-		parameter := new(ast.Parameter)
-		if isHTMLNode {
-			parameter.Name = name
-		}
-		parameter.ChildNodes = exprNodes
-		parameters = append(parameters, parameter)
-
-		switch t := p.PeekNextToken(); t.Kind {
-		case token.Newline:
-			continue CallLoop
-		case token.Comma:
-			p.GetNextToken()
-
+	if p.PeekNextToken().Kind == token.ParenClose {
+		p.GetNextToken() // no parameters
+	} else {
+	CallLoop:
+		for {
 			// NOTE(Jake): 2018-01-03
 			//
-			// Needed to allow for trailing commas
+			// Eating the surrounding newlines so we can do the following:
+			//
+			// `blah(
+			//	  "param1"
+			//	  ,
+			//    "param2"
+			// )`
 			//
 			p.eatNewlines()
+
+			storeScannerState := p.ScannerState()
+			name := p.GetNextToken()
+			equalOp := p.GetNextToken()
+			if name.Kind == token.Identifier &&
+				equalOp.Kind == token.Equal {
+				if hasDeterminedMode && !isHTMLNode {
+					p.AddError(name, fmt.Errorf("Cannot use named parameter after unnamed parameter, parameter #%d.", len(parameters)))
+				}
+				isHTMLNode = true
+				hasDeterminedMode = true
+			} else {
+				if hasDeterminedMode && isHTMLNode {
+					p.AddError(name, fmt.Errorf("Cannot use unnamed parameter after named parameter, parameter #%d.", len(parameters)))
+				}
+				hasDeterminedMode = true
+			}
+			if !isHTMLNode {
+				p.SetScannerState(storeScannerState)
+			}
+
+			exprNodes := p.parseExpressionNodes(false)
+			p.eatNewlines()
+
+			if exprNodes == nil {
+				p.AddError(name, fmt.Errorf("Missing value for parameter #%d", len(parameters)))
+				return nil
+			}
+			parameter := new(ast.Parameter)
+			if isHTMLNode {
+				parameter.Name = name
+			}
+			parameter.ChildNodes = exprNodes
+			parameters = append(parameters, parameter)
+
 			switch t := p.PeekNextToken(); t.Kind {
+			case token.Newline:
+				continue CallLoop
+			case token.Comma:
+				p.GetNextToken()
+
+				// NOTE(Jake): 2018-01-03
+				//
+				// Needed to allow for trailing commas
+				//
+				p.eatNewlines()
+				switch t := p.PeekNextToken(); t.Kind {
+				case token.ParenClose:
+					p.GetNextToken()
+					break CallLoop
+				case token.Comma:
+					p.AddError(t, fmt.Errorf("Cannot have more than 1 trailing comma for procedure calls."))
+					return nil
+				}
 			case token.ParenClose:
 				p.GetNextToken()
 				break CallLoop
-			case token.Comma:
-				p.AddError(t, fmt.Errorf("Cannot have more than 1 trailing comma for procedure calls."))
+			default:
+				p.AddExpectError(t, token.Comma, token.ParenClose)
 				return nil
 			}
-		case token.ParenClose:
-			p.GetNextToken()
-			break CallLoop
-		default:
-			p.AddExpectError(t, token.Comma, token.ParenClose)
-			return nil
 		}
 	}
 

@@ -284,6 +284,8 @@ func (p *Parser) typecheckExpression(scope *Scope, expression *ast.Expression) {
 						p.AddError(node.Name, fmt.Errorf("Cannot mix call type %s with %s", expectedTypeInfo.String(), resultTypeInfo.String()))
 					}
 				}
+			case ast.CallHTMLNode:
+				p.AddError(node.Name, fmt.Errorf("Cannot use HTML node in expression."))
 			default:
 				panic(fmt.Sprintf("typecheckExpression:Call: Unhandled call kind: %s", node.Kind()))
 			}

@@ -264,23 +264,80 @@ func (emit *Emitter) emitHTMLNode(opcodes []bytecode.Code, node *ast.Call) []byt
 	definition := node.HTMLDefinition
 	if definition != nil {
 		panic("todo(Jake): Handle node with HTMLDefinition information attached")
+		/*if structDef := definition.Struct; structDef != nil {
+			opcodes = append(opcodes, bytecode.Code{
+				Kind:  bytecode.PushAllocStruct,
+				Value: len(structDef.Fields),
+			})
+			for offset, structField := range structDef.Fields {
+				name := structField.Name.String()
+				exprNode := &structField.Expression
+				for _, parameterField := range node.Parameters {
+					if name == parameterField.Name.String() {
+						exprNode = &parameterField.Expression
+						break
+					}
+				}
+				if fieldTypeInfo := exprNode.TypeInfo; fieldTypeInfo == nil {
+					panic(fmt.Sprintf("emitHTMLNode:Property: Missing type info on property for \"%s :: struct { %s }\"", structDef.Name, structField.Name))
+				}
+				if len(exprNode.Nodes()) == 0 {
+					opcodes = emit.emitNewFromType(opcodes, exprNode.TypeInfo)
+				} else {
+					opcodes = emit.emitExpression(opcodes, exprNode)
+				}
+				opcodes = append(opcodes, bytecode.Code{
+					Kind:  bytecode.StorePopStructField,
+					Value: offset,
+				})
+			}
+		}*/
 	}
 
-	// todo(Jake): Push HTMLnode into current context
+	emit.PushScope()
+	defer emit.PopScope()
+
+	opcodes = append(opcodes, bytecode.Code{
+		Kind:  bytecode.PushHTMLNode,
+		Value: nil,
+	})
+	// todo(Jake): 2018-01-15
+	//
+	// Add bytecode called StoreHTMLNodeAttribute which
+	// acts like a store, but instead takes parameter.Name
+	//
+	// This will store data on the HTMLElement structs map[string]interface{}
+	//
+	for i := 0; i < len(node.Parameters); i++ {
+		parameter := node.Parameters[i]
+		exprNode := &parameter.Expression
+		if len(exprNode.Nodes()) == 0 {
+			opcodes = emit.emitNewFromType(opcodes, exprNode.TypeInfo)
+		} else {
+			opcodes = emit.emitExpression(opcodes, exprNode)
+		}
+	}
 	for _, node := range node.Nodes() {
 		emit.emitStatement(opcodes, node)
 	}
-	// todo(Jake): Pop HTMLNode from current context
-
-	debugOpcodes(opcodes)
-	panic(fmt.Sprintf("%v", definition))
-	panic("todo(Jake): emitHTMLNode")
+	// NOTE(Jake): 2018-01-15
+	//
+	// Should change this pop to mean "add to []HTMLNode results"
+	//
+	opcodes = append(opcodes, bytecode.Code{
+		Kind:  bytecode.PopHTMLNode,
+		Value: nil,
+	})
+	//debugOpcodes(opcodes)
+	//panic(fmt.Sprintf("%v", definition))
+	//panic("todo(Jake): emitHTMLNode")
+	return opcodes
 }
 
 func (emit *Emitter) emitExpression(opcodes []bytecode.Code, topNode *ast.Expression) []bytecode.Code {
 	nodes := topNode.Nodes()
 	if len(nodes) == 0 {
-		panic("Cannot provide an empty expression to emitExpression.")
+		panic("emitExpression: Cannot provide an empty expression to emitExpression.")
 	}
 	typeInfo := topNode.TypeInfo
 
@@ -296,7 +353,8 @@ func (emit *Emitter) emitExpression(opcodes []bytecode.Code, topNode *ast.Expres
 				if len(node.Nodes()) > 0 {
 					panic("emitExpression: Cannot have sub-elements for HTMLNode in an expression.")
 				}
-				opcodes = emit.emitHTMLNode(opcodes, node)
+				panic("emitExpression: Cannot use HTMLNode in expression currently.")
+				//opcodes = emit.emitHTMLNode(opcodes, node)
 			default:
 				panic(fmt.Errorf("emitExpression: Unhandled *ast.Call kind: %s", node.Name))
 			}
@@ -370,11 +428,6 @@ func (emit *Emitter) emitExpression(opcodes []bytecode.Code, topNode *ast.Expres
 					Value: len(structDef.Fields),
 				})
 
-				// NOTE(Jake): 2017-12-28
-				// If using struct literal syntax "MyStruct{FieldA: 3, Name: "Jake"}" with fields, you need
-				// to provide *ALL* the field values. Reasoning is that one method implies you want explicit
-				// structures (maybe for testing data) so if you add additional fields to a struct later, the compiler
-				// will tell you about missing fields.
 				for offset, structField := range structDef.Fields {
 					name := structField.Name.String()
 					exprNode := &structField.Expression
@@ -388,9 +441,11 @@ func (emit *Emitter) emitExpression(opcodes []bytecode.Code, topNode *ast.Expres
 						panic(fmt.Sprintf("emitExpression: Missing type info on property for \"%s :: struct { %s }\"", structDef.Name, structField.Name))
 					}
 					if len(exprNode.Nodes()) == 0 {
-						panic(fmt.Sprintf("emitExpression:TypeInfo_Struct: Missing value for field \"%s\" on \"%s :: struct\", type checker should enforce that you need all fields.", structField.Name, structDef.Name))
+						opcodes = emit.emitNewFromType(opcodes, exprNode.TypeInfo)
+						//panic(fmt.Sprintf("emitExpression:TypeInfo_Struct: Missing value for field \"%s\" on \"%s :: struct\", type checker should enforce that you need all fields.", structField.Name, structDef.Name))
+					} else {
+						opcodes = emit.emitExpression(opcodes, exprNode)
 					}
-					opcodes = emit.emitExpression(opcodes, exprNode)
 					opcodes = append(opcodes, bytecode.Code{
 						Kind:  bytecode.StorePopStructField,
 						Value: offset,
