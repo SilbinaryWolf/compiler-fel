@@ -1,6 +1,7 @@
 package bytecode
 
 import (
+	"bytes"
 	"fmt"
 )
 
@@ -13,8 +14,11 @@ const (
 	PopN
 	Store
 	StorePopStructField
+	StorePopHTMLAttribute
+	ReturnPopHTMLNode
 	StoreInternalStructField
 	StoreAppendToArray
+	StoreAppendToHTMLElement
 	Push
 	PushAllocArrayString
 	PushAllocArrayInt
@@ -25,7 +29,7 @@ const (
 	ReplaceStructFieldVar
 	PushAllocStruct
 	PushAllocInternalStruct
-	PushHTMLNode
+	PushAllocHTMLNode
 	PopHTMLNode
 	ConditionalEqual
 	Add
@@ -44,13 +48,17 @@ const (
 )*/
 
 var kindToString = []string{
-	Unknown:                  "unknown/unset bytecode",
-	Label:                    "Label",
-	Pop:                      "Pop",
-	PopN:                     "PopN", // Pop [N] number of times
-	Store:                    "Store",
+	Unknown: "unknown/unset bytecode",
+	Label:   "Label",
+	Pop:     "Pop",
+	PopN:    "PopN", // Pop [N] number of times
+	Store:   "Store",
+	StorePopHTMLAttribute:    "StorePopHTMLAttribute",
 	StorePopStructField:      "StorePopStructField",
+	ReturnPopHTMLNode:        "ReturnPopHTMLNode",
 	StoreInternalStructField: "StoreInternalStructField",
+	StoreAppendToArray:       "StoreAppendToArray",
+	StoreAppendToHTMLElement: "StoreAppendToHTMLElement",
 	Push:                    "Push",
 	PushAllocArrayString:    "PushAllocArrayString",
 	PushAllocArrayInt:       "PushAllocArrayInt",
@@ -61,7 +69,7 @@ var kindToString = []string{
 	ReplaceStructFieldVar:   "ReplaceStructFieldVar",
 	PushAllocStruct:         "PushAllocStruct",
 	PushAllocInternalStruct: "PushAllocInternalStruct",
-	PushHTMLNode:            "PushHTMLNode",
+	PushAllocHTMLNode:       "PushAllocHTMLNode",
 	PopHTMLNode:             "PopHTMLNode",
 	ConditionalEqual:        "ConditionalEqual",
 	Add:                     "Add",
@@ -82,6 +90,23 @@ const (
 type Code struct {
 	Kind  Kind
 	Value interface{}
+}
+
+func (kind Kind) String() string {
+	return kindToString[kind]
+}
+
+func (code *Code) String() string {
+	result := code.Kind.String()
+	if code.Value != nil {
+		switch code.Value.(type) {
+		case string:
+			result += fmt.Sprintf(" \"%v\"", code.Value)
+		default:
+			result += fmt.Sprintf(" %v", code.Value)
+		}
+	}
+	return result
 }
 
 // ie. a function, block-scope, HTMLComponent
@@ -124,19 +149,127 @@ func (structData *Struct) FieldCount() int {
 	return len(structData.fields)
 }
 
-func (kind Kind) String() string {
-	return kindToString[kind]
+type HTMLElement struct {
+	Name       string
+	attributes []HTMLAttribute
+
+	childNodes []interface{}
+
+	parentNode   *HTMLElement
+	previousNode *HTMLElement
+	nextNode     *HTMLElement
 }
 
-func (code *Code) String() string {
-	result := code.Kind.String()
-	if code.Value != nil {
-		switch code.Value.(type) {
-		case string:
-			result += fmt.Sprintf(" \"%v\"", code.Value)
-		default:
-			result += fmt.Sprintf(" %v", code.Value)
+type HTMLAttribute struct {
+	Name  string
+	Value string
+}
+
+func NewHTMLElement(tagName string) *HTMLElement {
+	node := new(HTMLElement)
+	node.Name = tagName
+	return node
+}
+
+func (node *HTMLElement) SetParent(parent *HTMLElement) {
+	if node.parentNode == parent {
+		return
+	}
+	if node.parentNode != nil {
+		// Remove from old parent
+		for i, childNode := range node.parentNode.childNodes {
+			childNode, ok := childNode.(*HTMLElement)
+			if !ok {
+				continue
+			}
+			if childNode == node {
+				node.parentNode.childNodes = append(node.parentNode.childNodes[:i], node.parentNode.childNodes[i+1:]...)
+			}
 		}
 	}
-	return result
+	node.parentNode = parent
+	parent.childNodes = append(parent.childNodes, node)
+}
+
+func (node *HTMLElement) GetAttributes() []HTMLAttribute {
+	return node.attributes
+}
+
+func (node *HTMLElement) SetAttribute(name string, value string) {
+	for i := 0; i < len(node.attributes); i++ {
+		attr := &node.attributes[i]
+		if attr.Name == name {
+			attr.Value = value
+			return
+		}
+	}
+	node.attributes = append(node.attributes, HTMLAttribute{
+		Name:  name,
+		Value: value,
+	})
+}
+
+func (node *HTMLElement) GetAttribute(name string) (string, bool) {
+	for i := 0; i < len(node.attributes); i++ {
+		attr := &node.attributes[i]
+		if attr.Name == name {
+			return attr.Value, true
+		}
+	}
+	return "", false
+}
+
+func (node *HTMLElement) debugIndent(indent int) string {
+	var buffer bytes.Buffer
+	for i := 0; i < indent; i++ {
+		buffer.WriteByte('\t')
+	}
+	buffer.WriteString(node.String())
+	buffer.WriteByte('\n')
+	if len(node.childNodes) > 0 {
+		indent += 1
+		for _, node := range node.childNodes {
+			switch node := node.(type) {
+			case *HTMLElement:
+				buffer.WriteString(node.debugIndent(indent))
+			default:
+				panic(fmt.Sprintf("HTMLElement::Debug: Unhandled type %T", node))
+			}
+		}
+		indent -= 1
+		for i := 0; i < indent; i++ {
+			buffer.WriteByte('\t')
+		}
+		buffer.WriteByte('<')
+		buffer.WriteByte('/')
+		buffer.WriteString(node.Name)
+		buffer.WriteByte('>')
+		buffer.WriteByte('\n')
+	}
+	return buffer.String()
+}
+
+func (node *HTMLElement) Debug() string {
+	return node.debugIndent(0)
+}
+
+func (node *HTMLElement) String() string {
+	var buffer bytes.Buffer
+	buffer.WriteByte('<')
+	buffer.WriteString(node.Name)
+	buffer.WriteByte(' ')
+	for i, attribute := range node.GetAttributes() {
+		if i != 0 {
+			buffer.WriteByte(' ')
+		}
+		buffer.WriteString(attribute.Name)
+		buffer.WriteString("=\"")
+		buffer.WriteString(attribute.Value)
+		buffer.WriteString("\"")
+	}
+	if len(node.childNodes) == 0 {
+		buffer.WriteByte('/')
+	}
+	buffer.WriteByte('>')
+	return buffer.String()
 }

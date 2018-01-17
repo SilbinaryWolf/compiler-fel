@@ -24,9 +24,10 @@ type Scope struct {
 }
 
 type Emitter struct {
-	symbols  map[string]*bytecode.Block
-	scope    *Scope
-	stackPos int
+	symbols          map[string]*bytecode.Block
+	scope            *Scope
+	stackPos         int
+	htmlElementStack []string
 }
 
 func (emit *Emitter) PushScope() {
@@ -297,9 +298,10 @@ func (emit *Emitter) emitHTMLNode(opcodes []bytecode.Code, node *ast.Call) []byt
 	emit.PushScope()
 	defer emit.PopScope()
 
+	tagName := node.Name.String()
 	opcodes = append(opcodes, bytecode.Code{
-		Kind:  bytecode.PushHTMLNode,
-		Value: nil,
+		Kind:  bytecode.PushAllocHTMLNode,
+		Value: tagName,
 	})
 	// todo(Jake): 2018-01-15
 	//
@@ -316,21 +318,38 @@ func (emit *Emitter) emitHTMLNode(opcodes []bytecode.Code, node *ast.Call) []byt
 		} else {
 			opcodes = emit.emitExpression(opcodes, exprNode)
 		}
+		opcodes = append(opcodes, bytecode.Code{
+			Kind:  bytecode.StorePopHTMLAttribute,
+			Value: parameter.Name.String(),
+		})
 	}
-	for _, node := range node.Nodes() {
-		emit.emitStatement(opcodes, node)
+
+	{
+		// NOTE(Jake): 2017-01-17
+		//
+		// This htmlElementStack can be replaced with a simple `int`
+		// counter. The reason its using an array for now is to make
+		// debugging potentially easier.
+		//
+		emit.htmlElementStack = append(emit.htmlElementStack, tagName)
+		for _, node := range node.Nodes() {
+			opcodes = emit.emitStatement(opcodes, node)
+		}
+		emit.htmlElementStack = emit.htmlElementStack[:len(emit.htmlElementStack)-1]
 	}
-	// NOTE(Jake): 2018-01-15
-	//
-	// Should change this pop to mean "add to []HTMLNode results"
-	//
-	opcodes = append(opcodes, bytecode.Code{
-		Kind:  bytecode.PopHTMLNode,
-		Value: nil,
-	})
-	//debugOpcodes(opcodes)
-	//panic(fmt.Sprintf("%v", definition))
-	//panic("todo(Jake): emitHTMLNode")
+
+	if isRootHTMLElement := len(emit.htmlElementStack) == 0; isRootHTMLElement {
+		opcodes = append(opcodes, bytecode.Code{
+			Kind: bytecode.ReturnPopHTMLNode,
+		})
+	} else {
+		opcodes = append(opcodes, bytecode.Code{
+			Kind: bytecode.StoreAppendToHTMLElement,
+		})
+		opcodes = append(opcodes, bytecode.Code{
+			Kind: bytecode.PopHTMLNode,
+		})
+	}
 	return opcodes
 }
 

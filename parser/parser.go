@@ -323,15 +323,16 @@ Loop:
 			node.Condition.ChildNodes = exprNodes
 			node.ChildNodes = p.parseStatements()
 			resultNodes = append(resultNodes, node)
+			p.eatNewlines()
 			// Eat newlines
-			for {
+			/*for {
 				t := p.PeekNextToken()
 				if t.Kind == token.Newline {
 					p.GetNextToken()
 					continue
 				}
 				break
-			}
+			}*/
 			t = p.PeekNextToken()
 			if t.Kind == token.KeywordElse {
 				p.GetNextToken()

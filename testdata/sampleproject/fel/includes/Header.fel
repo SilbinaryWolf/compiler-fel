@@ -34,8 +34,17 @@ myVal.other.name += " wooo!"
 myVal.otherValue = "dweeeee"
 myVal.other.name = "jeremy" + "woo" + myVal.other.name + myVal.other.name + meow
 
-div() {
-	
+div(class="woo") {
+	test := "wooooo"
+	div(class=test) {
+		header {
+
+		}
+	}
+}
+
+span(data-test="yo") {
+
 }
 
 append :: (param1 string, param2 string) string {

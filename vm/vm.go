@@ -8,9 +8,12 @@ import (
 )
 
 type Program struct {
-	stack            []interface{}
-	registerStack    []interface{}
-	nodeStackContext []interface{} // stack of node contexts for tracking CSS rules / current HTML node.
+	stack         []interface{}
+	registerStack []interface{}
+
+	//htmlNodeStack   []*bytecode.HTMLElement
+	returnHTMLNodes []*bytecode.HTMLElement // used only in ":: html" blocks / template files
+	//nodeStackContext []interface{}           // stack of node contexts for tracking CSS rules / current HTML node.
 }
 
 func (program *Program) PopRegisterStack() interface{} {
@@ -73,16 +76,22 @@ func (program *Program) executeBytecode(codeBlock *bytecode.Block) {
 			internalType := code.Value.(reflect.Type)
 			structData := reflect.Indirect(reflect.New(internalType)).Interface()
 			program.registerStack = append(program.registerStack, structData)
-		case bytecode.PushHTMLNode:
-			panic("PushHTMLNode: Not currently supported")
-			/*var node interface{}
-			switch code.Value.(bytecode.NodeContextType) {
-			case bytecode.NodeCSSDefinition:
-				node = new(data.CSSDefinition)
-			default:
-				panic("Unhandled NodeContextType")
+		case bytecode.PushAllocHTMLNode:
+			tagName := code.Value.(string)
+			htmlElementNode := bytecode.NewHTMLElement(tagName)
+			program.registerStack = append(program.registerStack, htmlElementNode)
+		case bytecode.StoreAppendToHTMLElement:
+			node := program.registerStack[len(program.registerStack)-1].(*bytecode.HTMLElement)
+			parentNode := program.registerStack[len(program.registerStack)-2].(*bytecode.HTMLElement)
+
+			node.SetParent(parentNode)
+		case bytecode.PopHTMLNode:
+			htmlElementNode, ok := program.registerStack[len(program.registerStack)-1].(*bytecode.HTMLElement)
+			if !ok {
+				panic(fmt.Sprintf("Expected to pop HTMLElement instead got %T", htmlElementNode))
 			}
-			program.nodeStackContext = append(program.nodeStackContext, node)*/
+			program.registerStack = program.registerStack[:len(program.registerStack)-1]
+			//panic("todo: PopHTMLNode")
 		case bytecode.ConditionalEqual:
 			valueA := program.registerStack[len(program.registerStack)-2].(int64)
 			valueB := program.registerStack[len(program.registerStack)-1].(int64)
@@ -115,6 +124,39 @@ func (program *Program) executeBytecode(codeBlock *bytecode.Block) {
 
 			stackOffset := code.Value.(int)
 			program.stack[stackOffset] = value
+		case bytecode.StorePopHTMLAttribute:
+			attrValueInterface := program.registerStack[len(program.registerStack)-1]
+			node := program.registerStack[len(program.registerStack)-2].(*bytecode.HTMLElement)
+
+			// Only pop attribute
+			program.registerStack = program.registerStack[:len(program.registerStack)-1]
+
+			// Convert expression result into string for HTML attribute
+			var attrValue string
+			switch attrValueInterface := attrValueInterface.(type) {
+			case string:
+				attrValue = attrValueInterface
+			case nil:
+				// todo(Jake): 2018-01-16
+				//
+				// For null/nil values, we *probably* want then to mean
+				// that the attribute is no longer set, but we'll see.
+				//
+				//attrName := code.Value.(string)
+				//node.RemoveAttribute(attrName)
+				panic("executeBytecode:StorePopHTMLAttribute: Add logic to handle nil")
+				//continue
+			default:
+				panic(fmt.Sprintf("executeBytecode:StorePopHTMLAttribute: Unhandled attribute type cast for %T", attrValueInterface))
+			}
+
+			attrName := code.Value.(string)
+			node.SetAttribute(attrName, attrValue)
+		case bytecode.ReturnPopHTMLNode:
+			value := program.registerStack[len(program.registerStack)-1].(*bytecode.HTMLElement)
+			program.registerStack = program.registerStack[:len(program.registerStack)-1]
+
+			program.returnHTMLNodes = append(program.returnHTMLNodes, value)
 		case bytecode.StorePopStructField:
 			fieldData := program.registerStack[len(program.registerStack)-1]
 			structData := program.registerStack[len(program.registerStack)-2].(*bytecode.Struct)
@@ -160,4 +202,10 @@ func (program *Program) executeBytecode(codeBlock *bytecode.Block) {
 
 	// Debug
 	debugPrintStack("VM Stack Values", program.stack)
+	if len(program.returnHTMLNodes) > 0 {
+		fmt.Printf("Result HTML Nodes:\n")
+		for _, node := range program.returnHTMLNodes {
+			fmt.Printf("- %s\n", node.Debug())
+		}
+	}
 }
