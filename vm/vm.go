@@ -2,7 +2,6 @@ package vm
 
 import (
 	"fmt"
-	"reflect"
 
 	"github.com/silbinarywolf/compiler-fel/bytecode"
 )
@@ -73,9 +72,10 @@ func (program *Program) executeBytecode(codeBlock *bytecode.Block) {
 			structData := bytecode.NewStruct(structFieldCount)
 			program.registerStack = append(program.registerStack, structData)
 		case bytecode.PushAllocInternalStruct:
-			internalType := code.Value.(reflect.Type)
+			panic("No support, to be removed.")
+			/*internalType := code.Value.(reflect.Type)
 			structData := reflect.Indirect(reflect.New(internalType)).Interface()
-			program.registerStack = append(program.registerStack, structData)
+			program.registerStack = append(program.registerStack, structData)*/
 		case bytecode.PushAllocHTMLNode:
 			tagName := code.Value.(string)
 			htmlElementNode := bytecode.NewHTMLElement(tagName)
@@ -96,6 +96,7 @@ func (program *Program) executeBytecode(codeBlock *bytecode.Block) {
 			valueA := program.registerStack[len(program.registerStack)-2].(int64)
 			valueB := program.registerStack[len(program.registerStack)-1].(int64)
 			program.registerStack = program.registerStack[:len(program.registerStack)-2]
+
 			program.registerStack = append(program.registerStack, valueA == valueB)
 		case bytecode.JumpIfFalse:
 			boolValue := program.registerStack[len(program.registerStack)-1].(bool)
@@ -108,6 +109,7 @@ func (program *Program) executeBytecode(codeBlock *bytecode.Block) {
 			valueA := program.registerStack[len(program.registerStack)-2].(int64)
 			valueB := program.registerStack[len(program.registerStack)-1].(int64)
 			program.registerStack = program.registerStack[:len(program.registerStack)-2]
+
 			program.registerStack = append(program.registerStack, valueA+valueB)
 		case bytecode.AddString:
 			valueA := program.registerStack[len(program.registerStack)-2].(string)

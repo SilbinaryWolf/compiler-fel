@@ -25,13 +25,13 @@ var typeFloat = new(Float_)
 func Float() TypeInfo { return typeFloat }*/
 
 // Bool
-type Bool_ struct{}
+/*type Bool_ struct{}
 
 func (info *Bool_) String() string { return "bool" }
 
 var typeBool = new(Bool_)
 
-func Bool() TypeInfo { return typeBool }
+func Bool() TypeInfo { return typeBool }*/
 
 // String
 /*type String_ struct{}

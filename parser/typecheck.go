@@ -380,7 +380,7 @@ func (p *Parser) typecheckExpression(scope *Scope, expression *ast.Expression) {
 					p.AddError(node.Token, fmt.Errorf("Cannot use %s with number \"%s\"", resultTypeInfo.String(), node.String()))
 				}
 			case token.KeywordTrue, token.KeywordFalse:
-				expectedTypeInfo := types.Bool()
+				expectedTypeInfo := p.typeinfo.NewTypeInfoBool()
 				if resultTypeInfo == nil {
 					resultTypeInfo = expectedTypeInfo
 				}

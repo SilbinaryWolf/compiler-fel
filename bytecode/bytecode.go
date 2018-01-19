@@ -85,6 +85,7 @@ type BlockKind int
 const (
 	BlockUnknown BlockKind = 0 + iota
 	BlockProcedure
+	BlockHTMLComponentDefinition
 )
 
 type Code struct {
@@ -111,15 +112,19 @@ func (code *Code) String() string {
 
 // ie. a function, block-scope, HTMLComponent
 type Block struct {
-	Kind      BlockKind
+	kind      BlockKind
 	Opcodes   []Code
 	StackSize int
 }
 
 func NewBlock(kind BlockKind) *Block {
 	block := new(Block)
-	block.Kind = kind
+	block.kind = kind
 	return block
+}
+
+func (block *Block) Kind() BlockKind {
+	return block.kind
 }
 
 type StructInterface interface {

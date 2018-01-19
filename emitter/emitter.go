@@ -134,6 +134,11 @@ func (emit *Emitter) emitNewFromType(opcodes []bytecode.Code, typeInfo types.Typ
 			Kind:  bytecode.Push,
 			Value: "",
 		})
+	case *parser.TypeInfo_Bool:
+		opcodes = append(opcodes, bytecode.Code{
+			Kind:  bytecode.Push,
+			Value: false,
+		})
 	case *parser.TypeInfo_Array:
 		underlyingType := typeInfo.Underlying()
 		switch underlyingType.(type) {
@@ -264,8 +269,7 @@ func (emit *Emitter) emitProcedureCall(opcodes []bytecode.Code, node *ast.Call) 
 func (emit *Emitter) emitHTMLNode(opcodes []bytecode.Code, node *ast.Call) []bytecode.Code {
 	definition := node.HTMLDefinition
 	if definition != nil {
-		panic("todo(Jake): Handle node with HTMLDefinition information attached")
-		/*if structDef := definition.Struct; structDef != nil {
+		if structDef := definition.Struct; structDef != nil {
 			opcodes = append(opcodes, bytecode.Code{
 				Kind:  bytecode.PushAllocStruct,
 				Value: len(structDef.Fields),
@@ -292,7 +296,21 @@ func (emit *Emitter) emitHTMLNode(opcodes []bytecode.Code, node *ast.Call) []byt
 					Value: offset,
 				})
 			}
-		}*/
+			opcodes = append(opcodes, bytecode.Code{
+				Kind:  bytecode.Store,
+				Value: 0,
+			})
+		}
+
+		name := node.Name.String()
+		block, ok := emit.symbols[name]
+		if !ok {
+			panic(fmt.Sprintf("Missing HTML component %s, this should be caught in the typechecker", name))
+		}
+
+		panic("todo(Jake): Handle jumping to HTMLComponent \"procedure\"")
+		panic(block)
+		return opcodes
 	}
 
 	emit.PushScope()
@@ -493,14 +511,41 @@ func (emit *Emitter) emitLeftHandSide(opcodes []bytecode.Code, leftHandSide []as
 	return opcodes
 }
 
+func emitHTMLComponentDefinition(node *ast.HTMLComponentDefinition) *bytecode.Block {
+	emit := New()
+
+	opcodes := make([]bytecode.Code, 0, 15)
+	opcodes = append(opcodes, bytecode.Code{
+		Kind:  bytecode.Label,
+		Value: "htmldefinition:" + node.Name.String(),
+	})
+
+	stackSize := 0
+	if structDef := node.Struct; structDef != nil {
+		stackSize = 1
+	}
+
+	for _, node := range node.Nodes() {
+		opcodes = emit.emitStatement(opcodes, node)
+	}
+
+	block := bytecode.NewBlock(bytecode.BlockHTMLComponentDefinition)
+	block.Opcodes = opcodes
+	block.StackSize = stackSize
+	return block
+}
+
 func emitProcedureDefinition(node *ast.ProcedureDefinition) *bytecode.Block {
 	emit := New()
+
 	opcodes := make([]bytecode.Code, 0, 35)
 	opcodes = append(opcodes, bytecode.Code{
 		Kind:  bytecode.Label,
 		Value: "procedure:" + node.Name.String(),
 	})
 
+	stackSize := len(node.Parameters)
+	emit.stackPos = stackSize
 	for i := len(node.Parameters) - 1; i >= 0; i-- {
 		parameter := &node.Parameters[i]
 		opcodes = append(opcodes, bytecode.Code{
@@ -523,16 +568,15 @@ func emitProcedureDefinition(node *ast.ProcedureDefinition) *bytecode.Block {
 			structDef: structTypeInfo.Definition(),
 		})
 	}
-	emit.stackPos = len(node.Parameters)
 
 	for _, node := range node.Nodes() {
 		opcodes = emit.emitStatement(opcodes, node)
 	}
-	return &bytecode.Block{
-		Kind:      bytecode.BlockProcedure,
-		Opcodes:   opcodes,
-		StackSize: emit.stackPos,
-	}
+
+	block := bytecode.NewBlock(bytecode.BlockProcedure)
+	block.Opcodes = opcodes
+	block.StackSize = stackSize
+	return block
 }
 
 func (emit *Emitter) emitGlobalScope(node ast.Node) {

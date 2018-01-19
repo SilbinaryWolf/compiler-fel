@@ -14,6 +14,7 @@ type TypeInfoManager struct {
 	intInfo      TypeInfo_Int
 	floatInfo    TypeInfo_Float
 	stringInfo   TypeInfo_String
+	boolInfo     TypeInfo_Bool
 	htmlNodeInfo TypeInfo_HTMLNode
 }
 
@@ -25,7 +26,7 @@ func (manager *TypeInfoManager) Init() {
 	manager.register("int", manager.NewTypeInfoInt())
 	manager.register("string", manager.NewTypeInfoString())
 	manager.register("float", manager.NewTypeInfoFloat())
-	manager.register("bool", types.Bool())
+	manager.register("bool", manager.NewTypeInfoBool())
 }
 
 func (manager *TypeInfoManager) Clear() {
@@ -86,7 +87,7 @@ type TypeInfo_Array struct {
 func (info *TypeInfo_Array) String() string       { return "[]" + info.underlying.String() }
 func (info *TypeInfo_Array) Underlying() TypeInfo { return info.underlying }
 
-func (manager *TypeInfoManager) NewTypeInfoArray(underlying TypeInfo) TypeInfo {
+func (manager *TypeInfoManager) NewTypeInfoArray(underlying TypeInfo) *TypeInfo_Array {
 	result := new(TypeInfo_Array)
 	result.underlying = underlying
 	return result
@@ -101,11 +102,19 @@ type TypeInfo_Procedure struct {
 func (info *TypeInfo_Procedure) String() string                       { return "procedure " + info.name + "()" }
 func (info *TypeInfo_Procedure) Definition() *ast.ProcedureDefinition { return info.definition }
 
-func (manager *TypeInfoManager) NewProcedureInfo(definiton *ast.ProcedureDefinition) TypeInfo {
+func (manager *TypeInfoManager) NewProcedureInfo(definiton *ast.ProcedureDefinition) *TypeInfo_Procedure {
 	result := new(TypeInfo_Procedure)
 	result.name = definiton.Name.String()
 	result.definition = definiton
 	return result
+}
+
+type TypeInfo_Bool struct{}
+
+func (info *TypeInfo_Bool) String() string { return "bool" }
+
+func (manager *TypeInfoManager) NewTypeInfoBool() *TypeInfo_Bool {
+	return &manager.boolInfo
 }
 
 // HTMLNode
