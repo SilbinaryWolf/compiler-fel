@@ -13,9 +13,23 @@ import (
 	"github.com/silbinarywolf/compiler-fel/types"
 )
 
+type VariableKind int
+
+const (
+	VariableDefault = iota + 0
+	VariableStruct
+	//VariableStructField
+)
+
 type VariableInfo struct {
-	stackPos  int
-	structDef *ast.StructDefinition // TypeInfo_Struct only
+	kind     VariableKind
+	stackPos int
+
+	// VariableStruct
+	structDef *ast.StructDefinition
+
+	// VariableStructField
+	//structFieldPos int
 }
 
 type Scope struct {
@@ -101,7 +115,7 @@ func debugOpcodes(opcodes []bytecode.Code) {
 	fmt.Printf("-----------\n")
 }
 
-func (emit *Emitter) registerProcedure(name string, block *bytecode.Block) bool {
+func (emit *Emitter) registerSymbol(name string, block *bytecode.Block) bool {
 	_, ok := emit.symbols[name]
 	if ok {
 		return false
@@ -267,14 +281,20 @@ func (emit *Emitter) emitProcedureCall(opcodes []bytecode.Code, node *ast.Call) 
 }
 
 func (emit *Emitter) emitHTMLNode(opcodes []bytecode.Code, node *ast.Call) []bytecode.Code {
+	emit.PushScope()
+	defer emit.PopScope()
+
 	definition := node.HTMLDefinition
 	if definition != nil {
+		name := node.Name.String()
+		block, ok := emit.symbols[name]
+		if !ok {
+			panic(fmt.Sprintf("Missing HTML component %s, this should be caught in the typechecker", name))
+		}
+
 		if structDef := definition.Struct; structDef != nil {
-			opcodes = append(opcodes, bytecode.Code{
-				Kind:  bytecode.PushAllocStruct,
-				Value: len(structDef.Fields),
-			})
-			for offset, structField := range structDef.Fields {
+			for i := len(structDef.Fields) - 1; i >= 0; i-- {
+				structField := structDef.Fields[i]
 				name := structField.Name.String()
 				exprNode := &structField.Expression
 				for _, parameterField := range node.Parameters {
@@ -283,38 +303,21 @@ func (emit *Emitter) emitHTMLNode(opcodes []bytecode.Code, node *ast.Call) []byt
 						break
 					}
 				}
-				if fieldTypeInfo := exprNode.TypeInfo; fieldTypeInfo == nil {
-					panic(fmt.Sprintf("emitHTMLNode:Property: Missing type info on property for \"%s :: struct { %s }\"", structDef.Name, structField.Name))
-				}
 				if len(exprNode.Nodes()) == 0 {
 					opcodes = emit.emitNewFromType(opcodes, exprNode.TypeInfo)
 				} else {
 					opcodes = emit.emitExpression(opcodes, exprNode)
 				}
-				opcodes = append(opcodes, bytecode.Code{
-					Kind:  bytecode.StorePopStructField,
-					Value: offset,
-				})
+
 			}
-			opcodes = append(opcodes, bytecode.Code{
-				Kind:  bytecode.Store,
-				Value: 0,
-			})
 		}
 
-		name := node.Name.String()
-		block, ok := emit.symbols[name]
-		if !ok {
-			panic(fmt.Sprintf("Missing HTML component %s, this should be caught in the typechecker", name))
-		}
-
-		panic("todo(Jake): Handle jumping to HTMLComponent \"procedure\"")
-		panic(block)
+		opcodes = append(opcodes, bytecode.Code{
+			Kind:  bytecode.Call,
+			Value: block,
+		})
 		return opcodes
 	}
-
-	emit.PushScope()
-	defer emit.PopScope()
 
 	tagName := node.Name.String()
 	opcodes = append(opcodes, bytecode.Code{
@@ -446,6 +449,18 @@ func (emit *Emitter) emitExpression(opcodes []bytecode.Code, topNode *ast.Expres
 					Kind:  bytecode.Push,
 					Value: t.String(),
 				})
+			case token.KeywordFalse:
+				opcodes = append(opcodes, bytecode.Code{
+					Kind:  bytecode.Push,
+					Value: false,
+				})
+			case token.KeywordTrue:
+				opcodes = append(opcodes, bytecode.Code{
+					Kind:  bytecode.Push,
+					Value: true,
+				})
+			default:
+				panic(fmt.Sprintf("emitExpression:Token: Unhandled token kind: \"%s\", this should be caught by typechecker.", t.Kind.String()))
 			}
 		case *ast.StructLiteral:
 			structLiteral := node
@@ -522,7 +537,12 @@ func emitHTMLComponentDefinition(node *ast.HTMLComponentDefinition) *bytecode.Bl
 
 	stackSize := 0
 	if structDef := node.Struct; structDef != nil {
-		stackSize = 1
+		stackSize = len(structDef.Fields)
+		for i := len(structDef.Fields) - 1; i >= 0; i-- {
+			structField := structDef.Fields[i]
+			exprNode := &structField.Expression
+			opcodes = emit.emitParameter(opcodes, structField.Name.String(), exprNode.TypeInfo, i)
+		}
 	}
 
 	for _, node := range node.Nodes() {
@@ -533,6 +553,29 @@ func emitHTMLComponentDefinition(node *ast.HTMLComponentDefinition) *bytecode.Bl
 	block.Opcodes = opcodes
 	block.StackSize = stackSize
 	return block
+}
+
+func (emit *Emitter) emitParameter(opcodes []bytecode.Code, name string, typeInfo types.TypeInfo, stackPos int) []bytecode.Code {
+	opcodes = append(opcodes, bytecode.Code{
+		Kind:  bytecode.Store,
+		Value: stackPos,
+	})
+	opcodes = append(opcodes, bytecode.Code{
+		Kind: bytecode.Pop,
+	})
+	structTypeInfo, ok := typeInfo.(*parser.TypeInfo_Struct)
+	if !ok {
+		emit.scope.DeclareSet(name, VariableInfo{
+			stackPos: stackPos,
+		})
+		return opcodes
+	}
+	emit.scope.DeclareSet(name, VariableInfo{
+		kind:      VariableStruct,
+		structDef: structTypeInfo.Definition(),
+		stackPos:  stackPos,
+	})
+	return opcodes
 }
 
 func emitProcedureDefinition(node *ast.ProcedureDefinition) *bytecode.Block {
@@ -547,26 +590,8 @@ func emitProcedureDefinition(node *ast.ProcedureDefinition) *bytecode.Block {
 	stackSize := len(node.Parameters)
 	emit.stackPos = stackSize
 	for i := len(node.Parameters) - 1; i >= 0; i-- {
-		parameter := &node.Parameters[i]
-		opcodes = append(opcodes, bytecode.Code{
-			Kind:  bytecode.Store,
-			Value: i,
-		})
-		opcodes = append(opcodes, bytecode.Code{
-			Kind: bytecode.Pop,
-		})
-		structTypeInfo, ok := parameter.TypeInfo.(*parser.TypeInfo_Struct)
-		if !ok {
-			emit.scope.DeclareSet(parameter.Name.String(), VariableInfo{
-				stackPos:  i,
-				structDef: nil,
-			})
-			continue
-		}
-		emit.scope.DeclareSet(parameter.Name.String(), VariableInfo{
-			stackPos:  i,
-			structDef: structTypeInfo.Definition(),
-		})
+		parameter := node.Parameters[i]
+		opcodes = emit.emitParameter(opcodes, parameter.Name.String(), parameter.TypeInfo, i)
 	}
 
 	for _, node := range node.Nodes() {
@@ -583,9 +608,15 @@ func (emit *Emitter) emitGlobalScope(node ast.Node) {
 	switch node := node.(type) {
 	case *ast.ProcedureDefinition:
 		block := emitProcedureDefinition(node)
-		ok := emit.registerProcedure(node.Name.String(), block)
+		ok := emit.registerSymbol(node.Name.String(), block)
 		if !ok {
 			panic(fmt.Sprintf("Procedure name %s is used already. This should be caught in the typechecker.", node.Name.String()))
+		}
+	case *ast.HTMLComponentDefinition:
+		block := emitHTMLComponentDefinition(node)
+		ok := emit.registerSymbol(node.Name.String(), block)
+		if !ok {
+			panic(fmt.Sprintf("HTML Component name %s is used already. This should be caught in the typechecker.", node.Name.String()))
 		}
 	}
 }
@@ -668,6 +699,7 @@ func (emit *Emitter) emitStatement(opcodes []bytecode.Code, node ast.Node) []byt
 				varStructDef = typeInfo.Definition()
 			}
 			emit.scope.DeclareSet(nameString, VariableInfo{
+				kind:      VariableStruct,
 				stackPos:  emit.stackPos,
 				structDef: varStructDef,
 			})

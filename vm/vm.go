@@ -125,6 +125,9 @@ func (program *Program) executeBytecode(codeBlock *bytecode.Block) {
 			value := program.registerStack[len(program.registerStack)-1]
 
 			stackOffset := code.Value.(int)
+			if stackOffset >= len(program.stack) {
+				panic(fmt.Sprintf("Array out of bounds on index #%d", stackOffset))
+			}
 			program.stack[stackOffset] = value
 		case bytecode.StorePopHTMLAttribute:
 			attrValueInterface := program.registerStack[len(program.registerStack)-1]

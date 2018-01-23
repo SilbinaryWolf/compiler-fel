@@ -5,7 +5,8 @@ Header :: css_config {
 }
 
 Header :: struct {
-	isBlue: bool
+	isBlue: bool = true
+	hey: string = "woop"
 }
 
 Header :: css {
@@ -32,6 +33,6 @@ Header :: html {
 	}
 }
 
-Header() {
+Header(hey="yo!") {
 	
 }
