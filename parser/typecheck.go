@@ -127,24 +127,20 @@ func (p *Parser) typecheckArrayLiteral(scope *Scope, literal *ast.ArrayLiteral) 
 
 	// Run type checking on each array element
 	nodes := literal.Nodes()
-	for i, itNode := range nodes {
-		switch node := itNode.(type) {
-		case *ast.Expression:
-			// NOTE(Jake): Set to 'string' type info so
-			//			   type checking will catch things immediately
-			//			   when we call `typecheckExpression`
-			//			   ie. Won't infer, will mark as invalid.
-			if node.TypeInfo == nil {
-				node.TypeInfo = underlyingTypeInfo
-			}
-			p.typecheckExpression(scope, node)
-
-			if node.TypeInfo == nil {
-				panic(fmt.Sprintf("typecheckArrayLiteral: Missing type on array literal item #%d.", i))
-			}
-			continue
+	for i, node := range nodes {
+		node := node.(*ast.Expression)
+		// NOTE(Jake): Set to 'string' type info so
+		//			   type checking will catch things immediately
+		//			   when we call `typecheckExpression`
+		//			   ie. Won't infer, will mark as invalid.
+		if node.TypeInfo == nil {
+			node.TypeInfo = underlyingTypeInfo
 		}
-		panic(fmt.Sprintf("typecheckArrayLiteral: Unhandled type: %T", itNode))
+		p.typecheckExpression(scope, node)
+
+		if node.TypeInfo == nil {
+			panic(fmt.Sprintf("typecheckArrayLiteral: Missing type on array literal item #%d.", i))
+		}
 	}
 }
 

@@ -132,6 +132,24 @@ Loop:
 				}
 				node := p.NewDeclareStatement(name, typeName, expressionNodes)
 				resultNodes = append(resultNodes, node)
+			// myVar []= "append array item"
+			case token.BracketOpen:
+				if t := p.GetNextToken(); t.Kind != token.BracketClose {
+					p.AddExpectError(t, token.BracketClose)
+					continue
+				}
+				if t := p.GetNextToken(); t.Kind != token.Equal {
+					p.AddExpectError(t, token.Equal)
+					continue
+				}
+
+				leftHandSide := make([]token.Token, 0, 1)
+				leftHandSide = append(leftHandSide, name)
+
+				node := new(ast.ArrayAppendStatement)
+				node.LeftHandSide = leftHandSide
+				node.Expression.ChildNodes = p.parseExpressionNodes(false)
+				resultNodes = append(resultNodes, node)
 			// myVar.Property.SubProperty = {Expression}
 			//
 			case token.Dot:
@@ -436,7 +454,7 @@ func (p *Parser) parseType() ast.Type {
 		}
 	}
 	if t.Kind != token.Identifier {
-		p.AddExpectError(t, token.Identifier, token.BracketOpen)
+		p.AddExpectError(t, "type identifier")
 		return ast.Type{}
 	}
 	result.Name = t
@@ -657,7 +675,7 @@ Loop:
 				return nil
 			}
 
-			childNodes := make([]ast.Node, 10)
+			childNodes := make([]ast.Node, 0, 10)
 
 		ArrayLiteralLoop:
 			for i := 0; true; i++ {

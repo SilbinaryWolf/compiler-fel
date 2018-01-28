@@ -23,7 +23,7 @@ func (program *Program) PopRegisterStack() interface{} {
 
 func ExecuteNewProgram(codeBlock *bytecode.Block) {
 	program := new(Program)
-	program.stack = make([]interface{}, codeBlock.StackSize)
+	program.stack = make([]interface{}, 32)
 	program.registerStack = make([]interface{}, 0, 4)
 
 	program.executeBytecode(codeBlock)
@@ -126,7 +126,7 @@ func (program *Program) executeBytecode(codeBlock *bytecode.Block) {
 
 			stackOffset := code.Value.(int)
 			if stackOffset >= len(program.stack) {
-				panic(fmt.Sprintf("Array out of bounds on index #%d", stackOffset))
+				panic(fmt.Sprintf("Array out of bounds on index #%d, At opcode offset #%d", stackOffset, offset))
 			}
 			program.stack[stackOffset] = value
 		case bytecode.StorePopHTMLAttribute:
@@ -157,7 +157,7 @@ func (program *Program) executeBytecode(codeBlock *bytecode.Block) {
 
 			attrName := code.Value.(string)
 			node.SetAttribute(attrName, attrValue)
-		case bytecode.ReturnPopHTMLNode:
+		case bytecode.AppendPopHTMLNode:
 			value := program.registerStack[len(program.registerStack)-1].(*bytecode.HTMLElement)
 			program.registerStack = program.registerStack[:len(program.registerStack)-1]
 
@@ -186,12 +186,19 @@ func (program *Program) executeBytecode(codeBlock *bytecode.Block) {
 			panic("todo(Jake): Add reflect.GetField or whatever here")*/
 		case bytecode.Call:
 			block := code.Value.(*bytecode.Block)
+			if value := program.stack[0]; value != nil {
+				debugPrintStack("VM Stack Values", program.stack)
+				panic("Stack already has items in it, need to make sure we dont break the stack.")
+			}
 			program.executeBytecode(block)
 
 			//debugPrintStack("VM Stack Values", program.stack)
 			//debugPrintStack("VM Register Stack", program.registerStack)
 			//panic("bytecode.Call debug")
 		case bytecode.Return:
+			if len(program.returnHTMLNodes) > 0 {
+				panic("todo(Jake): Put HTML nodes into array for return")
+			}
 			return
 		default:
 			panic(fmt.Sprintf("executeBytecode: Unhandled kind in vm: \"%s\"", code.Kind.String()))

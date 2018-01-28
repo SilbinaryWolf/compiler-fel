@@ -33,6 +33,10 @@ Header :: html {
 	}
 }
 
+test := []string{"item1"}
+
+test []= "test"
+
 Header(hey="yo!") {
 	
 }

@@ -293,7 +293,7 @@ func (emit *Emitter) emitHTMLNode(opcodes []bytecode.Code, node *ast.Call) []byt
 		}
 
 		if structDef := definition.Struct; structDef != nil {
-			for i := len(structDef.Fields) - 1; i >= 0; i-- {
+			for i := 0; i < len(structDef.Fields); i++ {
 				structField := structDef.Fields[i]
 				name := structField.Name.String()
 				exprNode := &structField.Expression
@@ -308,7 +308,6 @@ func (emit *Emitter) emitHTMLNode(opcodes []bytecode.Code, node *ast.Call) []byt
 				} else {
 					opcodes = emit.emitExpression(opcodes, exprNode)
 				}
-
 			}
 		}
 
@@ -361,7 +360,7 @@ func (emit *Emitter) emitHTMLNode(opcodes []bytecode.Code, node *ast.Call) []byt
 
 	if isRootHTMLElement := len(emit.htmlElementStack) == 0; isRootHTMLElement {
 		opcodes = append(opcodes, bytecode.Code{
-			Kind: bytecode.ReturnPopHTMLNode,
+			Kind: bytecode.AppendPopHTMLNode,
 		})
 	} else {
 		opcodes = append(opcodes, bytecode.Code{
@@ -462,6 +461,8 @@ func (emit *Emitter) emitExpression(opcodes []bytecode.Code, topNode *ast.Expres
 			default:
 				panic(fmt.Sprintf("emitExpression:Token: Unhandled token kind: \"%s\", this should be caught by typechecker.", t.Kind.String()))
 			}
+		case *ast.ArrayLiteral:
+			panic("todo(jake): Emit array literal")
 		case *ast.StructLiteral:
 			structLiteral := node
 			typeInfo, ok := topNode.TypeInfo.(*parser.TypeInfo_Struct)
@@ -544,10 +545,15 @@ func emitHTMLComponentDefinition(node *ast.HTMLComponentDefinition) *bytecode.Bl
 			opcodes = emit.emitParameter(opcodes, structField.Name.String(), exprNode.TypeInfo, i)
 		}
 	}
+	emit.stackPos = stackSize
 
 	for _, node := range node.Nodes() {
 		opcodes = emit.emitStatement(opcodes, node)
 	}
+
+	opcodes = append(opcodes, bytecode.Code{
+		Kind: bytecode.Return,
+	})
 
 	block := bytecode.NewBlock(bytecode.BlockHTMLComponentDefinition)
 	block.Opcodes = opcodes

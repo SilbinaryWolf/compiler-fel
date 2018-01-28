@@ -52,7 +52,7 @@ func unexpected(thisToken token.Token, context string) error {
 	return fmt.Errorf("Unexpected %s in %s", thisToken.Kind, context)
 }
 
-func expect(thisToken token.Token, expectedList ...interface{}) *ParserError {
+func expect(thisToken token.Token, expectedList []interface{}) *ParserError {
 
 	// todo(Jake): switch to using a buffer as that uses less allocations
 	//			   ie. increase speed from 6500ns to 15ns
@@ -76,18 +76,10 @@ func expect(thisToken token.Token, expectedList ...interface{}) *ParserError {
 				expectedItemsString += value.String()
 			}
 		case string:
-			expectedItemsString += fmt.Sprintf("keyword \"%s\"", value)
+			expectedItemsString += value
 		default:
-			panic("unhandled type")
+			panic(fmt.Sprintf("expect: unhandled type: %T", value))
 		}
-		/*switch expectTokenKind {
-		case token.Identifier:
-			expectedItemsString += "identifier"
-		case token.InteropVariable:
-			expectedItemsString += "interop variable"
-		default:
-			panic(fmt.Sprintf("Unhandled token kind: %s", expectTokenKind.String()))
-		}*/
 	}
 
 	var message error
