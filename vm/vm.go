@@ -41,17 +41,30 @@ func (program *Program) executeBytecode(codeBlock *bytecode.Block) {
 		case bytecode.Push:
 			program.registerStack = append(program.registerStack, code.Value)
 		case bytecode.PushAllocArrayString:
-			value := make([]int, 0)
+			capacity := code.Value.(int)
+			value := make([]string, 0, capacity)
 			program.registerStack = append(program.registerStack, value)
 		case bytecode.PushAllocArrayInt:
-			value := make([]int, 0)
+			capacity := code.Value.(int)
+			value := make([]int, 0, capacity)
 			program.registerStack = append(program.registerStack, value)
 		case bytecode.PushAllocArrayFloat:
-			value := make([]int, 0)
+			capacity := code.Value.(int)
+			value := make([]float64, 0, capacity)
 			program.registerStack = append(program.registerStack, value)
 		case bytecode.PushAllocArrayStruct:
-			value := make([]bytecode.Struct, 0)
+			capacity := code.Value.(int)
+			value := make([]bytecode.Struct, 0, capacity)
 			program.registerStack = append(program.registerStack, value)
+		case bytecode.AppendPopArrayString:
+			array := program.registerStack[len(program.registerStack)-2].([]string)
+			value := program.registerStack[len(program.registerStack)-1].(string)
+
+			// Pop value
+			program.registerStack = program.registerStack[:len(program.registerStack)-1]
+
+			array = append(array, value)
+			program.registerStack[len(program.registerStack)-1] = array
 		case bytecode.PushStackVar:
 			stackOffset := code.Value.(int)
 			program.registerStack = append(program.registerStack, program.stack[stackOffset])

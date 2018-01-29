@@ -462,7 +462,32 @@ func (emit *Emitter) emitExpression(opcodes []bytecode.Code, topNode *ast.Expres
 				panic(fmt.Sprintf("emitExpression:Token: Unhandled token kind: \"%s\", this should be caught by typechecker.", t.Kind.String()))
 			}
 		case *ast.ArrayLiteral:
-			panic("todo(jake): Emit array literal")
+			typeInfo := node.TypeInfo.(*parser.TypeInfo_Array)
+			nodes := node.Nodes()
+
+			// Get bytecode to append per item in array literal
+			var appendPopArray bytecode.Code
+			switch underlyingTypeInfo := typeInfo.Underlying().(type) {
+			case *parser.TypeInfo_String:
+				opcodes = append(opcodes, bytecode.Code{
+					Kind:  bytecode.PushAllocArrayString,
+					Value: len(nodes),
+				})
+				appendPopArray = bytecode.Code{
+					Kind: bytecode.AppendPopArrayString,
+				}
+			default:
+				panic(fmt.Sprintf("emitExpression:ArrayLiteral: Unhandled type %T", underlyingTypeInfo))
+			}
+
+			for _, node := range nodes {
+				node := node.(*ast.Expression)
+				if len(node.Nodes()) == 0 {
+					panic("emitExpression:ArrayLiteral: No nodes in expression, this should be caught by typechecker")
+				}
+				opcodes = emit.emitExpression(opcodes, node)
+				opcodes = append(opcodes, appendPopArray)
+			}
 		case *ast.StructLiteral:
 			structLiteral := node
 			typeInfo, ok := topNode.TypeInfo.(*parser.TypeInfo_Struct)
@@ -758,7 +783,6 @@ func (emit *Emitter) emitStatement(opcodes []bytecode.Code, node ast.Node) []byt
 		opcodes = append(opcodes, bytecode.Code{
 			Kind: bytecode.Pop,
 		})
-
 		debugOpcodes(opcodes)
 		panic("todo(Jake): ArrayAppendStatement")
 	case *ast.OpStatement:

@@ -17,7 +17,7 @@ const (
 	StorePopHTMLAttribute
 	AppendPopHTMLNode
 	StoreInternalStructField
-	StoreAppendToArray
+	AppendPopArrayString
 	StoreAppendToHTMLElement
 	Push
 	PushAllocArrayString
@@ -57,7 +57,7 @@ var kindToString = []string{
 	StorePopStructField:      "StorePopStructField",
 	AppendPopHTMLNode:        "AppendPopHTMLNode",
 	StoreInternalStructField: "StoreInternalStructField",
-	StoreAppendToArray:       "StoreAppendToArray",
+	AppendPopArrayString:     "AppendPopArrayString",
 	StoreAppendToHTMLElement: "StoreAppendToHTMLElement",
 	Push:                    "Push",
 	PushAllocArrayString:    "PushAllocArrayString",
