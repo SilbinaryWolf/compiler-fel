@@ -158,7 +158,8 @@ func (emit *Emitter) emitNewFromType(opcodes []bytecode.Code, typeInfo types.Typ
 		switch underlyingType.(type) {
 		case *parser.TypeInfo_String:
 			opcodes = append(opcodes, bytecode.Code{
-				Kind: bytecode.PushAllocArrayString,
+				Kind:  bytecode.PushAllocArrayString,
+				Value: 0,
 			})
 		default:
 			panic(fmt.Sprintf("emitNewFromType:Array: Unhandled type %T", underlyingType))
@@ -463,11 +464,15 @@ func (emit *Emitter) emitExpression(opcodes []bytecode.Code, topNode *ast.Expres
 			}
 		case *ast.ArrayLiteral:
 			typeInfo := node.TypeInfo.(*parser.TypeInfo_Array)
+			underlyingTypeInfo := typeInfo.Underlying()
 			nodes := node.Nodes()
+			if len(nodes) == 0 {
+				panic(fmt.Sprintf("emitExpression:ArrayLiteral: Must have at least one item / node. This should be caught by typechecker"))
+			}
 
 			// Get bytecode to append per item in array literal
 			var appendPopArray bytecode.Code
-			switch underlyingTypeInfo := typeInfo.Underlying().(type) {
+			switch underlyingTypeInfo := underlyingTypeInfo.(type) {
 			case *parser.TypeInfo_String:
 				opcodes = append(opcodes, bytecode.Code{
 					Kind:  bytecode.PushAllocArrayString,
@@ -755,8 +760,7 @@ func (emit *Emitter) emitStatement(opcodes []bytecode.Code, node ast.Node) []byt
 		leftHandSide := node.LeftHandSide
 		var storeOffset int
 		opcodes, storeOffset = emit.emitVariableIdentWithProperty(opcodes, leftHandSide)
-		lastCode := &opcodes[len(opcodes)-1]
-		if lastCode.Kind == bytecode.ReplaceStructFieldVar {
+		if lastCode := &opcodes[len(opcodes)-1]; lastCode.Kind == bytecode.ReplaceStructFieldVar {
 			// NOTE(Jake): 2017-12-29
 			//
 			// Change final bytecode to be pushed
@@ -765,7 +769,17 @@ func (emit *Emitter) emitStatement(opcodes []bytecode.Code, node ast.Node) []byt
 			//
 			lastCode.Kind = bytecode.PushStructFieldVar
 		}
-		opcodes = emit.emitExpression(opcodes, &node.Expression)
+		exprNode := &node.Expression
+		opcodes = emit.emitExpression(opcodes, exprNode)
+		typeInfo := exprNode.TypeInfo
+		switch typeInfo := typeInfo.(type) {
+		case *parser.TypeInfo_String:
+			opcodes = append(opcodes, bytecode.Code{
+				Kind: bytecode.AppendPopArrayString,
+			})
+		default:
+			panic(fmt.Errorf("emitExpression:ArrayAppend: Unhandled kind: %s", typeInfo))
+		}
 		if len(leftHandSide) > 1 {
 			opcodes = append(opcodes, bytecode.Code{
 				Kind:  bytecode.StorePopStructField,
@@ -783,8 +797,6 @@ func (emit *Emitter) emitStatement(opcodes []bytecode.Code, node ast.Node) []byt
 		opcodes = append(opcodes, bytecode.Code{
 			Kind: bytecode.Pop,
 		})
-		debugOpcodes(opcodes)
-		panic("todo(Jake): ArrayAppendStatement")
 	case *ast.OpStatement:
 		opcodes = append(opcodes, bytecode.Code{
 			Kind:  bytecode.Label,

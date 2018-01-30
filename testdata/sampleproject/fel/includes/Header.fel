@@ -4,6 +4,10 @@ Header :: css_config {
 	}
 }
 
+Me :: struct {
+	arr: []string = []string{"ayyy"}
+}
+
 Header :: struct {
 	isBlue: bool = true
 	hey: string = "woop"
@@ -36,6 +40,9 @@ Header :: html {
 test := []string{"item1", "meow"}
 
 test []= "test"
+
+me := Me{}
+me.arr []= "wop"
 
 Header(hey="yo!") {
 	

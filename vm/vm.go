@@ -198,12 +198,25 @@ func (program *Program) executeBytecode(codeBlock *bytecode.Block) {
 			structField.Set(reflect.ValueOf(fieldData))
 			panic("todo(Jake): Add reflect.GetField or whatever here")*/
 		case bytecode.Call:
-			block := code.Value.(*bytecode.Block)
+			// NOTE(Jake): 2018-01-30
+			//
+			// Move the stack ahead of used areas by cutting a new slice
+			// and revert back so the stack can be reclaimed.
+			//
+			oldStack := program.stack
+			program.stack = program.stack[codeBlock.StackSize:]
 			if value := program.stack[0]; value != nil {
 				debugPrintStack("VM Stack Values", program.stack)
-				panic("Stack already has items in it, need to make sure we dont break the stack.")
+				panic("bytecode.Call: Stack already has items in it, need to make sure we dont break the stack.")
 			}
+
+			block := code.Value.(*bytecode.Block)
 			program.executeBytecode(block)
+			// Clear for better debuggability
+			for i := 0; i < block.StackSize; i++ {
+				program.stack[i] = nil
+			}
+			program.stack = oldStack
 
 			//debugPrintStack("VM Stack Values", program.stack)
 			//debugPrintStack("VM Register Stack", program.registerStack)

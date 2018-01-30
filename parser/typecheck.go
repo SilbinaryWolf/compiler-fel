@@ -755,6 +755,9 @@ func (p *Parser) typecheckStruct(node *ast.StructDefinition, scope *Scope) {
 			return
 		}
 		structField.TypeInfo = resultTypeInfo
+		if len(structField.Expression.Nodes()) > 0 {
+			p.typecheckExpression(NewScope(nil), &structField.Expression)
+		}
 	}
 }
 
