@@ -313,7 +313,7 @@ func (emit *Emitter) emitHTMLNode(opcodes []bytecode.Code, node *ast.Call) []byt
 		}
 
 		opcodes = append(opcodes, bytecode.Code{
-			Kind:  bytecode.Call,
+			Kind:  bytecode.CallHTML,
 			Value: block,
 		})
 		return opcodes
@@ -566,28 +566,30 @@ func emitHTMLComponentDefinition(node *ast.HTMLComponentDefinition) *bytecode.Bl
 		Value: "htmldefinition:" + node.Name.String(),
 	})
 
-	stackSize := 0
 	if structDef := node.Struct; structDef != nil {
-		stackSize = len(structDef.Fields)
+		emit.stackPos = len(structDef.Fields) // ie. Stack size
 		for i := len(structDef.Fields) - 1; i >= 0; i-- {
 			structField := structDef.Fields[i]
 			exprNode := &structField.Expression
 			opcodes = emit.emitParameter(opcodes, structField.Name.String(), exprNode.TypeInfo, i)
 		}
 	}
-	emit.stackPos = stackSize
 
 	for _, node := range node.Nodes() {
 		opcodes = emit.emitStatement(opcodes, node)
 	}
 
+	// Implicit 'return' for top-level HTML nodes
+	opcodes = append(opcodes, bytecode.Code{
+		Kind: bytecode.PushReturnHTMLNodeArray,
+	})
 	opcodes = append(opcodes, bytecode.Code{
 		Kind: bytecode.Return,
 	})
 
 	block := bytecode.NewBlock(bytecode.BlockHTMLComponentDefinition)
 	block.Opcodes = opcodes
-	block.StackSize = stackSize
+	block.StackSize = emit.stackPos
 	return block
 }
 
@@ -636,7 +638,7 @@ func emitProcedureDefinition(node *ast.ProcedureDefinition) *bytecode.Block {
 
 	block := bytecode.NewBlock(bytecode.BlockProcedure)
 	block.Opcodes = opcodes
-	block.StackSize = stackSize
+	block.StackSize = emit.stackPos
 	return block
 }
 
@@ -741,6 +743,19 @@ func (emit *Emitter) emitStatement(opcodes []bytecode.Code, node ast.Node) []byt
 			})
 			emit.stackPos++
 		}
+	case *ast.Expression:
+		// todo(Jake): 2018-02-01
+		//
+		// Disallow *ast.Expression in typechecker if the context
+		// is not a ":: html" definition.
+		//
+		opcodes = emit.emitExpression(opcodes, node)
+		opcodes = append(opcodes, bytecode.Code{
+			Kind: bytecode.CastToHTMLText,
+		})
+		opcodes = append(opcodes, bytecode.Code{
+			Kind: bytecode.StoreAppendToHTMLElement,
+		})
 	case *ast.Call:
 		switch node.Kind() {
 		case ast.CallProcedure:

@@ -524,7 +524,7 @@ func (p *Parser) typecheckHTMLDefinition(htmlDefinition *ast.HTMLComponentDefini
 	var globalScopeNoVariables Scope = *parentScope
 	globalScopeNoVariables.identifiers = nil
 	scope := NewScope(&globalScopeNoVariables)
-	scope.Set("children", types.HTMLNode())
+	scope.Set("children", p.typeinfo.NewHTMLNode())
 
 	if structDef := htmlDefinition.Struct; structDef != nil {
 		for i, _ := range structDef.Fields {

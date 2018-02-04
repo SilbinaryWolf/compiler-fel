@@ -22,6 +22,8 @@ func (printer *DebugPrinter) writeLine() {
 
 func (printer *DebugPrinter) writeValue(value interface{}) {
 	switch value := value.(type) {
+	case *bytecode.HTMLElement:
+		printer.WriteString(value.Debug())
 	case *bytecode.Struct:
 		addr := fmt.Sprintf("%p", value)
 		if _, ok := printer.seenPointer[addr]; ok {

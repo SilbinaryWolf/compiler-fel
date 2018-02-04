@@ -122,7 +122,7 @@ type TypeInfo_HTMLNode struct{}
 
 func (info *TypeInfo_HTMLNode) String() string { return "html node" }
 
-func (manager *TypeInfoManager) NewHTMLNode(name string) *TypeInfo_HTMLNode {
+func (manager *TypeInfoManager) NewHTMLNode() *TypeInfo_HTMLNode {
 	return &manager.htmlNodeInfo
 }
 

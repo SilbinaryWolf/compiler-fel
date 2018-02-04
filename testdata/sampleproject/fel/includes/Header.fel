@@ -27,15 +27,24 @@ Header :: css {
 
 Header :: html {
 	class := "no_blue"
+	test := "more"
 	if isBlue {
 		// todo(Jake): Fix this, something wrong with evaluator not able to set a variable after declaring.
 		// stuff BREAKS!
 		// test
 		class = "blue"
 	}
-	header(class="header "+class) {
+	header(class="header "+class+" "+hey) {
+		"header text"
+		children
 	}
 }
+
+myFunc :: (a string, b string) string {
+	return a + b
+}
+
+blah := myFunc("Test", "best")
 
 test := []string{"item1", "meow"}
 
@@ -45,5 +54,11 @@ me := Me{}
 me.arr []= "wop"
 
 Header(hey="yo!") {
-	
+	// todo(Jake): 2018-02-05
+	// 
+	// Test
+	//
+	div {
+		"more text"
+	}
 }

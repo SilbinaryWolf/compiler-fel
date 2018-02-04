@@ -19,6 +19,7 @@ const (
 	StoreInternalStructField
 	AppendPopArrayString
 	StoreAppendToHTMLElement
+	CastToHTMLText
 	Push
 	PushAllocArrayString
 	PushAllocArrayInt
@@ -26,6 +27,7 @@ const (
 	PushAllocArrayStruct
 	PushStackVar
 	PushStructFieldVar
+	PushReturnHTMLNodeArray
 	ReplaceStructFieldVar
 	PushAllocStruct
 	PushAllocInternalStruct
@@ -37,7 +39,16 @@ const (
 	Jump
 	JumpIfFalse
 	Call
+	CallHTML
 	Return
+)
+
+type HTMLKind int
+
+const (
+	HTMLKindUnknown HTMLKind = 0 + iota
+	HTMLKindElement
+	HTMLKindText
 )
 
 /*type NodeContextType int
@@ -59,25 +70,28 @@ var kindToString = []string{
 	StoreInternalStructField: "StoreInternalStructField",
 	AppendPopArrayString:     "AppendPopArrayString",
 	StoreAppendToHTMLElement: "StoreAppendToHTMLElement",
-	Push:                    "Push",
-	PushAllocArrayString:    "PushAllocArrayString",
-	PushAllocArrayInt:       "PushAllocArrayInt",
-	PushAllocArrayFloat:     "PushAllocArrayFloat",
-	PushAllocArrayStruct:    "PushAllocArrayStruct",
-	PushStackVar:            "PushStackVar",
-	PushStructFieldVar:      "PushStructFieldVar",
-	ReplaceStructFieldVar:   "ReplaceStructFieldVar",
-	PushAllocStruct:         "PushAllocStruct",
-	PushAllocInternalStruct: "PushAllocInternalStruct",
-	PushAllocHTMLNode:       "PushAllocHTMLNode",
-	PopHTMLNode:             "PopHTMLNode",
-	ConditionalEqual:        "ConditionalEqual",
-	Add:                     "Add",
-	AddString:               "AddString",
-	Jump:                    "Jump",
-	JumpIfFalse:             "JumpIfFalse",
-	Call:                    "Call",
-	Return:                  "Return",
+	CastToHTMLText:           "CastToHTMLText",
+	Push:                     "Push",
+	PushAllocArrayString:     "PushAllocArrayString",
+	PushAllocArrayInt:        "PushAllocArrayInt",
+	PushAllocArrayFloat:      "PushAllocArrayFloat",
+	PushAllocArrayStruct:     "PushAllocArrayStruct",
+	PushReturnHTMLNodeArray:  "PushReturnHTMLNodeArray",
+	PushStackVar:             "PushStackVar",
+	PushStructFieldVar:       "PushStructFieldVar",
+	ReplaceStructFieldVar:    "ReplaceStructFieldVar",
+	PushAllocStruct:          "PushAllocStruct",
+	PushAllocInternalStruct:  "PushAllocInternalStruct",
+	PushAllocHTMLNode:        "PushAllocHTMLNode",
+	PopHTMLNode:              "PopHTMLNode",
+	ConditionalEqual:         "ConditionalEqual",
+	Add:                      "Add",
+	AddString:                "AddString",
+	Jump:                     "Jump",
+	JumpIfFalse:              "JumpIfFalse",
+	Call:                     "Call",
+	CallHTML:                 "CallHTML",
+	Return:                   "Return",
 }
 
 type BlockKind int
@@ -155,15 +169,19 @@ func (structData *Struct) FieldCount() int {
 }
 
 type HTMLElement struct {
-	Name       string
+	// NOTE(Jake): Currently "Name" also stores HTMLText data.
+	kind       HTMLKind
+	nameOrText string
 	attributes []HTMLAttribute
 
-	childNodes []interface{}
+	parentNode *HTMLElement
+	//previousNode *HTMLElement
+	//nextNode     *HTMLElement
 
-	parentNode   *HTMLElement
-	previousNode *HTMLElement
-	nextNode     *HTMLElement
+	childNodes []*HTMLElement
 }
+
+func (node *HTMLElement) ImplementsHTMLInterface() {}
 
 type HTMLAttribute struct {
 	Name  string
@@ -172,8 +190,28 @@ type HTMLAttribute struct {
 
 func NewHTMLElement(tagName string) *HTMLElement {
 	node := new(HTMLElement)
-	node.Name = tagName
+	node.kind = HTMLKindText
+	node.nameOrText = tagName
 	return node
+}
+
+func NewHTMLText(text string) *HTMLElement {
+	node := new(HTMLElement)
+	node.kind = HTMLKindText
+	node.nameOrText = text
+	return node
+}
+
+func (node *HTMLElement) Name() string {
+	return node.nameOrText
+}
+
+func (node *HTMLElement) Text() string {
+	return node.nameOrText
+}
+
+func (node *HTMLElement) Kind() HTMLKind {
+	return node.kind
 }
 
 func (node *HTMLElement) SetParent(parent *HTMLElement) {
@@ -183,12 +221,13 @@ func (node *HTMLElement) SetParent(parent *HTMLElement) {
 	if node.parentNode != nil {
 		// Remove from old parent
 		for i, childNode := range node.parentNode.childNodes {
-			childNode, ok := childNode.(*HTMLElement)
+			/*childNode, ok := childNode.(*HTMLElement)
 			if !ok {
 				continue
-			}
+			}*/
 			if childNode == node {
 				node.parentNode.childNodes = append(node.parentNode.childNodes[:i], node.parentNode.childNodes[i+1:]...)
+				break
 			}
 		}
 	}
@@ -231,12 +270,17 @@ func (node *HTMLElement) debugIndent(indent int) string {
 	}
 	buffer.WriteString(node.String())
 	buffer.WriteByte('\n')
-	if len(node.childNodes) > 0 {
+
+	if childNodes := node.childNodes; len(childNodes) > 0 {
 		indent += 1
-		for _, node := range node.childNodes {
-			switch node := node.(type) {
-			case *HTMLElement:
+		for _, node := range childNodes {
+			//buffer.WriteString(node.debugIndent(indent))
+			switch node.Kind() {
+			case HTMLKindElement:
 				buffer.WriteString(node.debugIndent(indent))
+			case HTMLKindText:
+				buffer.WriteString(node.Text())
+				buffer.WriteByte('\n')
 			default:
 				panic(fmt.Sprintf("HTMLElement::Debug: Unhandled type %T", node))
 			}
@@ -247,7 +291,7 @@ func (node *HTMLElement) debugIndent(indent int) string {
 		}
 		buffer.WriteByte('<')
 		buffer.WriteByte('/')
-		buffer.WriteString(node.Name)
+		buffer.WriteString(node.Name())
 		buffer.WriteByte('>')
 		buffer.WriteByte('\n')
 	}
@@ -261,7 +305,7 @@ func (node *HTMLElement) Debug() string {
 func (node *HTMLElement) String() string {
 	var buffer bytes.Buffer
 	buffer.WriteByte('<')
-	buffer.WriteString(node.Name)
+	buffer.WriteString(node.Name())
 	buffer.WriteByte(' ')
 	for i, attribute := range node.GetAttributes() {
 		if i != 0 {

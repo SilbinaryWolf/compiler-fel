@@ -29,13 +29,19 @@ func ExecuteNewProgram(codeBlock *bytecode.Block) {
 	program.executeBytecode(codeBlock)
 }
 
+func (program *Program) pop() interface{} {
+	result := program.registerStack[len(program.registerStack)-1]
+	program.registerStack = program.registerStack[:len(program.registerStack)-1]
+	return result
+}
+
 func (program *Program) executeBytecode(codeBlock *bytecode.Block) {
 	opcodes := codeBlock.Opcodes
 	offset := 0
 	for offset < len(opcodes) {
 		code := opcodes[offset]
 
-		switch code.Kind {
+		switch kind := code.Kind; kind {
 		case bytecode.Label:
 			// no-op
 		case bytecode.Push:
@@ -93,11 +99,24 @@ func (program *Program) executeBytecode(codeBlock *bytecode.Block) {
 			tagName := code.Value.(string)
 			htmlElementNode := bytecode.NewHTMLElement(tagName)
 			program.registerStack = append(program.registerStack, htmlElementNode)
+		case bytecode.CastToHTMLText:
+			value := program.registerStack[len(program.registerStack)-1]
+			switch value := value.(type) {
+			case string:
+				program.registerStack[len(program.registerStack)-1] = bytecode.NewHTMLText(value)
+			default:
+				panic(fmt.Sprintf("CastToHTMLText: Cannot convert from %T. This should be caught in the typechecker.", value))
+			}
 		case bytecode.StoreAppendToHTMLElement:
-			node := program.registerStack[len(program.registerStack)-1].(*bytecode.HTMLElement)
 			parentNode := program.registerStack[len(program.registerStack)-2].(*bytecode.HTMLElement)
-
-			node.SetParent(parentNode)
+			node := program.registerStack[len(program.registerStack)-1].(*bytecode.HTMLElement)
+			switch node.Kind() {
+			case bytecode.HTMLKindElement,
+				bytecode.HTMLKindText:
+				node.SetParent(parentNode)
+			default:
+				panic(fmt.Sprintf("StoreAppendToHTMLElement: Unsupported type %T."))
+			}
 		case bytecode.PopHTMLNode:
 			htmlElementNode, ok := program.registerStack[len(program.registerStack)-1].(*bytecode.HTMLElement)
 			if !ok {
@@ -175,6 +194,14 @@ func (program *Program) executeBytecode(codeBlock *bytecode.Block) {
 			program.registerStack = program.registerStack[:len(program.registerStack)-1]
 
 			program.returnHTMLNodes = append(program.returnHTMLNodes, value)
+		case bytecode.PushReturnHTMLNodeArray:
+			// NOTE(jJake): 2018-01-31
+			//
+			// Used for ":: html" components
+			//
+			returnHTMLNodes := program.returnHTMLNodes
+			program.returnHTMLNodes = make([]*bytecode.HTMLElement, 0, 10)
+			program.registerStack = append(program.registerStack, returnHTMLNodes)
 		case bytecode.StorePopStructField:
 			fieldData := program.registerStack[len(program.registerStack)-1]
 			structData := program.registerStack[len(program.registerStack)-2].(*bytecode.Struct)
@@ -197,7 +224,7 @@ func (program *Program) executeBytecode(codeBlock *bytecode.Block) {
 			structField := reflect.ValueOf(structData).FieldByIndex(fieldOffset)
 			structField.Set(reflect.ValueOf(fieldData))
 			panic("todo(Jake): Add reflect.GetField or whatever here")*/
-		case bytecode.Call:
+		case bytecode.Call, bytecode.CallHTML:
 			// NOTE(Jake): 2018-01-30
 			//
 			// Move the stack ahead of used areas by cutting a new slice
@@ -218,11 +245,20 @@ func (program *Program) executeBytecode(codeBlock *bytecode.Block) {
 			}
 			program.stack = oldStack
 
+			if kind == bytecode.CallHTML {
+				htmlNodes := program.pop().([]*bytecode.HTMLElement)
+				program.returnHTMLNodes = append(program.returnHTMLNodes, htmlNodes...)
+			}
+
 			//debugPrintStack("VM Stack Values", program.stack)
 			//debugPrintStack("VM Register Stack", program.registerStack)
 			//panic("bytecode.Call debug")
 		case bytecode.Return:
 			if len(program.returnHTMLNodes) > 0 {
+				//returnHTMLNodes := program.returnHTMLNodes
+				//program.returnHTMLNodes = nil
+				debugPrintStack("VM Stack Values", program.stack)
+				debugPrintStack("VM Register Stack", program.registerStack)
 				panic("todo(Jake): Put HTML nodes into array for return")
 			}
 			return
