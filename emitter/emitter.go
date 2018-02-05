@@ -344,6 +344,7 @@ func (emit *Emitter) emitHTMLNode(opcodes []bytecode.Code, node *ast.Call) []byt
 			Value: parameter.Name.String(),
 		})
 	}
+	panic("todo(Jake): Need to add code to pop \"children\" value here.")
 
 	{
 		// NOTE(Jake): 2017-01-17
@@ -567,7 +568,11 @@ func emitHTMLComponentDefinition(node *ast.HTMLComponentDefinition) *bytecode.Bl
 	})
 
 	if structDef := node.Struct; structDef != nil {
-		emit.stackPos = len(structDef.Fields) // ie. Stack size
+		emit.stackPos = len(structDef.Fields)
+		// Add special optional "children" parameter
+		opcodes = emit.emitParameter(opcodes, "children", nil, emit.stackPos)
+		emit.stackPos++
+		// ie. Stack size + "children"
 		for i := len(structDef.Fields) - 1; i >= 0; i-- {
 			structField := structDef.Fields[i]
 			exprNode := &structField.Expression
