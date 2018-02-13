@@ -15,16 +15,17 @@ const (
 	Store
 	StorePopStructField
 	StorePopHTMLAttribute
-	AppendPopHTMLNode
+	AppendPopHTMLNodeReturn
 	StoreInternalStructField
 	AppendPopArrayString
-	StoreAppendToHTMLElement
+	AppendPopHTMLElementToHTMLElement
 	CastToHTMLText
 	Push
 	PushAllocArrayString
 	PushAllocArrayInt
 	PushAllocArrayFloat
 	PushAllocArrayStruct
+	PushAllocHTMLFragment
 	PushStackVar
 	PushStructFieldVar
 	PushReturnHTMLNodeArray
@@ -32,7 +33,6 @@ const (
 	PushAllocStruct
 	PushAllocInternalStruct
 	PushAllocHTMLNode
-	PopHTMLNode
 	ConditionalEqual
 	Add
 	AddString
@@ -49,6 +49,7 @@ const (
 	HTMLKindUnknown HTMLKind = 0 + iota
 	HTMLKindElement
 	HTMLKindText
+	HTMLKindFragment
 )
 
 /*type NodeContextType int
@@ -64,34 +65,34 @@ var kindToString = []string{
 	Pop:     "Pop",
 	PopN:    "PopN", // Pop [N] number of times
 	Store:   "Store",
-	StorePopHTMLAttribute:    "StorePopHTMLAttribute",
-	StorePopStructField:      "StorePopStructField",
-	AppendPopHTMLNode:        "AppendPopHTMLNode",
-	StoreInternalStructField: "StoreInternalStructField",
-	AppendPopArrayString:     "AppendPopArrayString",
-	StoreAppendToHTMLElement: "StoreAppendToHTMLElement",
-	CastToHTMLText:           "CastToHTMLText",
-	Push:                     "Push",
-	PushAllocArrayString:     "PushAllocArrayString",
-	PushAllocArrayInt:        "PushAllocArrayInt",
-	PushAllocArrayFloat:      "PushAllocArrayFloat",
-	PushAllocArrayStruct:     "PushAllocArrayStruct",
-	PushReturnHTMLNodeArray:  "PushReturnHTMLNodeArray",
-	PushStackVar:             "PushStackVar",
-	PushStructFieldVar:       "PushStructFieldVar",
-	ReplaceStructFieldVar:    "ReplaceStructFieldVar",
-	PushAllocStruct:          "PushAllocStruct",
-	PushAllocInternalStruct:  "PushAllocInternalStruct",
-	PushAllocHTMLNode:        "PushAllocHTMLNode",
-	PopHTMLNode:              "PopHTMLNode",
-	ConditionalEqual:         "ConditionalEqual",
-	Add:                      "Add",
-	AddString:                "AddString",
-	Jump:                     "Jump",
-	JumpIfFalse:              "JumpIfFalse",
-	Call:                     "Call",
-	CallHTML:                 "CallHTML",
-	Return:                   "Return",
+	StorePopHTMLAttribute:             "StorePopHTMLAttribute",
+	StorePopStructField:               "StorePopStructField",
+	AppendPopHTMLNodeReturn:           "AppendPopHTMLNodeReturn",
+	StoreInternalStructField:          "StoreInternalStructField",
+	AppendPopArrayString:              "AppendPopArrayString",
+	AppendPopHTMLElementToHTMLElement: "AppendPopHTMLElementToHTMLElement",
+	CastToHTMLText:                    "CastToHTMLText",
+	Push:                              "Push",
+	PushAllocArrayString:              "PushAllocArrayString",
+	PushAllocArrayInt:                 "PushAllocArrayInt",
+	PushAllocArrayFloat:               "PushAllocArrayFloat",
+	PushAllocArrayStruct:              "PushAllocArrayStruct",
+	PushAllocHTMLFragment:             "PushAllocHTMLFragment",
+	PushReturnHTMLNodeArray:           "PushReturnHTMLNodeArray",
+	PushStackVar:                      "PushStackVar",
+	PushStructFieldVar:                "PushStructFieldVar",
+	ReplaceStructFieldVar:             "ReplaceStructFieldVar",
+	PushAllocStruct:                   "PushAllocStruct",
+	PushAllocInternalStruct:           "PushAllocInternalStruct",
+	PushAllocHTMLNode:                 "PushAllocHTMLNode",
+	ConditionalEqual:                  "ConditionalEqual",
+	Add:                               "Add",
+	AddString:                         "AddString",
+	Jump:                              "Jump",
+	JumpIfFalse:                       "JumpIfFalse",
+	Call:                              "Call",
+	CallHTML:                          "CallHTML",
+	Return:                            "Return",
 }
 
 type BlockKind int
@@ -190,7 +191,7 @@ type HTMLAttribute struct {
 
 func NewHTMLElement(tagName string) *HTMLElement {
 	node := new(HTMLElement)
-	node.kind = HTMLKindText
+	node.kind = HTMLKindElement
 	node.nameOrText = tagName
 	return node
 }
@@ -199,6 +200,12 @@ func NewHTMLText(text string) *HTMLElement {
 	node := new(HTMLElement)
 	node.kind = HTMLKindText
 	node.nameOrText = text
+	return node
+}
+
+func NewHTMLFragment() *HTMLElement {
+	node := new(HTMLElement)
+	node.kind = HTMLKindFragment
 	return node
 }
 
@@ -265,11 +272,13 @@ func (node *HTMLElement) GetAttribute(name string) (string, bool) {
 
 func (node *HTMLElement) debugIndent(indent int) string {
 	var buffer bytes.Buffer
-	for i := 0; i < indent; i++ {
-		buffer.WriteByte('\t')
+	if tag := node.String(); len(tag) > 0 {
+		for i := 0; i < indent; i++ {
+			buffer.WriteByte('\t')
+		}
+		buffer.WriteString(tag)
+		buffer.WriteByte('\n')
 	}
-	buffer.WriteString(node.String())
-	buffer.WriteByte('\n')
 
 	if childNodes := node.childNodes; len(childNodes) > 0 {
 		indent += 1
@@ -278,22 +287,31 @@ func (node *HTMLElement) debugIndent(indent int) string {
 			switch node.Kind() {
 			case HTMLKindElement:
 				buffer.WriteString(node.debugIndent(indent))
+			case HTMLKindFragment:
+				indent -= 1
+				buffer.WriteString(node.debugIndent(indent))
+				indent += 1
 			case HTMLKindText:
+				for i := 0; i < indent; i++ {
+					buffer.WriteByte('\t')
+				}
 				buffer.WriteString(node.Text())
 				buffer.WriteByte('\n')
 			default:
-				panic(fmt.Sprintf("HTMLElement::Debug: Unhandled type %T", node))
+				panic(fmt.Sprintf("HTMLElement::Debug: Unhandled type %v", node.Kind()))
 			}
 		}
 		indent -= 1
 		for i := 0; i < indent; i++ {
 			buffer.WriteByte('\t')
 		}
-		buffer.WriteByte('<')
-		buffer.WriteByte('/')
-		buffer.WriteString(node.Name())
-		buffer.WriteByte('>')
-		buffer.WriteByte('\n')
+		if name := node.Name(); len(name) > 0 {
+			buffer.WriteByte('<')
+			buffer.WriteByte('/')
+			buffer.WriteString(name)
+			buffer.WriteByte('>')
+			buffer.WriteByte('\n')
+		}
 	}
 	return buffer.String()
 }
@@ -303,14 +321,15 @@ func (node *HTMLElement) Debug() string {
 }
 
 func (node *HTMLElement) String() string {
+	name := node.Name()
+	if len(name) == 0 {
+		return ""
+	}
 	var buffer bytes.Buffer
 	buffer.WriteByte('<')
 	buffer.WriteString(node.Name())
-	buffer.WriteByte(' ')
-	for i, attribute := range node.GetAttributes() {
-		if i != 0 {
-			buffer.WriteByte(' ')
-		}
+	for _, attribute := range node.GetAttributes() {
+		buffer.WriteByte(' ')
 		buffer.WriteString(attribute.Name)
 		buffer.WriteString("=\"")
 		buffer.WriteString(attribute.Value)

@@ -62,6 +62,9 @@ func (program *Program) executeBytecode(codeBlock *bytecode.Block) {
 			capacity := code.Value.(int)
 			value := make([]bytecode.Struct, 0, capacity)
 			program.registerStack = append(program.registerStack, value)
+		case bytecode.PushAllocHTMLFragment:
+			value := bytecode.NewHTMLFragment()
+			program.registerStack = append(program.registerStack, value)
 		case bytecode.AppendPopArrayString:
 			array := program.registerStack[len(program.registerStack)-2].([]string)
 			value := program.registerStack[len(program.registerStack)-1].(string)
@@ -107,23 +110,21 @@ func (program *Program) executeBytecode(codeBlock *bytecode.Block) {
 			default:
 				panic(fmt.Sprintf("CastToHTMLText: Cannot convert from %T. This should be caught in the typechecker.", value))
 			}
-		case bytecode.StoreAppendToHTMLElement:
+		case bytecode.AppendPopHTMLElementToHTMLElement:
 			parentNode := program.registerStack[len(program.registerStack)-2].(*bytecode.HTMLElement)
 			node := program.registerStack[len(program.registerStack)-1].(*bytecode.HTMLElement)
+
 			switch node.Kind() {
 			case bytecode.HTMLKindElement,
-				bytecode.HTMLKindText:
+				bytecode.HTMLKindText,
+				bytecode.HTMLKindFragment:
 				node.SetParent(parentNode)
 			default:
-				panic(fmt.Sprintf("StoreAppendToHTMLElement: Unsupported type %T."))
+				panic(fmt.Sprintf("StoreAppendToHTMLElement: Unsupported type %v.", node.Kind()))
 			}
-		case bytecode.PopHTMLNode:
-			htmlElementNode, ok := program.registerStack[len(program.registerStack)-1].(*bytecode.HTMLElement)
-			if !ok {
-				panic(fmt.Sprintf("Expected to pop HTMLElement instead got %T", htmlElementNode))
-			}
+
+			// Pop
 			program.registerStack = program.registerStack[:len(program.registerStack)-1]
-			//panic("todo: PopHTMLNode")
 		case bytecode.ConditionalEqual:
 			valueA := program.registerStack[len(program.registerStack)-2].(int64)
 			valueB := program.registerStack[len(program.registerStack)-1].(int64)
@@ -189,7 +190,7 @@ func (program *Program) executeBytecode(codeBlock *bytecode.Block) {
 
 			attrName := code.Value.(string)
 			node.SetAttribute(attrName, attrValue)
-		case bytecode.AppendPopHTMLNode:
+		case bytecode.AppendPopHTMLNodeReturn:
 			value := program.registerStack[len(program.registerStack)-1].(*bytecode.HTMLElement)
 			program.registerStack = program.registerStack[:len(program.registerStack)-1]
 

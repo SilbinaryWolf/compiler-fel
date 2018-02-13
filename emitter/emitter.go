@@ -293,6 +293,38 @@ func (emit *Emitter) emitHTMLNode(opcodes []bytecode.Code, node *ast.Call) []byt
 			panic(fmt.Sprintf("Missing HTML component %s, this should be caught in the typechecker", name))
 		}
 
+		// If definition has used the "children" keyword
+		// todo(Jake): 2018-02-09
+		//
+		// Store whether definition can have children or not.
+		// If it cant, then dont push "children" value as first parameter.
+		//
+		hasChildren := true
+		if hasChildren {
+			opcodes = append(opcodes, bytecode.Code{
+				Kind: bytecode.PushAllocHTMLFragment,
+			})
+			for _, node := range node.Nodes() {
+				opcodes = emit.emitStatement(opcodes, node)
+				// NOTE(Jake): 2018-02-08
+				//
+				// We remove the final bytecode here so that we can push the resulting
+				//
+				//
+				lastOpcode := &opcodes[len(opcodes)-1]
+				switch kind := lastOpcode.Kind; kind {
+				case bytecode.AppendPopHTMLElementToHTMLElement,
+					bytecode.AppendPopHTMLNodeReturn:
+					opcodes = opcodes[:len(opcodes)-1]
+					opcodes = append(opcodes, bytecode.Code{
+						Kind: bytecode.AppendPopHTMLElementToHTMLElement,
+					})
+				default:
+					panic(fmt.Sprintf("emitHTMLNode:Component: Unhandled kind %v", kind))
+				}
+			}
+		}
+
 		if structDef := definition.Struct; structDef != nil {
 			for i := 0; i < len(structDef.Fields); i++ {
 				structField := structDef.Fields[i]
@@ -344,7 +376,6 @@ func (emit *Emitter) emitHTMLNode(opcodes []bytecode.Code, node *ast.Call) []byt
 			Value: parameter.Name.String(),
 		})
 	}
-	panic("todo(Jake): Need to add code to pop \"children\" value here.")
 
 	{
 		// NOTE(Jake): 2017-01-17
@@ -362,14 +393,11 @@ func (emit *Emitter) emitHTMLNode(opcodes []bytecode.Code, node *ast.Call) []byt
 
 	if isRootHTMLElement := len(emit.htmlElementStack) == 0; isRootHTMLElement {
 		opcodes = append(opcodes, bytecode.Code{
-			Kind: bytecode.AppendPopHTMLNode,
+			Kind: bytecode.AppendPopHTMLNodeReturn,
 		})
 	} else {
 		opcodes = append(opcodes, bytecode.Code{
-			Kind: bytecode.StoreAppendToHTMLElement,
-		})
-		opcodes = append(opcodes, bytecode.Code{
-			Kind: bytecode.PopHTMLNode,
+			Kind: bytecode.AppendPopHTMLElementToHTMLElement,
 		})
 	}
 	return opcodes
@@ -568,16 +596,18 @@ func emitHTMLComponentDefinition(node *ast.HTMLComponentDefinition) *bytecode.Bl
 	})
 
 	if structDef := node.Struct; structDef != nil {
-		emit.stackPos = len(structDef.Fields)
-		// Add special optional "children" parameter
-		opcodes = emit.emitParameter(opcodes, "children", nil, emit.stackPos)
-		emit.stackPos++
-		// ie. Stack size + "children"
+		// Struct size + "children" keyword
+		parameterCount := len(structDef.Fields) + 1
+
 		for i := len(structDef.Fields) - 1; i >= 0; i-- {
 			structField := structDef.Fields[i]
 			exprNode := &structField.Expression
-			opcodes = emit.emitParameter(opcodes, structField.Name.String(), exprNode.TypeInfo, i)
+			opcodes = emit.emitParameter(opcodes, structField.Name.String(), exprNode.TypeInfo, (parameterCount-1)-emit.stackPos)
+			emit.stackPos++
 		}
+		// Add special optional "children" parameter as first parameter
+		opcodes = emit.emitParameter(opcodes, "children", nil, (parameterCount-1)-emit.stackPos)
+		emit.stackPos++
 	}
 
 	for _, node := range node.Nodes() {
@@ -754,13 +784,23 @@ func (emit *Emitter) emitStatement(opcodes []bytecode.Code, node ast.Node) []byt
 		// Disallow *ast.Expression in typechecker if the context
 		// is not a ":: html" definition.
 		//
-		opcodes = emit.emitExpression(opcodes, node)
-		opcodes = append(opcodes, bytecode.Code{
-			Kind: bytecode.CastToHTMLText,
-		})
-		opcodes = append(opcodes, bytecode.Code{
-			Kind: bytecode.StoreAppendToHTMLElement,
-		})
+		switch typeInfo := node.TypeInfo.(type) {
+		case *parser.TypeInfo_String:
+			opcodes = emit.emitExpression(opcodes, node)
+			opcodes = append(opcodes, bytecode.Code{
+				Kind: bytecode.CastToHTMLText,
+			})
+			opcodes = append(opcodes, bytecode.Code{
+				Kind: bytecode.AppendPopHTMLElementToHTMLElement,
+			})
+		case *parser.TypeInfo_HTMLNode:
+			opcodes = emit.emitExpression(opcodes, node)
+			opcodes = append(opcodes, bytecode.Code{
+				Kind: bytecode.AppendPopHTMLElementToHTMLElement,
+			})
+		default:
+			panic(fmt.Sprintf("emitStatement:Expression: Unhandled type %T", typeInfo))
+		}
 	case *ast.Call:
 		switch node.Kind() {
 		case ast.CallProcedure:

@@ -20,6 +20,18 @@ func (printer *DebugPrinter) writeLine() {
 	}
 }
 
+func debugOpcodes(opcodes []bytecode.Code, offset int) {
+	fmt.Printf("Opcode Debug:\n-----------\n")
+	for i, code := range opcodes {
+		if offset == i {
+			fmt.Printf("**%d** - %s\n", i, code.String())
+			continue
+		}
+		fmt.Printf("%d - %s\n", i, code.String())
+	}
+	fmt.Printf("-----------\n")
+}
+
 func (printer *DebugPrinter) writeValue(value interface{}) {
 	switch value := value.(type) {
 	case *bytecode.HTMLElement:
