@@ -172,11 +172,10 @@ func (scanner *Scanner) eatAllCommentsAndMaybeWhitespace() {
 		C2 := scanner.nextRune()
 		if C == '/' && C2 == '/' {
 			for {
-				C := scanner.nextRune()
 				if scanner.eatEndOfLine() {
-					//debugLine += 1
 					break
 				}
+				C := scanner.nextRune()
 				if C == 0 {
 					break
 				}
