@@ -200,7 +200,7 @@ func (emit *Emitter) emitVariableIdent(opcodes []bytecode.Code, ident token.Toke
 	name := ident.String()
 	varInfo, ok := emit.scope.Get(name)
 	if !ok {
-		panic(fmt.Sprintf("Missing declaration for %s, this should be caught in the type checker.", name))
+		panic(fmt.Sprintf("Missing declaration for \"%s\", this should be caught in the type checker.", name))
 	}
 	opcodes = append(opcodes, bytecode.Code{
 		Kind:  bytecode.PushStackVar,
@@ -595,15 +595,26 @@ func emitHTMLComponentDefinition(node *ast.HTMLComponentDefinition) *bytecode.Bl
 		Value: "htmldefinition:" + node.Name.String(),
 	})
 
-	if structDef := node.Struct; structDef != nil {
-		// Struct size + "children" keyword
-		parameterCount := len(structDef.Fields) + 1
-
-		for i := len(structDef.Fields) - 1; i >= 0; i-- {
-			structField := structDef.Fields[i]
-			exprNode := &structField.Expression
-			opcodes = emit.emitParameter(opcodes, structField.Name.String(), exprNode.TypeInfo, (parameterCount-1)-emit.stackPos)
-			emit.stackPos++
+	// Struct size + "children" keyword
+	{
+		// todo(Jake): 2018-02-13
+		//
+		// Only add support for "children" if the "children"
+		// keyword is used (and not taken by the props)
+		//
+		hasChildren := true
+		parameterCount := 0
+		if hasChildren {
+			parameterCount++
+		}
+		if structDef := node.Struct; structDef != nil {
+			parameterCount += len(structDef.Fields)
+			for i := len(structDef.Fields) - 1; i >= 0; i-- {
+				structField := structDef.Fields[i]
+				exprNode := &structField.Expression
+				opcodes = emit.emitParameter(opcodes, structField.Name.String(), exprNode.TypeInfo, (parameterCount-1)-emit.stackPos)
+				emit.stackPos++
+			}
 		}
 		// Add special optional "children" parameter as first parameter
 		opcodes = emit.emitParameter(opcodes, "children", nil, (parameterCount-1)-emit.stackPos)

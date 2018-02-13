@@ -271,7 +271,7 @@ func (program *Program) executeBytecode(codeBlock *bytecode.Block) {
 
 	if len(program.registerStack) > 0 {
 		debugPrintStack("VM Stack Values", program.stack)
-		debugPrintStack("VM Register Stack", program.registerStack)
+		debugPrintStack(fmt.Sprintf("VM Register Stack (Size: %d)", len(program.registerStack)), program.registerStack)
 		panic("Register Stack should be empty.")
 	}
 

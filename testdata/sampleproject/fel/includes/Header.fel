@@ -53,12 +53,23 @@ test []= "test"
 me := Me{}
 me.arr []= "wop"
 
+Moo :: html {
+	div(class="godddddamn") {
+		children
+	}
+}
+
 Header(hey="yo!") {
 	// todo(Jake): 2018-02-05
 	// 
 	// Test
 	//
 	div {
+		Moo {
+			span {
+				"oi!"
+			}
+		}
 		"more text"
 	}
 }
