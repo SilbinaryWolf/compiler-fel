@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/silbinarywolf/compiler-fel/ast"
+	"github.com/silbinarywolf/compiler-fel/token"
 	"github.com/silbinarywolf/compiler-fel/types"
 )
 
@@ -148,11 +149,33 @@ type TypeInfo_Struct struct {
 func (info *TypeInfo_Struct) String() string                    { return info.name }
 func (info *TypeInfo_Struct) Definition() *ast.StructDefinition { return info.definition }
 
-func (manager *TypeInfoManager) NewStructInfo(definiton *ast.StructDefinition) TypeInfo {
+func (manager *TypeInfoManager) NewStructInfo(definiton *ast.StructDefinition) *TypeInfo_Struct {
 	result := new(TypeInfo_Struct)
 	result.name = definiton.Name.String()
 	result.definition = definiton
 	return result
+}
+
+type TypeInfo_StructField struct {
+	Name string
+	Type string
+}
+
+func (manager *TypeInfoManager) CreateNewStructInfo(name string, fields ...TypeInfo_StructField) *TypeInfo_Struct {
+	definition := new(ast.StructDefinition)
+	definition.Name = token.Token{
+		Data:     name,
+		Filepath: "internal",
+	}
+	for _, field := range fields {
+		typeInfo := manager.get(field.Type)
+		if typeInfo == nil {
+			panic(fmt.Sprintf("CreateNewStructInfo: Unable to get type info for %s (type: %s).", field.Name, field.Type))
+		}
+
+	}
+
+	return manager.NewStructInfo(definition)
 }
 
 // Functions

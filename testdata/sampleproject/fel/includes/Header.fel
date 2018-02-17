@@ -75,6 +75,10 @@ Header(hey="afjkfajk!") {
 	}
 }
 
+buildThings :: config {
+
+}
+
 /*<header class="header blue yo!">
 		header text
 		<div>
