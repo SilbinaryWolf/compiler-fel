@@ -15,18 +15,16 @@ type Program struct {
 	//nodeStackContext []interface{}           // stack of node contexts for tracking CSS rules / current HTML node.
 }
 
-func (program *Program) PopRegisterStack() interface{} {
-	result := program.registerStack[len(program.registerStack)-1]
-	program.registerStack = program.registerStack[:len(program.registerStack)-1]
-	return result
-}
-
-func ExecuteNewProgram(codeBlock *bytecode.Block) {
+func ExecuteNewProgram(codeBlock *bytecode.Block) interface{} {
 	program := new(Program)
 	program.stack = make([]interface{}, 32)
 	program.registerStack = make([]interface{}, 0, 4)
 
 	program.executeBytecode(codeBlock)
+	if codeBlock.HasReturnValue {
+		return program.pop()
+	}
+	return nil
 }
 
 func (program *Program) pop() interface{} {
@@ -111,6 +109,9 @@ func (program *Program) executeBytecode(codeBlock *bytecode.Block) {
 				panic(fmt.Sprintf("CastToHTMLText: Cannot convert from %T. This should be caught in the typechecker.", value))
 			}
 		case bytecode.AppendPopHTMLElementToHTMLElement:
+			if len(program.registerStack) < 2 {
+				panic(fmt.Sprintf("offset %d", offset))
+			}
 			parentNode := program.registerStack[len(program.registerStack)-2].(*bytecode.HTMLElement)
 			node := program.registerStack[len(program.registerStack)-1].(*bytecode.HTMLElement)
 
@@ -246,22 +247,15 @@ func (program *Program) executeBytecode(codeBlock *bytecode.Block) {
 			}
 			program.stack = oldStack
 
-			if kind == bytecode.CallHTML {
-				htmlNodes := program.pop().([]*bytecode.HTMLElement)
-				program.returnHTMLNodes = append(program.returnHTMLNodes, htmlNodes...)
-			}
+			//if kind == bytecode.CallHTML {
+			//	htmlNodes := program.pop().([]*bytecode.HTMLElement)
+			//	program.returnHTMLNodes = append(program.returnHTMLNodes, htmlNodes...)
+			//}
 
 			//debugPrintStack("VM Stack Values", program.stack)
 			//debugPrintStack("VM Register Stack", program.registerStack)
 			//panic("bytecode.Call debug")
 		case bytecode.Return:
-			if len(program.returnHTMLNodes) > 0 {
-				//returnHTMLNodes := program.returnHTMLNodes
-				//program.returnHTMLNodes = nil
-				debugPrintStack("VM Stack Values", program.stack)
-				debugPrintStack("VM Register Stack", program.registerStack)
-				panic("todo(Jake): Put HTML nodes into array for return")
-			}
 			return
 		default:
 			panic(fmt.Sprintf("executeBytecode: Unhandled kind in vm: \"%s\"", code.Kind.String()))
@@ -269,10 +263,14 @@ func (program *Program) executeBytecode(codeBlock *bytecode.Block) {
 		offset++
 	}
 
-	if len(program.registerStack) > 0 {
+	expectedRegisterStackSize := 0
+	if codeBlock.HasReturnValue {
+		expectedRegisterStackSize = 1
+	}
+	if len(program.registerStack) > expectedRegisterStackSize {
 		debugPrintStack("VM Stack Values", program.stack)
 		debugPrintStack(fmt.Sprintf("VM Register Stack (Size: %d)", len(program.registerStack)), program.registerStack)
-		panic("Register Stack should be empty.")
+		panic(fmt.Sprintf("Register Stack should have %d items.", expectedRegisterStackSize))
 	}
 
 	// Debug

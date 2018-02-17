@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/silbinarywolf/compiler-fel/ast"
+	"github.com/silbinarywolf/compiler-fel/bytecode"
 	"github.com/silbinarywolf/compiler-fel/data"
 	"github.com/silbinarywolf/compiler-fel/emitter"
 	"github.com/silbinarywolf/compiler-fel/generate"
@@ -44,7 +45,7 @@ func (program *Program) GetConfigString(configName string) (string, error) {
 	return valueAsserted.String(), nil
 }
 
-func FolderExistsMaybeCreate(directory string, configName string, createIfDoesntExist bool) error {
+func folderExistsMaybeCreate(directory string, configName string, createIfDoesntExist bool) error {
 	_, err := os.Stat(directory)
 	if os.IsNotExist(err) {
 		if !createIfDoesntExist {
@@ -134,15 +135,15 @@ func (program *Program) RunProject(projectDirpath string) error {
 	// Check if configured folders exist, create output folders automatically if it doesn't.
 	//fmt.Printf("Creating output folders defined from \"config.fel\"...\n")
 	//fmt.Printf("------------------------------------------\n")
-	err = FolderExistsMaybeCreate(templateInputDirectory, "template_input_directory", false)
+	err = folderExistsMaybeCreate(templateInputDirectory, "template_input_directory", false)
 	if err != nil {
 		return err
 	}
-	err = FolderExistsMaybeCreate(templateOutputDirectory, "template_output_directory", true)
+	err = folderExistsMaybeCreate(templateOutputDirectory, "template_output_directory", true)
 	if err != nil {
 		return err
 	}
-	err = FolderExistsMaybeCreate(cssOutputDirectory, "css_output_directory", true)
+	err = folderExistsMaybeCreate(cssOutputDirectory, "css_output_directory", true)
 	if err != nil {
 		return err
 	}
@@ -223,8 +224,18 @@ func (program *Program) RunProject(projectDirpath string) error {
 				json, _ := json.MarshalIndent(astFile, "", "   ")
 				fmt.Printf("%s\nJSON AST\n---------------\n", string(json))
 
-				codeBlock := info.EmitBytecode(astFile)
-				vm.ExecuteNewProgram(codeBlock)
+				codeBlock := info.EmitBytecode(astFile, emitter.FileOptions{
+					IsTemplateFile: true,
+				})
+				result := vm.ExecuteNewProgram(codeBlock)
+				switch result := result.(type) {
+				case *bytecode.HTMLElement:
+					panic(result.Debug())
+				case nil:
+					// no-op
+				default:
+					panic(fmt.Sprintf("Unknown type: %T", result))
+				}
 			}
 		}
 		panic("Finished emitBytecode in Evaluator")

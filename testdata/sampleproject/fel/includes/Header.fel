@@ -59,11 +59,12 @@ Moo :: html {
 	}
 }
 
-Header(hey="yo!") {
+Header(hey="afjkfajk!") {
 	// todo(Jake): 2018-02-05
 	// 
 	// Test
 	//
+
 	div {
 		Moo {
 			span {
@@ -73,3 +74,16 @@ Header(hey="yo!") {
 		"more text"
 	}
 }
+
+/*<header class="header blue yo!">
+		header text
+		<div>
+			<div class="godddddamn">
+				<span>
+					oi!
+				</span>
+			</div>
+			more text
+		</div>
+	</header>
+*/

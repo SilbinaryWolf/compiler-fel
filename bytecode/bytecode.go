@@ -98,7 +98,8 @@ var kindToString = []string{
 type BlockKind int
 
 const (
-	BlockUnknown BlockKind = 0 + iota
+	BlockDefault BlockKind = 0 + iota
+	BlockTemplate
 	BlockProcedure
 	BlockHTMLComponentDefinition
 )
@@ -127,9 +128,10 @@ func (code *Code) String() string {
 
 // ie. a function, block-scope, HTMLComponent
 type Block struct {
-	kind      BlockKind
-	Opcodes   []Code
-	StackSize int
+	kind           BlockKind
+	Opcodes        []Code
+	StackSize      int
+	HasReturnValue bool
 }
 
 func NewBlock(kind BlockKind) *Block {
@@ -288,9 +290,9 @@ func (node *HTMLElement) debugIndent(indent int) string {
 			case HTMLKindElement:
 				buffer.WriteString(node.debugIndent(indent))
 			case HTMLKindFragment:
-				indent -= 1
-				buffer.WriteString(node.debugIndent(indent))
-				indent += 1
+				for _, node := range node.childNodes {
+					buffer.WriteString(node.debugIndent(indent))
+				}
 			case HTMLKindText:
 				for i := 0; i < indent; i++ {
 					buffer.WriteByte('\t')

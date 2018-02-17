@@ -42,6 +42,15 @@ type Emitter struct {
 	scope            *Scope
 	stackPos         int
 	htmlElementStack []string
+	fileOptions      FileOptions
+}
+
+type FileOptions struct {
+	IsTemplateFile bool // implicitHTMLFragmentReturn
+}
+
+func (emit *Emitter) IsTemplateFile() bool {
+	return emit.fileOptions.IsTemplateFile
 }
 
 func (emit *Emitter) PushScope() {
@@ -348,6 +357,14 @@ func (emit *Emitter) emitHTMLNode(opcodes []bytecode.Code, node *ast.Call) []byt
 			Kind:  bytecode.CallHTML,
 			Value: block,
 		})
+		// NOTE(Jake): 2018-02-17
+		//
+		// Assumption is that we'll have a HTMLFragment on the stack
+		// to pop from this call.
+		//
+		opcodes = append(opcodes, bytecode.Code{
+			Kind: bytecode.AppendPopHTMLElementToHTMLElement,
+		})
 		return opcodes
 	}
 
@@ -391,15 +408,9 @@ func (emit *Emitter) emitHTMLNode(opcodes []bytecode.Code, node *ast.Call) []byt
 		emit.htmlElementStack = emit.htmlElementStack[:len(emit.htmlElementStack)-1]
 	}
 
-	if isRootHTMLElement := len(emit.htmlElementStack) == 0; isRootHTMLElement {
-		opcodes = append(opcodes, bytecode.Code{
-			Kind: bytecode.AppendPopHTMLNodeReturn,
-		})
-	} else {
-		opcodes = append(opcodes, bytecode.Code{
-			Kind: bytecode.AppendPopHTMLElementToHTMLElement,
-		})
-	}
+	opcodes = append(opcodes, bytecode.Code{
+		Kind: bytecode.AppendPopHTMLElementToHTMLElement,
+	})
 	return opcodes
 }
 
@@ -616,19 +627,26 @@ func emitHTMLComponentDefinition(node *ast.HTMLComponentDefinition) *bytecode.Bl
 				emit.stackPos++
 			}
 		}
-		// Add special optional "children" parameter as first parameter
-		opcodes = emit.emitParameter(opcodes, "children", nil, (parameterCount-1)-emit.stackPos)
-		emit.stackPos++
+		if hasChildren {
+			// Add special optional "children" parameter as first parameter
+			opcodes = emit.emitParameter(opcodes, "children", nil, (parameterCount-1)-emit.stackPos)
+			emit.stackPos++
+		}
 	}
+
+	opcodes = append(opcodes, bytecode.Code{
+		Kind: bytecode.PushAllocHTMLFragment,
+	})
+	emit.stackPos++
 
 	for _, node := range node.Nodes() {
 		opcodes = emit.emitStatement(opcodes, node)
 	}
 
 	// Implicit 'return' for top-level HTML nodes
-	opcodes = append(opcodes, bytecode.Code{
-		Kind: bytecode.PushReturnHTMLNodeArray,
-	})
+	//opcodes = append(opcodes, bytecode.Code{
+	//	Kind: bytecode.PushReturnHTMLNodeArray,
+	//})
 	opcodes = append(opcodes, bytecode.Code{
 		Kind: bytecode.Return,
 	})
@@ -636,6 +654,7 @@ func emitHTMLComponentDefinition(node *ast.HTMLComponentDefinition) *bytecode.Bl
 	block := bytecode.NewBlock(bytecode.BlockHTMLComponentDefinition)
 	block.Opcodes = opcodes
 	block.StackSize = emit.stackPos
+	block.HasReturnValue = true
 	return block
 }
 
@@ -682,9 +701,16 @@ func emitProcedureDefinition(node *ast.ProcedureDefinition) *bytecode.Block {
 		opcodes = emit.emitStatement(opcodes, node)
 	}
 
+	// todo(Jake): If last opcode is not a return statement, add a return statement.
+	lastOpcode := &opcodes[len(opcodes)-1]
+	if lastOpcode.Kind != bytecode.Return {
+		panic("emitProcedureDefinition: Automatically add return")
+	}
+
 	block := bytecode.NewBlock(bytecode.BlockProcedure)
 	block.Opcodes = opcodes
 	block.StackSize = emit.stackPos
+	block.HasReturnValue = node.TypeInfo != nil
 	return block
 }
 
@@ -816,6 +842,11 @@ func (emit *Emitter) emitStatement(opcodes []bytecode.Code, node ast.Node) []byt
 		switch node.Kind() {
 		case ast.CallProcedure:
 			opcodes = emit.emitProcedureCall(opcodes, node)
+			// NOTE(Jake): 2018-02-17
+			//
+			// Since the context of this is simply a statement
+			// we just pop the return value. (if there is one)
+			//
 			resultTypeInfo := node.Definition.TypeInfo
 			if resultTypeInfo != nil {
 				opcodes = append(opcodes, bytecode.Code{
@@ -980,18 +1011,47 @@ func (emit *Emitter) emitStatement(opcodes []bytecode.Code, node ast.Node) []byt
 	return opcodes
 }
 
-func (emit *Emitter) EmitBytecode(node ast.Node) *bytecode.Block {
+func (emit *Emitter) EmitBytecode(node ast.Node, fileOptions FileOptions) *bytecode.Block {
+	oldOptions := emit.fileOptions
+	emit.fileOptions = fileOptions
+	defer func() {
+		emit.fileOptions = oldOptions
+	}()
+	isTemplateFile := emit.IsTemplateFile()
+
+	// todo(Jake): Abstract this out to a public method
 	for _, node := range node.Nodes() {
 		emit.emitGlobalScope(node)
 	}
 
-	opcodes := make([]bytecode.Code, 0, 10)
-	for _, node := range node.Nodes() {
-		opcodes = emit.emitStatement(opcodes, node)
+	// Emit bytecode
+	opcodes := make([]bytecode.Code, 0, 50)
+	codeBlockType := bytecode.BlockDefault
+	{
+		if isTemplateFile {
+			// NOTE(Jake): 2018-02-17
+			//
+			// For template files we need this for the return value
+			//
+			opcodes = append(opcodes, bytecode.Code{
+				Kind: bytecode.PushAllocHTMLFragment,
+			})
+			codeBlockType = bytecode.BlockTemplate
+		}
+		for _, node := range node.Nodes() {
+			opcodes = emit.emitStatement(opcodes, node)
+		}
+		if isTemplateFile {
+			opcodes = append(opcodes, bytecode.Code{
+				Kind: bytecode.Return,
+			})
+		}
 	}
-	codeBlock := new(bytecode.Block)
+
+	codeBlock := bytecode.NewBlock(codeBlockType)
 	codeBlock.Opcodes = opcodes
 	codeBlock.StackSize = emit.stackPos
+	codeBlock.HasReturnValue = codeBlockType == bytecode.BlockTemplate
 	debugOpcodes(opcodes)
 	fmt.Printf("Final bytecode output above\nStack Size: %d\n", codeBlock.StackSize)
 	return codeBlock
