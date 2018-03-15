@@ -4,12 +4,11 @@ import (
 	"fmt"
 
 	"github.com/silbinarywolf/compiler-fel/ast"
-	"github.com/silbinarywolf/compiler-fel/token"
 	"github.com/silbinarywolf/compiler-fel/types"
 )
 
 type TypeInfoManager struct {
-	registeredTypes map[string]TypeInfo
+	registeredTypes map[TypeInfo_Identifier]TypeInfo
 
 	// built-in
 	intInfo      TypeInfo_Int
@@ -17,17 +16,33 @@ type TypeInfoManager struct {
 	stringInfo   TypeInfo_String
 	boolInfo     TypeInfo_Bool
 	htmlNodeInfo TypeInfo_HTMLNode
+
+	// built-in structs
+	workspaceInfo *TypeInfo_Struct
 }
 
 func (manager *TypeInfoManager) Init() {
 	if manager.registeredTypes != nil {
 		panic("Cannot initialize TypeInfoManager twice.")
 	}
-	manager.registeredTypes = make(map[string]TypeInfo)
+	manager.registeredTypes = make(map[TypeInfo_Identifier]TypeInfo)
+
+	// Primitives
 	manager.register("int", manager.NewTypeInfoInt())
 	manager.register("string", manager.NewTypeInfoString())
 	manager.register("float", manager.NewTypeInfoFloat())
 	manager.register("bool", manager.NewTypeInfoBool())
+
+	// Internal types
+	manager.workspaceInfo = manager.NewInternalStructInfo(
+		"Workspace",
+		[]TypeInfo_StructField{
+			NewInternalStructField("template_input_directory", "string"),
+			NewInternalStructField("template_output_directory", "string"),
+			NewInternalStructField("css_output_directory", "string"),
+			NewInternalStructField("css_files", "[]string"),
+		},
+	)
 }
 
 func (manager *TypeInfoManager) Clear() {
@@ -38,19 +53,47 @@ func (manager *TypeInfoManager) Clear() {
 }
 
 func (manager *TypeInfoManager) register(name string, typeInfo TypeInfo) {
-	_, ok := manager.registeredTypes[name]
+	key := TypeInfo_Identifier{
+		Name:       name,
+		ArrayDepth: 0,
+	}
+	_, ok := manager.registeredTypes[key]
 	if ok {
 		panic(fmt.Sprintf("Already registered \"%s\" type.", name))
 	}
-	manager.registeredTypes[name] = typeInfo
+	manager.registeredTypes[key] = typeInfo
 }
 
-func (manager *TypeInfoManager) get(name string) TypeInfo {
-	return manager.registeredTypes[name]
+func (manager *TypeInfoManager) getByName(name string) TypeInfo {
+	return manager.registeredTypes[TypeInfo_Identifier{
+		Name:       name,
+		ArrayDepth: 0,
+	}]
+}
+
+func (manager *TypeInfoManager) get(identifier TypeInfo_Identifier) TypeInfo {
+	name := identifier.Name
+	arrayDepth := identifier.ArrayDepth
+	resultType := manager.getByName(name)
+	if resultType == nil {
+		return nil
+	}
+	if arrayDepth > 0 {
+		for i := 0; i < arrayDepth; i++ {
+			underlyingType := resultType
+			resultType = manager.NewTypeInfoArray(underlyingType)
+		}
+	}
+	return resultType
 }
 
 type TypeInfo interface {
 	String() string
+}
+
+type TypeInfo_Identifier struct {
+	Name       string
+	ArrayDepth int
 }
 
 // Int
@@ -142,58 +185,99 @@ func NewHTMLComponentNode(name string) TypeInfo {
 
 // Struct
 type TypeInfo_Struct struct {
-	name       string
-	definition *ast.StructDefinition
+	name   string
+	fields []TypeInfo_StructField
+	//definition *ast.StructDefinition
 }
 
-func (info *TypeInfo_Struct) String() string                    { return info.name }
-func (info *TypeInfo_Struct) Definition() *ast.StructDefinition { return info.definition }
+func (info *TypeInfo_Struct) String() string                 { return info.name }
+func (info *TypeInfo_Struct) Name() string                   { return info.name }
+func (info *TypeInfo_Struct) Fields() []TypeInfo_StructField { return info.fields }
+
+//func (info *TypeInfo_Struct) Definition() *ast.StructDefinition { return info.definition }
+
+func (info *TypeInfo_Struct) GetFieldByName(name string) *TypeInfo_StructField {
+	fields := info.Fields()
+	for i := 0; i < len(fields); i++ {
+		field := &fields[i]
+		if field.Name == name {
+			return field
+		}
+	}
+	return nil
+}
 
 func (manager *TypeInfoManager) NewStructInfo(definiton *ast.StructDefinition) *TypeInfo_Struct {
 	result := new(TypeInfo_Struct)
 	result.name = definiton.Name.String()
-	result.definition = definiton
+	result.fields = make([]TypeInfo_StructField, 0, len(definiton.Fields))
+	for i, field := range definiton.Fields {
+		result.fields = append(result.fields, TypeInfo_StructField{
+			Index: i,
+			Name:  field.Name.String(),
+			TypeIdentifier: TypeInfo_Identifier{
+				Name:       field.TypeIdentifier.Name.String(),
+				ArrayDepth: field.TypeIdentifier.ArrayDepth,
+			},
+			TypeInfo:     field.TypeInfo,
+			DefaultValue: field.Expression,
+		})
+	}
+	return result
+}
+
+func (manager *TypeInfoManager) NewInternalStructInfo(name string, fields []TypeInfo_StructField) *TypeInfo_Struct {
+	for i := range fields {
+		field := &fields[i]
+		field.Index = i
+		field.TypeInfo = manager.get(field.TypeIdentifier)
+		if field.TypeInfo == nil {
+			panic(fmt.Sprintf("NewInternalStructInfo: Cannot find type %s for internal struct field %s", field.TypeIdentifier.Name, field.Name))
+		}
+	}
+	result := new(TypeInfo_Struct)
+	result.name = name
+	result.fields = fields
 	return result
 }
 
 type TypeInfo_StructField struct {
-	Name string
-	Type string
+	Name           string
+	Index          int
+	TypeIdentifier TypeInfo_Identifier
+	TypeInfo       types.TypeInfo
+	DefaultValue   ast.Expression
 }
 
-func (manager *TypeInfoManager) CreateNewStructInfo(name string, fields ...TypeInfo_StructField) *TypeInfo_Struct {
-	definition := new(ast.StructDefinition)
-	definition.Name = token.Token{
-		Data:     name,
-		Filepath: "internal",
-	}
-	for _, field := range fields {
-		typeInfo := manager.get(field.Type)
-		if typeInfo == nil {
-			panic(fmt.Sprintf("CreateNewStructInfo: Unable to get type info for %s (type: %s).", field.Name, field.Type))
+func NewInternalStructField(name string, typeIdentName string) TypeInfo_StructField {
+	arrayDepth := 0
+	for typeIdentName[0] == '[' {
+		if typeIdentName[1] == ']' {
+			typeIdentName = typeIdentName[2:]
+			arrayDepth++
 		}
-
 	}
+	//arrayDepth := strings.Count(typeIdentName, "[]")
+	return TypeInfo_StructField{
+		Name: name,
+		TypeIdentifier: TypeInfo_Identifier{
+			Name:       typeIdentName,
+			ArrayDepth: arrayDepth,
+		},
+	}
+}
 
-	return manager.NewStructInfo(definition)
+// Internal Structs
+func (manager *TypeInfoManager) InternalWorkspaceStruct() *TypeInfo_Struct {
+	return manager.workspaceInfo
 }
 
 // Functions
 func (p *Parser) DetermineType(node *ast.Type) types.TypeInfo {
-	var resultType types.TypeInfo
-
-	str := node.Name.String()
-	resultType = p.typeinfo.get(str)
-	if resultType == nil {
-		return nil
-	}
-	if node.ArrayDepth > 0 {
-		for i := 0; i < node.ArrayDepth; i++ {
-			underlyingType := resultType
-			resultType = p.typeinfo.NewTypeInfoArray(underlyingType)
-		}
-	}
-	return resultType
+	return p.typeinfo.get(TypeInfo_Identifier{
+		Name:       node.Name.String(),
+		ArrayDepth: node.ArrayDepth,
+	})
 }
 
 func TypeEquals(a TypeInfo, b TypeInfo) bool {

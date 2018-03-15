@@ -187,7 +187,7 @@ Loop:
 					continue
 				}
 				if operatorToken.Kind == token.DeclareSet {
-					p.AddError(operatorToken, fmt.Errorf("Cannot use := on a property."))
+					p.AddError(operatorToken, fmt.Errorf("Cannot use := on a property. (%s)", ast.LeftHandSide(leftHandSide)))
 					continue
 				}
 
@@ -674,6 +674,7 @@ Loop:
 				p.AddExpectError(t, token.BraceOpen)
 				return nil
 			}
+			p.eatNewlines()
 
 			childNodes := make([]ast.Node, 0, 10)
 
@@ -684,6 +685,12 @@ Loop:
 				switch sep.Kind {
 				case token.Comma:
 					childNodes = append(childNodes, expr)
+					// Handle trailing comma
+					p.eatNewlines()
+					if p.PeekNextToken().Kind == token.BraceClose {
+						p.GetNextToken()
+						break ArrayLiteralLoop
+					}
 					continue
 				case token.BraceClose:
 					childNodes = append(childNodes, expr)
@@ -953,6 +960,15 @@ func (p *Parser) parseDefinition(name token.Token) ast.Node {
 		return node
 	case token.Identifier:
 		switch keyword {
+		case "workspace":
+			if t := p.GetNextToken(); t.Kind != token.BraceOpen {
+				p.AddExpectError(t, token.BraceOpen)
+				return nil
+			}
+			childNodes := p.parseStatements()
+			node := new(ast.WorkspaceDefinition)
+			node.ChildNodes = childNodes
+			return node
 		case "css":
 			if t := p.GetNextToken(); t.Kind != token.BraceOpen {
 				p.AddExpectError(t, token.BraceOpen)
@@ -1067,7 +1083,7 @@ func (p *Parser) parseDefinition(name token.Token) ast.Node {
 			return node
 		}
 	}
-	p.AddError(keywordToken, fmt.Errorf("Unexpected keyword '%s' for definition (::) type. Expected 'css', 'html', 'struct' or () on Line %d", keyword, keywordToken.Line))
+	p.AddError(keywordToken, fmt.Errorf("Unexpected keyword '%s' for definition (::) type. Expected 'css', 'html', 'struct', 'workspace' or () on Line %d", keyword, keywordToken.Line))
 	return nil
 }
 

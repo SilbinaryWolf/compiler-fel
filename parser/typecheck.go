@@ -61,7 +61,7 @@ func (p *Parser) typecheckStructLiteral(scope *Scope, literal *ast.StructLiteral
 		p.AddError(literal.Name, fmt.Errorf("Struct %s does not have any fields.", name))
 		return
 	}
-	literal.TypeInfo = p.typeinfo.get(name)
+	literal.TypeInfo = p.typeinfo.getByName(name)
 	if literal.TypeInfo == nil {
 		p.PanicError(literal.Name, fmt.Errorf("Missing type info for \"%s :: struct\".", name))
 		return
@@ -156,13 +156,17 @@ func (p *Parser) typecheckCall(scope *Scope, node *ast.Call) {
 }
 
 func (p *Parser) typecheckProcedureCall(scope *Scope, node *ast.Call) {
-	typeInfo := p.typeinfo.get(node.Name.String())
+	typeInfo := p.typeinfo.getByName(node.Name.String())
 	callTypeInfo, ok := typeInfo.(*TypeInfo_Procedure)
 	if !ok {
 		// todo(Jake): 2018-01-14
 		//
 		//
 		//
+		if typeInfo == nil {
+			p.AddError(node.Name, fmt.Errorf("Procedure \"%s()\" is not defined.", node.Name.String()))
+			return
+		}
 		p.PanicError(node.Name, fmt.Errorf("Expected %s to be a procedure, instead got %T.", node.Name.String(), typeInfo))
 		return
 	}
@@ -427,10 +431,9 @@ func (p *Parser) getTypeFromLeftHandSide(leftHandSideTokens []token.Token, scope
 			p.AddError(nameToken, fmt.Errorf("Property \"%s\" does not exist on type \"%s\".", concatPropertyName.String(), variableTypeInfo.String()))
 			return nil
 		}
-		structDef := structInfo.Definition()
-		structField := structDef.GetFieldByName(propertyName)
+		structField := structInfo.GetFieldByName(propertyName)
 		if structField == nil {
-			p.AddError(nameToken, fmt.Errorf("Property \"%s\" does not exist on \"%s :: struct\".", concatPropertyName.String(), structDef.Name))
+			p.AddError(nameToken, fmt.Errorf("Property \"%s\" does not exist on \"%s :: struct\".", concatPropertyName.String(), structInfo.Name()))
 			return nil
 		}
 		variableTypeInfo = structField.TypeInfo
@@ -577,6 +580,7 @@ func (p *Parser) typecheckStatements(topNode ast.Node, scope *Scope) {
 			*ast.CSSConfigDefinition,
 			*ast.HTMLComponentDefinition,
 			*ast.StructDefinition,
+			*ast.WorkspaceDefinition,
 			*ast.ProcedureDefinition:
 			// Skip nodes and child nodes
 			continue
@@ -828,6 +832,13 @@ func (p *Parser) typecheckProcedureDefinition(node *ast.ProcedureDefinition, sco
 	p.typeinfo.register(node.Name.String(), functionType)
 }
 
+func (p *Parser) typecheckWorkspaceDefinition(node *ast.WorkspaceDefinition) {
+	scope := NewScope(nil)
+	node.WorkspaceTypeInfo = p.typeinfo.InternalWorkspaceStruct()
+	scope.Set("workspace", node.WorkspaceTypeInfo)
+	p.typecheckStatements(node, scope)
+}
+
 func (p *Parser) TypecheckFile(file *ast.File, globalScope *Scope) {
 	scope := NewScope(globalScope)
 	p.typecheckStatements(file, scope)
@@ -852,6 +863,12 @@ func (p *Parser) TypecheckAndFinalize(files []*ast.File) {
 				*ast.Call,
 				*ast.Return:
 				// no-op, these are checked in TypecheckFile()
+			case *ast.WorkspaceDefinition:
+				if node == nil {
+					p.PanicMessage(fmt.Errorf("Found nil top-level %T.", node))
+					continue
+				}
+				p.typecheckWorkspaceDefinition(node)
 			case *ast.ProcedureDefinition:
 				if node == nil {
 					p.PanicMessage(fmt.Errorf("Found nil top-level %T.", node))

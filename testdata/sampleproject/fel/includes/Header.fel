@@ -4,9 +4,9 @@ Header :: css_config {
 	}
 }
 
-Me :: struct {
-	arr: []string = []string{"ayyy"}
-}
+//Me :: struct {
+//	arr: []string = []string{"ayyy"}
+//}
 
 Header :: struct {
 	isBlue: bool = true
@@ -44,14 +44,14 @@ myFunc :: (a string, b string) string {
 	return a + b
 }
 
-blah := myFunc("Test", "best")
+/*blah := myFunc("Test", "best")
 
 test := []string{"item1", "meow"}
 
 test []= "test"
 
 me := Me{}
-me.arr []= "wop"
+me.arr []= "wop"*/
 
 Moo :: html {
 	div(class="godddddamn") {
@@ -73,10 +73,6 @@ Header(hey="afjkfajk!") {
 		}
 		"more text"
 	}
-}
-
-buildThings :: config {
-
 }
 
 /*<header class="header blue yo!">

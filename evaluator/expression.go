@@ -7,7 +7,6 @@ import (
 
 	"github.com/silbinarywolf/compiler-fel/ast"
 	"github.com/silbinarywolf/compiler-fel/data"
-	"github.com/silbinarywolf/compiler-fel/parser"
 	"github.com/silbinarywolf/compiler-fel/token"
 )
 
@@ -31,7 +30,8 @@ func (program *Program) evaluateExpression(expressionNode *ast.Expression, scope
 
 		switch node := itNode.(type) {
 		case *ast.StructLiteral:
-			typeinfo := node.TypeInfo.(*parser.TypeInfo_Struct)
+			panic("Deprecated")
+			/*typeinfo := node.TypeInfo.(*parser.TypeInfo_Struct)
 			structDef := typeinfo.Definition()
 
 			resultValue := new(data.Struct)
@@ -61,7 +61,7 @@ func (program *Program) evaluateExpression(expressionNode *ast.Expression, scope
 				}
 				resultValue.Fields = append(resultValue.Fields, value)
 			}
-			stack = append(stack, resultValue)
+			stack = append(stack, resultValue)*/
 			//panic(fmt.Sprintf("Debug struct literal data: %T, %s", typeinfo, resultValue))
 		case *ast.ArrayLiteral:
 			panic("NOTE(Jake): Deprecated evaluator, Create()")

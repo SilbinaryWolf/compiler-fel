@@ -102,6 +102,7 @@ const (
 	BlockTemplate
 	BlockProcedure
 	BlockHTMLComponentDefinition
+	BlockWorkspaceDefinition
 )
 
 type Code struct {
@@ -129,6 +130,7 @@ func (code *Code) String() string {
 // ie. a function, block-scope, HTMLComponent
 type Block struct {
 	kind           BlockKind
+	Name           string // procedure name / workspace name / etc
 	Opcodes        []Code
 	StackSize      int
 	HasReturnValue bool

@@ -25,6 +25,20 @@ func (kind CallKind) String() string {
 	return callKindToString[kind]
 }
 
+type LeftHandSide []token.Token
+
+func (parts LeftHandSide) String() string {
+	result := ""
+	for i, val := range parts {
+		if i != 0 {
+			result += "." + val.String()
+			continue
+		}
+		result += val.String()
+	}
+	return result
+}
+
 /*type TypeKind int
 
 const (
@@ -127,7 +141,6 @@ type For struct {
 	Base
 }
 
-// ie. for block scoping with an `if`, `for`, etc
 type Block struct {
 	Base
 }
@@ -148,6 +161,12 @@ type StructLiteral struct {
 	Name     token.Token
 	Fields   []Parameter
 	TypeInfo types.TypeInfo
+}
+
+type WorkspaceDefinition struct {
+	Name              token.Token
+	WorkspaceTypeInfo types.TypeInfo
+	Base
 }
 
 func (node *StructLiteral) Nodes() []Node {
