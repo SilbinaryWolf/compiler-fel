@@ -4,6 +4,18 @@ Header :: css_config {
 	}
 }
 
+default :: workspace {
+	// NOTE(Jake): Where to output HTML / PHP / JavaScript, depending on `backendLanguage`
+	//             This is a 1-1 mapping, so if you made "Page.fel" it would output in /templates/Page.php
+	w := workspace
+	w.template_input_directory = "templates"
+	w.template_output_directory = "../public/templates"
+	w.css_output_directory = "../public/css"
+	w.css_files = []string{
+		"main.css",
+	}
+}
+
 //Me :: struct {
 //	arr: []string = []string{"ayyy"}
 //}

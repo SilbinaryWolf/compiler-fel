@@ -37,10 +37,10 @@ func (manager *TypeInfoManager) Init() {
 	manager.workspaceInfo = manager.NewInternalStructInfo(
 		"Workspace",
 		[]TypeInfo_StructField{
-			NewInternalStructField("template_input_directory", "string"),
-			NewInternalStructField("template_output_directory", "string"),
-			NewInternalStructField("css_output_directory", "string"),
-			NewInternalStructField("css_files", "[]string"),
+			manager.NewInternalStructField("template_input_directory", "string"),
+			manager.NewInternalStructField("template_output_directory", "string"),
+			manager.NewInternalStructField("css_output_directory", "string"),
+			manager.NewInternalStructField("css_files", "[]string"),
 		},
 	)
 }
@@ -230,10 +230,6 @@ func (manager *TypeInfoManager) NewInternalStructInfo(name string, fields []Type
 	for i := range fields {
 		field := &fields[i]
 		field.Index = i
-		field.TypeInfo = manager.get(field.TypeIdentifier)
-		if field.TypeInfo == nil {
-			panic(fmt.Sprintf("NewInternalStructInfo: Cannot find type %s for internal struct field %s", field.TypeIdentifier.Name, field.Name))
-		}
 	}
 	result := new(TypeInfo_Struct)
 	result.name = name
@@ -249,7 +245,7 @@ type TypeInfo_StructField struct {
 	DefaultValue   ast.Expression
 }
 
-func NewInternalStructField(name string, typeIdentName string) TypeInfo_StructField {
+func (manager *TypeInfoManager) NewInternalStructField(name string, typeIdentName string) TypeInfo_StructField {
 	arrayDepth := 0
 	for typeIdentName[0] == '[' {
 		if typeIdentName[1] == ']' {
@@ -258,13 +254,21 @@ func NewInternalStructField(name string, typeIdentName string) TypeInfo_StructFi
 		}
 	}
 	//arrayDepth := strings.Count(typeIdentName, "[]")
-	return TypeInfo_StructField{
-		Name: name,
-		TypeIdentifier: TypeInfo_Identifier{
-			Name:       typeIdentName,
-			ArrayDepth: arrayDepth,
-		},
+	typeIdent := TypeInfo_Identifier{
+		Name:       typeIdentName,
+		ArrayDepth: arrayDepth,
 	}
+	typeInfo := manager.get(typeIdent)
+	if typeInfo == nil {
+		panic(fmt.Sprintf("NewInternalStructField: Cannot find type info for %s on property %s", typeIdentName, name))
+	}
+	result := TypeInfo_StructField{
+		Name:           name,
+		TypeIdentifier: typeIdent,
+		TypeInfo:       typeInfo,
+	}
+	result.DefaultValue.TypeInfo = typeInfo
+	return result
 }
 
 // Internal Structs

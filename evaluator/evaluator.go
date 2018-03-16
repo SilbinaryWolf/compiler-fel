@@ -214,7 +214,7 @@ func (program *Program) RunProject(projectDirpath string) error {
 
 	// EXPERIMENTAL: Bytecode
 	{
-		info := emitter.New()
+		emit := emitter.New()
 		for _, astFile := range astFiles {
 			if strings.Contains(astFile.Filepath, "Header.fel") {
 				if len(astFile.Nodes()) == 0 {
@@ -224,9 +224,23 @@ func (program *Program) RunProject(projectDirpath string) error {
 				json, _ := json.MarshalIndent(astFile, "", "   ")
 				fmt.Printf("%s\nJSON AST\n---------------\n", string(json))
 
-				codeBlock := info.EmitBytecode(astFile, emitter.FileOptions{
+				// NOTE(Jake): 2018-03-16
+				//
+				// Not pulled out as dependencies aren't resolved properly yet
+				//
+				emit.EmitGlobalScope(astFile)
+				codeBlock := emit.EmitBytecode(astFile, emitter.FileOptions{
 					IsTemplateFile: true,
 				})
+
+				// TEST: Workspace
+				for _, workspaceCode := range emit.Workspaces() {
+					result := vm.ExecuteNewProgram(workspaceCode)
+					panic(fmt.Sprintf("Workspace type: %T", result))
+				}
+				panic(fmt.Sprintf("workspace to test, count: %d", len(emit.Workspaces())))
+
+				// TEST: Running bytecode of template
 				result := vm.ExecuteNewProgram(codeBlock)
 				switch result := result.(type) {
 				case *bytecode.HTMLElement:

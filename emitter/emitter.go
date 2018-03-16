@@ -102,6 +102,10 @@ func New() *Emitter {
 	return emit
 }
 
+func (emit *Emitter) Workspaces() []*bytecode.Block {
+	return emit.workspaces
+}
+
 func appendReverse(nodes []ast.Node, nodesToPrepend []ast.Node) []ast.Node {
 	for i := len(nodesToPrepend) - 1; i >= 0; i-- {
 		node := nodesToPrepend[i]
@@ -183,7 +187,7 @@ func (emit *Emitter) emitNewFromType(opcodes []bytecode.Code, typeInfo types.Typ
 		name := typeInfo.Name()
 		fields := typeInfo.Fields()
 		if name == "" || len(fields) == 0 {
-			panic("emitExpression: TypeInfo_Struct: Missing Definition() data, this should be handled in the type checker.")
+			panic("emitExpression: TypeInfo_Struct: Missing field data, this should be handled in the type checker.")
 		}
 		opcodes = append(opcodes, bytecode.Code{
 			Kind:  bytecode.PushAllocStruct,
@@ -307,7 +311,7 @@ func (emit *Emitter) emitHTMLNode(opcodes []bytecode.Code, node *ast.Call) []byt
 		name := node.Name.String()
 		block, ok := emit.symbols[name]
 		if !ok {
-			panic(fmt.Sprintf("Missing HTML component %s, this should be caught in the typechecker", name))
+			panic(fmt.Sprintf("Missing HTML component \"%s\", this should be caught in the typechecker", name))
 		}
 
 		// If definition has used the "children" keyword
@@ -561,6 +565,7 @@ func (emit *Emitter) emitExpression(opcodes []bytecode.Code, topNode *ast.Expres
 
 				for offset, structField := range structTypeInfoFields {
 					name := structField.Name
+
 					exprNode := &structField.DefaultValue
 					for _, literalField := range structLiteral.Fields {
 						if name == literalField.Name.String() {
@@ -745,16 +750,27 @@ func (emit *Emitter) emitGlobalScope(node ast.Node) {
 
 func emitWorkspaceDefinition(node *ast.WorkspaceDefinition) *bytecode.Block {
 	emit := New()
+	structTypeInfo := node.WorkspaceTypeInfo.(*parser.TypeInfo_Struct)
 	//emit.PushScope()
 	//defer emit.PopScope()
+
 	opcodes := make([]bytecode.Code, 0, 35)
 	{
-		opcodes = emit.emitParameter(opcodes, "workspace", node.WorkspaceTypeInfo, emit.stackPos)
+		opcodes := emit.emitNewFromType(opcodes, structTypeInfo)
+		emit.scope.DeclareSet("workspace", VariableInfo{
+			kind:           VariableStruct,
+			structTypeInfo: structTypeInfo,
+			stackPos:       emit.stackPos,
+		})
 		emit.stackPos++
+		for _, node := range node.Nodes() {
+			opcodes = emit.emitStatement(opcodes, node)
+		}
+		opcodes = append(opcodes, bytecode.Code{
+			Kind: bytecode.Return,
+		})
 	}
-	for _, node := range node.Nodes() {
-		opcodes = emit.emitStatement(opcodes, node)
-	}
+
 	block := bytecode.NewBlock(bytecode.BlockWorkspaceDefinition)
 	block.Name = node.Name.String()
 	block.Opcodes = opcodes
@@ -771,8 +787,9 @@ func (emit *Emitter) emitStatement(opcodes []bytecode.Code, node ast.Node) []byt
 			opcodes = emit.emitStatement(opcodes, node)
 		}
 		emit.PopScope()
-	case *ast.WorkspaceDefinition:
-		// Handled previously.
+	case *ast.WorkspaceDefinition,
+		*ast.ProcedureDefinition:
+		// Handled in emitGlobalScope()
 	case *ast.CSSDefinition:
 		fmt.Printf("todo(Jake): *ast.CSSDefinition\n")
 
@@ -793,8 +810,6 @@ func (emit *Emitter) emitStatement(opcodes []bytecode.Code, node ast.Node) []byt
 			}
 			//debugOpcodes(opcodes)
 		}*/
-	case *ast.ProcedureDefinition:
-		// Handled previously.
 	case *ast.CSSRule:
 		/*var emptyTypeData *data.CSSDefinition
 		internalType := reflect.TypeOf(emptyTypeData)
@@ -1045,6 +1060,12 @@ func (emit *Emitter) emitStatement(opcodes []bytecode.Code, node ast.Node) []byt
 	return opcodes
 }
 
+func (emit *Emitter) EmitGlobalScope(node ast.Node) {
+	for _, node := range node.Nodes() {
+		emit.emitGlobalScope(node)
+	}
+}
+
 func (emit *Emitter) EmitBytecode(node ast.Node, fileOptions FileOptions) *bytecode.Block {
 	oldOptions := emit.fileOptions
 	emit.fileOptions = fileOptions
@@ -1052,11 +1073,6 @@ func (emit *Emitter) EmitBytecode(node ast.Node, fileOptions FileOptions) *bytec
 		emit.fileOptions = oldOptions
 	}()
 	isTemplateFile := emit.IsTemplateFile()
-
-	// todo(Jake): Abstract this out to a public method
-	for _, node := range node.Nodes() {
-		emit.emitGlobalScope(node)
-	}
 
 	// Emit bytecode
 	opcodes := make([]bytecode.Code, 0, 50)

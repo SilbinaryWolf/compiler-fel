@@ -967,6 +967,7 @@ func (p *Parser) parseDefinition(name token.Token) ast.Node {
 			}
 			childNodes := p.parseStatements()
 			node := new(ast.WorkspaceDefinition)
+			node.Name = name
 			node.ChildNodes = childNodes
 			return node
 		case "css":
