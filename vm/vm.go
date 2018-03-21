@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/silbinarywolf/compiler-fel/bytecode"
+	"github.com/silbinarywolf/compiler-fel/parser"
 )
 
 type Program struct {
@@ -88,8 +89,8 @@ func (program *Program) executeBytecode(codeBlock *bytecode.Block) {
 			fieldData := structData.GetField(fieldOffset)
 			program.registerStack[len(program.registerStack)-1] = fieldData
 		case bytecode.PushAllocStruct:
-			structFieldCount := code.Value.(int)
-			structData := bytecode.NewStruct(structFieldCount)
+			structTypeInfo := code.Value.(*parser.TypeInfo_Struct)
+			structData := bytecode.NewStruct(len(structTypeInfo.Fields()), structTypeInfo)
 			program.registerStack = append(program.registerStack, structData)
 		case bytecode.PushAllocInternalStruct:
 			panic("No support, to be removed.")

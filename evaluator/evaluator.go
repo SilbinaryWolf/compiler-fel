@@ -20,6 +20,81 @@ import (
 	"github.com/silbinarywolf/compiler-fel/vm"
 )
 
+type Workspace struct {
+	templateInputDirectory  string
+	templateOutputDirectory string
+	cssOutputDirectory      string
+	cssFiles                []string
+}
+
+func GetWorkspacesFromConfig(configFilepath string) {
+	totalTimeStart := time.Now()
+	if _, err := os.Stat(configFilepath); os.IsNotExist(err) {
+		return fmt.Errorf("Cannot find config.fel in root of project directory: %v", configFilepath)
+	}
+	//var readFileTime time.Duration
+
+	filepath := configFilepath
+
+	p := parser.New()
+
+	//fileReadStart := time.Now()
+	filecontentsAsBytes, err := ioutil.ReadFile(filepath)
+	//readFileTime += time.Since(fileReadStart)
+
+	if err != nil {
+		return fmt.Errorf("An error occurred reading file: %v, Error message: %v", filepath, err)
+	}
+	astFile := p.Parse(filecontentsAsBytes, filepath)
+	if astFile == nil {
+		if p.HasErrors() {
+			p.PrintErrors()
+		}
+		return fmt.Errorf("Parse errors in config.fel in root of project directory")
+	}
+	p.TypecheckFile(astFile, nil)
+	if p.HasErrors() {
+		p.PrintErrors()
+		return fmt.Errorf("Parse errors in config.fel in root of project directory")
+	}
+	if astFile == nil {
+		return fmt.Errorf("Cannot find config.fel in root of project directory: %v", projectDirpath)
+	}
+
+	emit := emitter.New()
+	if len(astFile.Nodes()) == 0 {
+		panic("Missing parsed nodes from file.")
+	}
+
+	// NOTE(Jake): 2018-03-16
+	//
+	// Not pulled out as dependencies aren't resolved properly yet
+	//
+	emit.EmitGlobalScope(astFile)
+	codeBlock := emit.EmitBytecode(astFile, emitter.FileOptions{
+		IsTemplateFile: true,
+	})
+
+	// TEST: Workspace
+	workspaceCodeBlocks := emit.Workspaces()
+	workspaces := make([]Workspace, 0, len(workspaceCodeBlocks))
+	for _, workspaceCode := range workspaceCodeBlocks {
+		result := vm.ExecuteNewProgram(workspaceCode)
+		structData := result.(*bytecode.Struct)
+		workspace := Workspace{}
+		workspace.templateInputDirectory = structData.GetFieldByName("template_input_directory").(string)
+		workspace.templateOutputDirectory = structData.GetFieldByName("template_output_directory").(string)
+		workspace.cssOutputDirectory = structData.GetFieldByName("css_output_directory").(string)
+		workspace.cssFiles = structData.GetFieldByName("css_files").([]string)
+		workspaces = append(workspaces, workspace)
+	}
+	panic(fmt.Sprintf("workspace to test, count: %d", len(workspaces)))
+}
+
+//////
+//////
+//////
+
 /*func (program *Program) CreateDataType(t token.Token) data.Type {
 	typename := t.String()
 	switch typename {
@@ -32,18 +107,6 @@ import (
 		panic(fmt.Sprintf("Unknown type name: %s", typename))
 	}
 }*/
-
-func (program *Program) GetConfigString(configName string) (string, error) {
-	value, ok := program.globalScope.Get(configName)
-	if !ok {
-		return "", fmt.Errorf("%s is undefined in config.fel. This definition is required.", configName)
-	}
-	valueAsserted, ok := value.(*data.String)
-	if !ok {
-		return "", fmt.Errorf("%s is expected to be a string.", configName)
-	}
-	return valueAsserted.String(), nil
-}
 
 func folderExistsMaybeCreate(directory string, configName string, createIfDoesntExist bool) error {
 	_, err := os.Stat(directory)
@@ -236,7 +299,9 @@ func (program *Program) RunProject(projectDirpath string) error {
 				// TEST: Workspace
 				for _, workspaceCode := range emit.Workspaces() {
 					result := vm.ExecuteNewProgram(workspaceCode)
-					panic(fmt.Sprintf("Workspace type: %T", result))
+					structData := result.(*bytecode.Struct)
+					templateInputDirectory := structData.GetFieldByName("template_input_directory")
+					panic(fmt.Sprintf("Workspace type: %T, Workspace data: %v\n\n %s", result, result, templateInputDirectory))
 				}
 				panic(fmt.Sprintf("workspace to test, count: %d", len(emit.Workspaces())))
 

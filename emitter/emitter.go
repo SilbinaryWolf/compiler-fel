@@ -27,9 +27,6 @@ type VariableInfo struct {
 
 	// VariableStruct
 	structTypeInfo *parser.TypeInfo_Struct
-
-	// VariableStructField
-	//structFieldPos int
 }
 
 type Scope struct {
@@ -191,7 +188,7 @@ func (emit *Emitter) emitNewFromType(opcodes []bytecode.Code, typeInfo types.Typ
 		}
 		opcodes = append(opcodes, bytecode.Code{
 			Kind:  bytecode.PushAllocStruct,
-			Value: len(fields),
+			Value: typeInfo,
 		})
 		for offset, structField := range fields {
 			// todo(Jake): Continue decoupling Struct typeinfo from struct ast
@@ -560,7 +557,7 @@ func (emit *Emitter) emitExpression(opcodes []bytecode.Code, topNode *ast.Expres
 				structTypeInfoFields := structTypeInfo.Fields()
 				opcodes = append(opcodes, bytecode.Code{
 					Kind:  bytecode.PushAllocStruct,
-					Value: len(structTypeInfoFields),
+					Value: structTypeInfo,
 				})
 
 				for offset, structField := range structTypeInfoFields {
@@ -657,9 +654,6 @@ func emitHTMLComponentDefinition(node *ast.HTMLComponentDefinition) *bytecode.Bl
 	}
 
 	// Implicit 'return' for top-level HTML nodes
-	//opcodes = append(opcodes, bytecode.Code{
-	//	Kind: bytecode.PushReturnHTMLNodeArray,
-	//})
 	opcodes = append(opcodes, bytecode.Code{
 		Kind: bytecode.Return,
 	})
@@ -756,16 +750,30 @@ func emitWorkspaceDefinition(node *ast.WorkspaceDefinition) *bytecode.Block {
 
 	opcodes := make([]bytecode.Code, 0, 35)
 	{
-		opcodes := emit.emitNewFromType(opcodes, structTypeInfo)
+		// Push "workspace" as first parameter
+		workspaceStackPos := emit.stackPos
+		emit.stackPos++
 		emit.scope.DeclareSet("workspace", VariableInfo{
 			kind:           VariableStruct,
 			structTypeInfo: structTypeInfo,
-			stackPos:       emit.stackPos,
+			stackPos:       workspaceStackPos,
 		})
-		emit.stackPos++
+		opcodes = emit.emitNewFromType(opcodes, structTypeInfo)
+		opcodes = append(opcodes, bytecode.Code{
+			Kind:  bytecode.Store,
+			Value: workspaceStackPos,
+		})
+		opcodes = append(opcodes, bytecode.Code{
+			Kind: bytecode.Pop,
+		})
+
 		for _, node := range node.Nodes() {
 			opcodes = emit.emitStatement(opcodes, node)
 		}
+		opcodes = append(opcodes, bytecode.Code{
+			Kind:  bytecode.PushStackVar,
+			Value: workspaceStackPos,
+		})
 		opcodes = append(opcodes, bytecode.Code{
 			Kind: bytecode.Return,
 		})

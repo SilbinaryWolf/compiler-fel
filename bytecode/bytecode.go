@@ -3,6 +3,7 @@ package bytecode
 import (
 	"bytes"
 	"fmt"
+	"github.com/silbinarywolf/compiler-fel/parser"
 )
 
 type Kind int
@@ -152,11 +153,14 @@ type StructInterface interface {
 }
 
 type Struct struct {
-	fields []interface{}
+	fields   []interface{}
+	typeinfo *parser.TypeInfo_Struct
+	// todo: Add type info?
 }
 
-func NewStruct(fieldCount int) *Struct {
+func NewStruct(fieldCount int, typeInfo *parser.TypeInfo_Struct) *Struct {
 	structData := new(Struct)
+	structData.typeinfo = typeInfo
 	structData.fields = make([]interface{}, fieldCount)
 	return structData
 }
@@ -167,6 +171,14 @@ func (structData *Struct) SetField(index int, value interface{}) {
 
 func (structData *Struct) GetField(index int) interface{} {
 	return structData.fields[index]
+}
+
+func (structData *Struct) GetFieldByName(name string) interface{} {
+	field := structData.typeinfo.GetFieldByName(name)
+	if field == nil {
+		return nil
+	}
+	return structData.fields[field.Index]
 }
 
 func (structData *Struct) FieldCount() int {

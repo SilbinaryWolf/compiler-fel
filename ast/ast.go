@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/silbinarywolf/compiler-fel/token"
-	"github.com/silbinarywolf/compiler-fel/types"
 )
 
 type CallKind int
@@ -102,12 +101,16 @@ func (node *Call) Kind() CallKind {
 	Base
 }*/
 
-type Type struct {
+type TypeInfo interface {
+	String() string
+}
+
+type TypeIdent struct {
 	Name       token.Token
 	ArrayDepth int // [] = 1, [][] = 2, [][][] = 3
 }
 
-func (node *Type) String() string {
+func (node *TypeIdent) String() string {
 	result := ""
 	for i := 0; i < node.ArrayDepth; i++ {
 		result += "[]"
@@ -116,7 +119,7 @@ func (node *Type) String() string {
 	return result
 }
 
-func (node *Type) Nodes() []Node {
+func (node *TypeIdent) Nodes() []Node {
 	return nil
 }
 
@@ -128,8 +131,8 @@ type Parameter struct {
 type ProcedureDefinition struct {
 	Name           token.Token
 	Parameters     []Parameter
-	TypeInfo       types.TypeInfo
-	TypeIdentifier Type
+	TypeInfo       TypeInfo
+	TypeIdentifier TypeIdent
 	Base
 }
 
@@ -152,20 +155,20 @@ type If struct {
 }
 
 type ArrayLiteral struct {
-	TypeInfo       types.TypeInfo
-	TypeIdentifier Type
+	TypeInfo       TypeInfo
+	TypeIdentifier TypeIdent
 	Base
 }
 
 type StructLiteral struct {
 	Name     token.Token
 	Fields   []Parameter
-	TypeInfo types.TypeInfo
+	TypeInfo TypeInfo
 }
 
 type WorkspaceDefinition struct {
 	Name              token.Token
-	WorkspaceTypeInfo types.TypeInfo
+	WorkspaceTypeInfo TypeInfo
 	Base
 }
 
@@ -178,8 +181,8 @@ type Return struct {
 }
 
 type Expression struct {
-	TypeInfo       types.TypeInfo // determined at typecheck time (2017-12-30)
-	TypeIdentifier Type           // optional, for declare statements
+	TypeInfo       TypeInfo  // determined at typecheck time (2017-12-30)
+	TypeIdentifier TypeIdent // optional, for declare statements
 	Base
 }
 

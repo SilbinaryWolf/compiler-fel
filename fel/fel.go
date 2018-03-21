@@ -25,6 +25,8 @@ func main() {
 		//panic("Done!")
 	}*/
 
+	GetWorkspacesFromConfig("testdata/sampleproject/fel/config.fel")
+
 	program := evaluator.New()
 	err := program.RunProject("testdata/sampleproject/fel")
 	if err != nil {

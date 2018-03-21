@@ -80,7 +80,7 @@ func (p *Parser) validateHTMLNode(node *ast.Call) {
 	//}
 }
 
-func (p *Parser) NewDeclareStatement(name token.Token, typeIdent ast.Type, expressionNodes []ast.Node) *ast.DeclareStatement {
+func (p *Parser) NewDeclareStatement(name token.Token, typeIdent ast.TypeIdent, expressionNodes []ast.Node) *ast.DeclareStatement {
 	node := new(ast.DeclareStatement)
 	node.Name = name
 	node.TypeIdentifier = typeIdent
@@ -116,11 +116,11 @@ Loop:
 			// myVar := {Expression} \n
 			//
 			case token.DeclareSet:
-				node := p.NewDeclareStatement(name, ast.Type{}, p.parseExpressionNodes(false))
+				node := p.NewDeclareStatement(name, ast.TypeIdent{}, p.parseExpressionNodes(false))
 				resultNodes = append(resultNodes, node)
 			// myVar : string \n
 			case token.Colon:
-				typeName := p.parseType()
+				typeName := p.parseTypeIdent()
 				if typeName.Name.Kind == token.Unknown {
 					return nil
 				}
@@ -431,8 +431,8 @@ func (p *Parser) isParseTypeAhead() bool {
 	return true
 }
 
-func (p *Parser) parseType() ast.Type {
-	result := ast.Type{}
+func (p *Parser) parseTypeIdent() ast.TypeIdent {
+	result := ast.TypeIdent{}
 
 	t := p.GetNextToken()
 	if t.Kind == token.BracketOpen {
@@ -443,7 +443,7 @@ func (p *Parser) parseType() ast.Type {
 			t = p.GetNextToken()
 			if t.Kind != token.BracketClose {
 				p.AddExpectError(t, token.BracketClose)
-				return ast.Type{}
+				return ast.TypeIdent{}
 			}
 			t = p.GetNextToken()
 			if t.Kind == token.BracketOpen {
@@ -455,7 +455,7 @@ func (p *Parser) parseType() ast.Type {
 	}
 	if t.Kind != token.Identifier {
 		p.AddExpectError(t, "type identifier")
-		return ast.Type{}
+		return ast.TypeIdent{}
 	}
 	result.Name = t
 	return result
@@ -666,7 +666,7 @@ Loop:
 			infixNodes = append(infixNodes, node)
 		// ie. []string{"item1", "item2", "item3"}
 		case token.BracketOpen:
-			typeIdent := p.parseType()
+			typeIdent := p.parseTypeIdent()
 			if typeIdent.Name.Kind == token.Unknown {
 				return nil
 			}
@@ -907,7 +907,7 @@ func (p *Parser) parseProcedureDefinition(name token.Token) *ast.ProcedureDefini
 				p.AddExpectError(name, token.ParenClose, token.Identifier)
 				return nil
 			}
-			typeIdent := p.parseType()
+			typeIdent := p.parseTypeIdent()
 			if typeIdent.Name.Kind == token.Unknown {
 				return nil
 			}
@@ -929,10 +929,10 @@ func (p *Parser) parseProcedureDefinition(name token.Token) *ast.ProcedureDefini
 			return nil
 		}
 	}
-	var returnType ast.Type
+	var returnTypeIdent ast.TypeIdent
 	if p.isParseTypeAhead() {
-		returnType = p.parseType()
-		if returnType.Name.Kind == token.Unknown {
+		returnTypeIdent = p.parseTypeIdent()
+		if returnTypeIdent.Name.Kind == token.Unknown {
 			return nil
 		}
 	}
@@ -943,7 +943,7 @@ func (p *Parser) parseProcedureDefinition(name token.Token) *ast.ProcedureDefini
 	node := new(ast.ProcedureDefinition)
 	node.Name = name
 	node.Parameters = parameters
-	node.TypeIdentifier = returnType
+	node.TypeIdentifier = returnTypeIdent
 	node.ChildNodes = p.parseStatements()
 	return node
 }
