@@ -27,10 +27,10 @@ type Workspace struct {
 	cssFiles                []string
 }
 
-func GetWorkspacesFromConfig(configFilepath string) {
-	totalTimeStart := time.Now()
+func GetWorkspacesFromConfig(configFilepath string) ([]Workspace, error) {
+	//totalTimeStart := time.Now()
 	if _, err := os.Stat(configFilepath); os.IsNotExist(err) {
-		return fmt.Errorf("Cannot find config.fel in root of project directory: %v", configFilepath)
+		return nil, fmt.Errorf("Cannot find config.fel in root of project directory: %v", configFilepath)
 	}
 	//var readFileTime time.Duration
 
@@ -43,22 +43,22 @@ func GetWorkspacesFromConfig(configFilepath string) {
 	//readFileTime += time.Since(fileReadStart)
 
 	if err != nil {
-		return fmt.Errorf("An error occurred reading file: %v, Error message: %v", filepath, err)
+		return nil, fmt.Errorf("An error occurred reading file: %v, Error message: %v", filepath, err)
 	}
 	astFile := p.Parse(filecontentsAsBytes, filepath)
 	if astFile == nil {
 		if p.HasErrors() {
 			p.PrintErrors()
 		}
-		return fmt.Errorf("Parse errors in config.fel in root of project directory")
+		return nil, fmt.Errorf("Parse errors in config.fel in root of project directory")
 	}
 	p.TypecheckFile(astFile, nil)
 	if p.HasErrors() {
 		p.PrintErrors()
-		return fmt.Errorf("Parse errors in config.fel in root of project directory")
+		return nil, fmt.Errorf("Parse errors in config.fel in root of project directory")
 	}
 	if astFile == nil {
-		return fmt.Errorf("Cannot find config.fel in root of project directory: %v", projectDirpath)
+		return nil, fmt.Errorf("Cannot find config.fel:: %s", configFilepath)
 	}
 
 	emit := emitter.New()
@@ -71,7 +71,7 @@ func GetWorkspacesFromConfig(configFilepath string) {
 	// Not pulled out as dependencies aren't resolved properly yet
 	//
 	emit.EmitGlobalScope(astFile)
-	codeBlock := emit.EmitBytecode(astFile, emitter.FileOptions{
+	_ = emit.EmitBytecode(astFile, emitter.FileOptions{
 		IsTemplateFile: true,
 	})
 
@@ -88,12 +88,24 @@ func GetWorkspacesFromConfig(configFilepath string) {
 		workspace.cssFiles = structData.GetFieldByName("css_files").([]string)
 		workspaces = append(workspaces, workspace)
 	}
-	panic(fmt.Sprintf("workspace to test, count: %d", len(workspaces)))
+	return workspaces, nil
 }
 
 //////
 //////
 //////
+
+func (program *Program) GetConfigString(configName string) (string, error) {
+	value, ok := program.globalScope.Get(configName)
+	if !ok {
+		return "", fmt.Errorf("%s is undefined in config.fel. This definition is required.", configName)
+	}
+	valueAsserted, ok := value.(*data.String)
+	if !ok {
+		return "", fmt.Errorf("%s is expected to be a string.", configName)
+	}
+	return valueAsserted.String(), nil
+}
 
 /*func (program *Program) CreateDataType(t token.Token) data.Type {
 	typename := t.String()
