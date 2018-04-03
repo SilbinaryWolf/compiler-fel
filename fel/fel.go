@@ -34,7 +34,7 @@ func main() {
 	}
 
 	for i, workspace := range workspaces {
-		fmt.Printf("Workspace #%d - %v", i, workspace)
+		fmt.Printf("Workspace #%d \"%s\" - %v\n", i, workspace.Name(), workspace)
 	}
 
 	/*program := evaluator.New()

@@ -21,11 +21,18 @@ import (
 )
 
 type Workspace struct {
+	name                    string
 	templateInputDirectory  string
 	templateOutputDirectory string
 	cssOutputDirectory      string
 	cssFiles                []string
 }
+
+func (w *Workspace) Name() string                    { return w.name }
+func (w *Workspace) TemplateInputDirectory() string  { return w.templateInputDirectory }
+func (w *Workspace) TemplateOutputDirectory() string { return w.templateOutputDirectory }
+func (w *Workspace) CSSOutputDirectory() string      { return w.cssOutputDirectory }
+func (w *Workspace) CSSFiles() []string              { return w.cssFiles }
 
 func GetWorkspacesFromConfig(configFilepath string) ([]Workspace, error) {
 	//totalTimeStart := time.Now()
@@ -57,13 +64,18 @@ func GetWorkspacesFromConfig(configFilepath string) ([]Workspace, error) {
 		p.PrintErrors()
 		return nil, fmt.Errorf("Parse errors in config.fel in root of project directory")
 	}
+	p.TypecheckAndFinalize([]*ast.File{astFile})
+	if p.HasErrors() {
+		p.PrintErrors()
+		return nil, fmt.Errorf("Parse errors in config.fel in root of project directory")
+	}
 	if astFile == nil {
 		return nil, fmt.Errorf("Cannot find config.fel:: %s", configFilepath)
 	}
 
 	emit := emitter.New()
 	if len(astFile.Nodes()) == 0 {
-		panic("Missing parsed nodes from file.")
+		panic("Missing parsed nodes from config.fel file.")
 	}
 
 	// NOTE(Jake): 2018-03-16
@@ -75,13 +87,13 @@ func GetWorkspacesFromConfig(configFilepath string) ([]Workspace, error) {
 		IsTemplateFile: true,
 	})
 
-	// TEST: Workspace
 	workspaceCodeBlocks := emit.Workspaces()
 	workspaces := make([]Workspace, 0, len(workspaceCodeBlocks))
 	for _, workspaceCode := range workspaceCodeBlocks {
 		result := vm.ExecuteNewProgram(workspaceCode)
 		structData := result.(*bytecode.Struct)
 		workspace := Workspace{}
+		workspace.name = structData.GetFieldByName(" name").(string)
 		workspace.templateInputDirectory = structData.GetFieldByName("template_input_directory").(string)
 		workspace.templateOutputDirectory = structData.GetFieldByName("template_output_directory").(string)
 		workspace.cssOutputDirectory = structData.GetFieldByName("css_output_directory").(string)

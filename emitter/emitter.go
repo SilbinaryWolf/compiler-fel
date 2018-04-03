@@ -278,7 +278,7 @@ func (emit *Emitter) emitVariableIdentWithProperty(
 		Kind:  bytecode.ReplaceStructFieldVar,
 		Value: lastPropertyField.Index,
 	})
-	return opcodes, lastPropertyField.Index
+	return opcodes, lastPropertyField.Index()
 }
 
 func (emit *Emitter) emitProcedureCall(opcodes []bytecode.Code, node *ast.Call) []bytecode.Code {
@@ -766,6 +766,25 @@ func emitWorkspaceDefinition(node *ast.WorkspaceDefinition) *bytecode.Block {
 		opcodes = append(opcodes, bytecode.Code{
 			Kind: bytecode.Pop,
 		})
+
+		// Store name of workspace from ast in " name" field.
+		{
+			opcodes = append(opcodes, bytecode.Code{
+				Kind:  bytecode.PushStackVar,
+				Value: workspaceStackPos,
+			})
+			opcodes = append(opcodes, bytecode.Code{
+				Kind:  bytecode.Push,
+				Value: node.Name.String(),
+			})
+			opcodes = append(opcodes, bytecode.Code{
+				Kind:  bytecode.StorePopStructField,
+				Value: structTypeInfo.GetFieldByName(" name").Index(),
+			})
+			opcodes = append(opcodes, bytecode.Code{
+				Kind: bytecode.Pop,
+			})
+		}
 
 		for _, node := range node.Nodes() {
 			opcodes = emit.emitStatement(opcodes, node)

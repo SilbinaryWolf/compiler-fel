@@ -37,6 +37,7 @@ func (manager *TypeInfoManager) Init() {
 	manager.workspaceInfo = manager.NewInternalStructInfo(
 		"Workspace",
 		[]TypeInfo_StructField{
+			manager.NewInternalStructField(" name", "string"),
 			manager.NewInternalStructField("template_input_directory", "string"),
 			manager.NewInternalStructField("template_output_directory", "string"),
 			manager.NewInternalStructField("css_output_directory", "string"),
@@ -213,7 +214,7 @@ func (manager *TypeInfoManager) NewStructInfo(definiton *ast.StructDefinition) *
 	result.fields = make([]TypeInfo_StructField, 0, len(definiton.Fields))
 	for i, field := range definiton.Fields {
 		result.fields = append(result.fields, TypeInfo_StructField{
-			Index: i,
+			index: i,
 			Name:  field.Name.String(),
 			TypeIdentifier: TypeInfo_Identifier{
 				Name:       field.TypeIdentifier.Name.String(),
@@ -229,7 +230,7 @@ func (manager *TypeInfoManager) NewStructInfo(definiton *ast.StructDefinition) *
 func (manager *TypeInfoManager) NewInternalStructInfo(name string, fields []TypeInfo_StructField) *TypeInfo_Struct {
 	for i := range fields {
 		field := &fields[i]
-		field.Index = i
+		field.index = i
 	}
 	result := new(TypeInfo_Struct)
 	result.name = name
@@ -239,11 +240,13 @@ func (manager *TypeInfoManager) NewInternalStructInfo(name string, fields []Type
 
 type TypeInfo_StructField struct {
 	Name           string
-	Index          int
+	index          int
 	TypeIdentifier TypeInfo_Identifier
 	TypeInfo       types.TypeInfo
 	DefaultValue   ast.Expression
 }
+
+func (field *TypeInfo_StructField) Index() int { return field.index }
 
 func (manager *TypeInfoManager) NewInternalStructField(name string, typeIdentName string) TypeInfo_StructField {
 	arrayDepth := 0

@@ -1,22 +1,5 @@
-// NOTE(Jake): Where to output HTML / PHP / JavaScript, depending on `backendLanguage`
-//             This is a 1-1 mapping, so if you made "Page.fel" it would output in /templates/Page.php
-template_input_directory := "templates"
-template_output_directory := "../public/templates"
 
-css_output_directory := "../public/css"
-
-//css_files := {
-//    "normalize.css": [
-//        "Normalize",
-//    ],
-//    "main.css": [
-//		  "*",
-//	  ], // empty array implies put in all CSS that isn't placed elsewhere.
-//}
-
-css_files := "main.css"
-
-/*default :: workspace {
+default :: workspace {
 	// NOTE(Jake): Where to output HTML / PHP / JavaScript, depending on `backendLanguage`
 	//             This is a 1-1 mapping, so if you made "Page.fel" it would output in /templates/Page.php
 	w := workspace
@@ -27,4 +10,12 @@ css_files := "main.css"
 		"main.css",
 	}
 }
-*/
+
+//css_files := {
+//    "normalize.css": [
+//        "Normalize",
+//    ],
+//    "main.css": [
+//		  "*",
+//	  ], // empty array implies put in all CSS that isn't placed elsewhere.
+//}

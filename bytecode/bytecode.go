@@ -178,7 +178,7 @@ func (structData *Struct) GetFieldByName(name string) interface{} {
 	if field == nil {
 		return nil
 	}
-	return structData.fields[field.Index]
+	return structData.fields[field.Index()]
 }
 
 func (structData *Struct) FieldCount() int {
