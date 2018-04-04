@@ -35,7 +35,8 @@ type Scope struct {
 }
 
 type Emitter struct {
-	symbols          map[string]*bytecode.Block
+	symbols map[string]*bytecode.Block
+	//unresolvedSymbols []bytecode.
 	workspaces       []*bytecode.Block
 	scope            *Scope
 	stackPos         int
@@ -308,10 +309,11 @@ func (emit *Emitter) emitHTMLNode(opcodes []bytecode.Code, node *ast.Call) []byt
 		name := node.Name.String()
 		block, ok := emit.symbols[name]
 		if !ok {
-			panic(fmt.Sprintf("Missing HTML component \"%s\", this should be caught in the typechecker", name))
+			panic(fmt.Sprintf("Missing HTML component \"%s\" symbol. Either this is:\n- Uncaught in the typechecker.\nor\n- A component that hasnt been emitted.", name))
 		}
 
 		// If definition has used the "children" keyword
+		//
 		// todo(Jake): 2018-02-09
 		//
 		// Store whether definition can have children or not.

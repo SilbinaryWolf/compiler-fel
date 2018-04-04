@@ -104,7 +104,7 @@ func GetWorkspacesFromConfig(configFilepath string) ([]Workspace, error) {
 }
 
 //////
-//////
+////// Deprecated stuff
 //////
 
 func (program *Program) GetConfigString(configName string) (string, error) {
