@@ -104,7 +104,7 @@ func (p *Typer) typecheckArrayLiteral(scope *Scope, literal *ast.ArrayLiteral) {
 	literal.TypeInfo = typeInfo
 
 	//
-	resultTypeInfo, ok := typeInfo.(*TypeInfo_Array)
+	resultTypeInfo, ok := typeInfo.(*types.Array)
 	if !ok {
 		p.PanicError(typeIdentName, fmt.Errorf("Expected array type but got \"%s\".", typeIdentString))
 		return
@@ -412,7 +412,7 @@ func (p *Typer) getTypeFromLeftHandSide(leftHandSideTokens []token.Token, scope 
 		propertyName := leftHandSideTokens[i].String()
 		concatPropertyName.WriteString(".")
 		concatPropertyName.WriteString(propertyName)
-		structInfo, ok := variableTypeInfo.(*TypeInfo_Struct)
+		structInfo, ok := variableTypeInfo.(*types.Struct)
 		if !ok {
 			p.AddError(nameToken, fmt.Errorf("Property \"%s\" does not exist on type \"%s\".", concatPropertyName.String(), variableTypeInfo.String()))
 			return nil
@@ -585,7 +585,7 @@ func (p *Typer) typecheckStatements(topNode ast.Node, scope *Scope) {
 			if arrayTypeInfo == nil {
 				continue
 			}
-			variableTypeInfo, isArray := arrayTypeInfo.(*TypeInfo_Array)
+			variableTypeInfo, isArray := arrayTypeInfo.(*types.Array)
 			if !isArray {
 				// todo(Jake): 2017-12-25
 				//
@@ -675,7 +675,7 @@ func (p *Typer) typecheckStatements(topNode ast.Node, scope *Scope) {
 			}
 			p.typecheckExpression(scope, &node.Array)
 			iTypeInfo := node.Array.TypeInfo
-			typeInfo, ok := iTypeInfo.(*TypeInfo_Array)
+			typeInfo, ok := iTypeInfo.(*types.Array)
 			if !ok {
 				p.AddError(node.RecordName, fmt.Errorf("Cannot use type %s as array.", iTypeInfo.String()))
 				continue

@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/silbinarywolf/compiler-fel/bytecode"
-	"github.com/silbinarywolf/compiler-fel/typer"
+	"github.com/silbinarywolf/compiler-fel/types"
 )
 
 type Program struct {
@@ -89,7 +89,7 @@ func (program *Program) executeBytecode(codeBlock *bytecode.Block) {
 			fieldData := structData.GetField(fieldOffset)
 			program.registerStack[len(program.registerStack)-1] = fieldData
 		case bytecode.PushAllocStruct:
-			structTypeInfo := code.Value.(*typer.TypeInfo_Struct)
+			structTypeInfo := code.Value.(*types.Struct)
 			structData := bytecode.NewStruct(len(structTypeInfo.Fields()), structTypeInfo)
 			program.registerStack = append(program.registerStack, structData)
 		case bytecode.PushAllocInternalStruct:
