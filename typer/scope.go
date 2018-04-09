@@ -1,4 +1,4 @@
-package parser
+package typer
 
 import (
 	"github.com/silbinarywolf/compiler-fel/ast"

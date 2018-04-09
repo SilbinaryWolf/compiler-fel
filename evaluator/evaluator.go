@@ -15,6 +15,7 @@ import (
 	"github.com/silbinarywolf/compiler-fel/bytecode"
 	"github.com/silbinarywolf/compiler-fel/data"
 	"github.com/silbinarywolf/compiler-fel/emitter"
+	"github.com/silbinarywolf/compiler-fel/typer"
 	//"github.com/silbinarywolf/compiler-fel/generate"
 	"github.com/silbinarywolf/compiler-fel/parser"
 	"github.com/silbinarywolf/compiler-fel/vm"
@@ -62,7 +63,7 @@ func GetWorkspacesFromConfig(configFilepath string) ([]Workspace, error) {
 		}
 	}
 	{
-		p := parser.NewTyper()
+		p := typer.New()
 		p.TypecheckFile(astFile, nil)
 		if p.HasErrors() {
 			p.PrintErrors()

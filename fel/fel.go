@@ -14,6 +14,7 @@ import (
 	"github.com/silbinarywolf/compiler-fel/emitter"
 	"github.com/silbinarywolf/compiler-fel/evaluator"
 	"github.com/silbinarywolf/compiler-fel/parser"
+	"github.com/silbinarywolf/compiler-fel/typer"
 	"github.com/silbinarywolf/compiler-fel/vm"
 )
 
@@ -123,7 +124,7 @@ func compileProject(projectDirpath string) error {
 		// Typecheck when we've parsed all files
 		{
 			typerSpentTimer := time.Now()
-			p := parser.NewTyper()
+			p := typer.New()
 			p.TypecheckAndFinalize(astFiles)
 			typerTimeSpent += time.Since(typerSpentTimer)
 			if p.HasErrors() {

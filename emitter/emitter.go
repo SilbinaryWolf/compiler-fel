@@ -8,8 +8,8 @@ import (
 	"github.com/silbinarywolf/compiler-fel/ast"
 	"github.com/silbinarywolf/compiler-fel/bytecode"
 	//"github.com/silbinarywolf/compiler-fel/data"
-	"github.com/silbinarywolf/compiler-fel/parser"
 	"github.com/silbinarywolf/compiler-fel/token"
+	"github.com/silbinarywolf/compiler-fel/typer"
 	"github.com/silbinarywolf/compiler-fel/types"
 )
 
@@ -26,7 +26,7 @@ type VariableInfo struct {
 	stackPos int
 
 	// VariableStruct
-	structTypeInfo *parser.TypeInfo_Struct
+	structTypeInfo *typer.TypeInfo_Struct
 }
 
 type Scope struct {
@@ -150,30 +150,30 @@ func (emit *Emitter) registerWorkspace(block *bytecode.Block) {
 func (emit *Emitter) emitNewFromType(opcodes []bytecode.Code, typeInfo types.TypeInfo) []bytecode.Code {
 	//opcodes = addDebugString(opcodes, "emitNewFromType")
 	switch typeInfo := typeInfo.(type) {
-	case *parser.TypeInfo_Int:
+	case *typer.TypeInfo_Int:
 		opcodes = append(opcodes, bytecode.Code{
 			Kind:  bytecode.Push,
 			Value: int(0),
 		})
-	case *parser.TypeInfo_Float:
+	case *typer.TypeInfo_Float:
 		opcodes = append(opcodes, bytecode.Code{
 			Kind:  bytecode.Push,
 			Value: float64(0),
 		})
-	case *parser.TypeInfo_String:
+	case *typer.TypeInfo_String:
 		opcodes = append(opcodes, bytecode.Code{
 			Kind:  bytecode.Push,
 			Value: "",
 		})
-	case *parser.TypeInfo_Bool:
+	case *typer.TypeInfo_Bool:
 		opcodes = append(opcodes, bytecode.Code{
 			Kind:  bytecode.Push,
 			Value: false,
 		})
-	case *parser.TypeInfo_Array:
+	case *typer.TypeInfo_Array:
 		underlyingType := typeInfo.Underlying()
 		switch underlyingType.(type) {
-		case *parser.TypeInfo_String:
+		case *typer.TypeInfo_String:
 			opcodes = append(opcodes, bytecode.Code{
 				Kind:  bytecode.PushAllocArrayString,
 				Value: 0,
@@ -181,7 +181,7 @@ func (emit *Emitter) emitNewFromType(opcodes []bytecode.Code, typeInfo types.Typ
 		default:
 			panic(fmt.Sprintf("emitNewFromType:Array: Unhandled type %T", underlyingType))
 		}
-	case *parser.TypeInfo_Struct:
+	case *typer.TypeInfo_Struct:
 		name := typeInfo.Name()
 		fields := typeInfo.Fields()
 		if name == "" || len(fields) == 0 {
@@ -245,7 +245,7 @@ func (emit *Emitter) emitVariableIdentWithProperty(
 		Kind:  bytecode.PushStackVar,
 		Value: varInfo.stackPos,
 	})
-	var lastPropertyField *parser.TypeInfo_StructField
+	var lastPropertyField *typer.TypeInfo_StructField
 	if len(leftHandSide) <= 1 {
 		return opcodes, varInfo.stackPos
 	}
@@ -266,7 +266,7 @@ func (emit *Emitter) emitVariableIdentWithProperty(
 			Kind:  bytecode.ReplaceStructFieldVar,
 			Value: field.Index,
 		})
-		if typeInfo, ok := field.TypeInfo.(*parser.TypeInfo_Struct); ok {
+		if typeInfo, ok := field.TypeInfo.(*typer.TypeInfo_Struct); ok {
 			structTypeInfo = typeInfo
 		}
 	}
@@ -459,7 +459,7 @@ func (emit *Emitter) emitExpression(opcodes []bytecode.Code, topNode *ast.Expres
 				})
 			case token.Number:
 				switch typeInfo.(type) {
-				case *parser.TypeInfo_Int:
+				case *typer.TypeInfo_Int:
 					tokenString := t.String()
 					if strings.Contains(tokenString, ".") {
 						panic("Cannot add float to int, this should be caught in the type checker.")
@@ -472,19 +472,19 @@ func (emit *Emitter) emitExpression(opcodes []bytecode.Code, topNode *ast.Expres
 						Kind:  bytecode.Push,
 						Value: tokenInt,
 					})
-				case *parser.TypeInfo_Float:
+				case *typer.TypeInfo_Float:
 					panic("todo(Jake): Add support for floating point numbers")
 				default:
 					panic(fmt.Sprintf("emitExpression: Type %T cannot push number (\"%s\"), this should be caught by typechecker.", typeInfo, t.String()))
 				}
 			case token.Add:
 				switch typeInfo := topNode.TypeInfo.(type) {
-				case *parser.TypeInfo_Int:
-					//*parser.TypeInfo_Float:
+				case *typer.TypeInfo_Int:
+					//*typer.TypeInfo_Float:
 					opcodes = append(opcodes, bytecode.Code{
 						Kind: bytecode.Add,
 					})
-				case *parser.TypeInfo_String:
+				case *typer.TypeInfo_String:
 					opcodes = append(opcodes, bytecode.Code{
 						Kind: bytecode.AddString,
 					})
@@ -492,7 +492,7 @@ func (emit *Emitter) emitExpression(opcodes []bytecode.Code, topNode *ast.Expres
 					panic(fmt.Sprintf("emitExpression: Type %T does not support \"%s\", this should be caught by typechecker.", typeInfo, t.Kind.String()))
 				}
 			case token.String:
-				_, ok := topNode.TypeInfo.(*parser.TypeInfo_String)
+				_, ok := topNode.TypeInfo.(*typer.TypeInfo_String)
 				if !ok {
 					panic(fmt.Sprintf("emitExpression: Type %T cannot push string (\"%s\"), this should be caught by typechecker.", typeInfo, t.String()))
 				}
@@ -514,7 +514,7 @@ func (emit *Emitter) emitExpression(opcodes []bytecode.Code, topNode *ast.Expres
 				panic(fmt.Sprintf("emitExpression:Token: Unhandled token kind: \"%s\", this should be caught by typechecker.", t.Kind.String()))
 			}
 		case *ast.ArrayLiteral:
-			typeInfo := node.TypeInfo.(*parser.TypeInfo_Array)
+			typeInfo := node.TypeInfo.(*typer.TypeInfo_Array)
 			underlyingTypeInfo := typeInfo.Underlying()
 			nodes := node.Nodes()
 			if len(nodes) == 0 {
@@ -524,7 +524,7 @@ func (emit *Emitter) emitExpression(opcodes []bytecode.Code, topNode *ast.Expres
 			// Get bytecode to append per item in array literal
 			var appendPopArray bytecode.Code
 			switch underlyingTypeInfo := underlyingTypeInfo.(type) {
-			case *parser.TypeInfo_String:
+			case *typer.TypeInfo_String:
 				opcodes = append(opcodes, bytecode.Code{
 					Kind:  bytecode.PushAllocArrayString,
 					Value: len(nodes),
@@ -546,7 +546,7 @@ func (emit *Emitter) emitExpression(opcodes []bytecode.Code, topNode *ast.Expres
 			}
 		case *ast.StructLiteral:
 			structLiteral := node
-			structTypeInfo, ok := topNode.TypeInfo.(*parser.TypeInfo_Struct)
+			structTypeInfo, ok := topNode.TypeInfo.(*typer.TypeInfo_Struct)
 			if !ok {
 				panic(fmt.Sprintf("emitExpression: Type %T cannot push struct literal (\"%s\"), this should be caught by typechecker.", typeInfo, structLiteral.Name))
 			}
@@ -675,7 +675,7 @@ func (emit *Emitter) emitParameter(opcodes []bytecode.Code, name string, typeInf
 	opcodes = append(opcodes, bytecode.Code{
 		Kind: bytecode.Pop,
 	})
-	structTypeInfo, ok := typeInfo.(*parser.TypeInfo_Struct)
+	structTypeInfo, ok := typeInfo.(*typer.TypeInfo_Struct)
 	if !ok {
 		emit.scope.DeclareSet(name, VariableInfo{
 			stackPos: stackPos,
@@ -746,7 +746,7 @@ func (emit *Emitter) emitGlobalScope(node ast.Node) {
 
 func emitWorkspaceDefinition(node *ast.WorkspaceDefinition) *bytecode.Block {
 	emit := New()
-	structTypeInfo := node.WorkspaceTypeInfo.(*parser.TypeInfo_Struct)
+	structTypeInfo := node.WorkspaceTypeInfo.(*typer.TypeInfo_Struct)
 	//emit.PushScope()
 	//defer emit.PopScope()
 
@@ -882,8 +882,8 @@ func (emit *Emitter) emitStatement(opcodes []bytecode.Code, node ast.Node) []byt
 		})
 
 		{
-			var varStructTypeInfo *parser.TypeInfo_Struct = nil
-			if typeInfo, ok := typeInfo.(*parser.TypeInfo_Struct); ok {
+			var varStructTypeInfo *typer.TypeInfo_Struct = nil
+			if typeInfo, ok := typeInfo.(*typer.TypeInfo_Struct); ok {
 				varStructTypeInfo = typeInfo
 			}
 			emit.scope.DeclareSet(nameString, VariableInfo{
@@ -900,7 +900,7 @@ func (emit *Emitter) emitStatement(opcodes []bytecode.Code, node ast.Node) []byt
 		// is not a ":: html" definition.
 		//
 		switch typeInfo := node.TypeInfo.(type) {
-		case *parser.TypeInfo_String:
+		case *typer.TypeInfo_String:
 			opcodes = emit.emitExpression(opcodes, node)
 			opcodes = append(opcodes, bytecode.Code{
 				Kind: bytecode.CastToHTMLText,
@@ -908,7 +908,7 @@ func (emit *Emitter) emitStatement(opcodes []bytecode.Code, node ast.Node) []byt
 			opcodes = append(opcodes, bytecode.Code{
 				Kind: bytecode.AppendPopHTMLElementToHTMLElement,
 			})
-		case *parser.TypeInfo_HTMLNode:
+		case *typer.TypeInfo_HTMLNode:
 			opcodes = emit.emitExpression(opcodes, node)
 			opcodes = append(opcodes, bytecode.Code{
 				Kind: bytecode.AppendPopHTMLElementToHTMLElement,
@@ -953,7 +953,7 @@ func (emit *Emitter) emitStatement(opcodes []bytecode.Code, node ast.Node) []byt
 		opcodes = emit.emitExpression(opcodes, exprNode)
 		typeInfo := exprNode.TypeInfo
 		switch typeInfo := typeInfo.(type) {
-		case *parser.TypeInfo_String:
+		case *typer.TypeInfo_String:
 			opcodes = append(opcodes, bytecode.Code{
 				Kind: bytecode.AppendPopArrayString,
 			})
@@ -1015,7 +1015,7 @@ func (emit *Emitter) emitStatement(opcodes []bytecode.Code, node ast.Node) []byt
 			// no-op
 		case token.AddEqual:
 			switch node.TypeInfo.(type) {
-			case *parser.TypeInfo_String:
+			case *typer.TypeInfo_String:
 				opcodes = append(opcodes, bytecode.Code{
 					Kind: bytecode.AddString,
 				})

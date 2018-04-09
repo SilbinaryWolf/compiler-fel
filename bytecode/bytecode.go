@@ -3,7 +3,7 @@ package bytecode
 import (
 	"bytes"
 	"fmt"
-	"github.com/silbinarywolf/compiler-fel/parser"
+	"github.com/silbinarywolf/compiler-fel/typer"
 )
 
 type Kind int
@@ -154,11 +154,11 @@ type StructInterface interface {
 
 type Struct struct {
 	fields   []interface{}
-	typeinfo *parser.TypeInfo_Struct
+	typeinfo *typer.TypeInfo_Struct
 	// todo: Add type info?
 }
 
-func NewStruct(fieldCount int, typeInfo *parser.TypeInfo_Struct) *Struct {
+func NewStruct(fieldCount int, typeInfo *typer.TypeInfo_Struct) *Struct {
 	structData := new(Struct)
 	structData.typeinfo = typeInfo
 	structData.fields = make([]interface{}, fieldCount)
