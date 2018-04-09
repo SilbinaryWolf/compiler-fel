@@ -12,7 +12,7 @@ import (
 )
 
 /*type Checker struct {
-	*Parser
+	*Typer
 	scope *Scope
 }
 
@@ -50,7 +50,7 @@ func (checker *Checker) PopScope() {
 // 	}
 // }
 
-func (p *Parser) typecheckStructLiteral(scope *Scope, literal *ast.StructLiteral) {
+func (p *Typer) typecheckStructLiteral(scope *Scope, literal *ast.StructLiteral) {
 	name := literal.Name.String()
 	def, ok := scope.GetStructDefinition(name)
 	if !ok {
@@ -100,7 +100,7 @@ func (p *Parser) typecheckStructLiteral(scope *Scope, literal *ast.StructLiteral
 	}
 }
 
-func (p *Parser) typecheckArrayLiteral(scope *Scope, literal *ast.ArrayLiteral) {
+func (p *Typer) typecheckArrayLiteral(scope *Scope, literal *ast.ArrayLiteral) {
 	//test := [][]string{
 	//	[]string{"test"}
 	//}
@@ -144,7 +144,7 @@ func (p *Parser) typecheckArrayLiteral(scope *Scope, literal *ast.ArrayLiteral) 
 	}
 }
 
-func (p *Parser) typecheckCall(scope *Scope, node *ast.Call) {
+func (p *Typer) typecheckCall(scope *Scope, node *ast.Call) {
 	switch node.Kind() {
 	case ast.CallProcedure:
 		p.typecheckProcedureCall(scope, node)
@@ -155,7 +155,7 @@ func (p *Parser) typecheckCall(scope *Scope, node *ast.Call) {
 	}
 }
 
-func (p *Parser) typecheckProcedureCall(scope *Scope, node *ast.Call) {
+func (p *Typer) typecheckProcedureCall(scope *Scope, node *ast.Call) {
 	typeInfo := p.typeinfo.getByName(node.Name.String())
 	callTypeInfo, ok := typeInfo.(*TypeInfo_Procedure)
 	if !ok {
@@ -230,7 +230,7 @@ func (p *Parser) typecheckProcedureCall(scope *Scope, node *ast.Call) {
 	}
 }
 
-func (p *Parser) typecheckExpression(scope *Scope, expression *ast.Expression) {
+func (p *Typer) typecheckExpression(scope *Scope, expression *ast.Expression) {
 	resultTypeInfo := expression.TypeInfo
 
 	// Get type info from text (ie. "string", "int", etc)
@@ -399,12 +399,12 @@ func (p *Parser) typecheckExpression(scope *Scope, expression *ast.Expression) {
 	expression.TypeInfo = resultTypeInfo
 }
 
-//func (p *Parser) typecheckHTMLBlock(htmlBlock *ast.HTMLBlock, scope *Scope) {
+//func (p *Typer) typecheckHTMLBlock(htmlBlock *ast.HTMLBlock, scope *Scope) {
 //	scope = NewScope(scope)
 //	p.typecheckStatements(htmlBlock, scope)
 //}
 
-func (p *Parser) getTypeFromLeftHandSide(leftHandSideTokens []token.Token, scope *Scope) types.TypeInfo {
+func (p *Typer) getTypeFromLeftHandSide(leftHandSideTokens []token.Token, scope *Scope) types.TypeInfo {
 	nameToken := leftHandSideTokens[0]
 	if nameToken.Kind != token.Identifier {
 		p.PanicError(nameToken, fmt.Errorf("Expected identifier on left hand side, instead got %s.", nameToken.Kind.String()))
@@ -441,7 +441,7 @@ func (p *Parser) getTypeFromLeftHandSide(leftHandSideTokens []token.Token, scope
 	return variableTypeInfo
 }
 
-func (p *Parser) typecheckHTMLNode(scope *Scope, node *ast.Call) {
+func (p *Typer) typecheckHTMLNode(scope *Scope, node *ast.Call) {
 	p.typecheckExpression(scope, &node.IfExpression)
 
 	for i, _ := range node.Parameters {
@@ -501,7 +501,7 @@ func (p *Parser) typecheckHTMLNode(scope *Scope, node *ast.Call) {
 	}
 }
 
-func (p *Parser) typecheckHTMLDefinition(htmlDefinition *ast.HTMLComponentDefinition, parentScope *Scope) {
+func (p *Typer) typecheckHTMLDefinition(htmlDefinition *ast.HTMLComponentDefinition, parentScope *Scope) {
 	// Attach CSSDefinition if found
 	name := htmlDefinition.Name.String()
 	if cssDefinition, ok := parentScope.GetCSSDefinition(name); ok {
@@ -556,7 +556,7 @@ func (p *Parser) typecheckHTMLDefinition(htmlDefinition *ast.HTMLComponentDefini
 	p.typecheckHtmlNodeDependencies = nil
 }
 
-func (p *Parser) typecheckStatements(topNode ast.Node, scope *Scope) {
+func (p *Typer) typecheckStatements(topNode ast.Node, scope *Scope) {
 	nodeStack := make([]ast.Node, 0, 50)
 	nodes := topNode.Nodes()
 	for i := len(nodes) - 1; i >= 0; i-- {
@@ -743,7 +743,7 @@ func (p *Parser) typecheckStatements(topNode ast.Node, scope *Scope) {
 	}
 }
 
-func (p *Parser) typecheckStruct(node *ast.StructDefinition, scope *Scope) {
+func (p *Typer) typecheckStruct(node *ast.StructDefinition, scope *Scope) {
 	// Add typeinfo to each struct field
 	for i := 0; i < len(node.Fields); i++ {
 		structField := &node.Fields[i]
@@ -765,7 +765,7 @@ func (p *Parser) typecheckStruct(node *ast.StructDefinition, scope *Scope) {
 	}
 }
 
-func (p *Parser) typecheckProcedureDefinition(node *ast.ProcedureDefinition, scope *Scope) {
+func (p *Typer) typecheckProcedureDefinition(node *ast.ProcedureDefinition, scope *Scope) {
 	scope = NewScope(scope)
 
 	for i := 0; i < len(node.Parameters); i++ {
@@ -832,19 +832,19 @@ func (p *Parser) typecheckProcedureDefinition(node *ast.ProcedureDefinition, sco
 	p.typeinfo.register(node.Name.String(), functionType)
 }
 
-func (p *Parser) typecheckWorkspaceDefinition(node *ast.WorkspaceDefinition) {
+func (p *Typer) typecheckWorkspaceDefinition(node *ast.WorkspaceDefinition) {
 	scope := NewScope(nil)
 	node.WorkspaceTypeInfo = p.typeinfo.InternalWorkspaceStruct()
 	scope.Set("workspace", node.WorkspaceTypeInfo)
 	p.typecheckStatements(node, scope)
 }
 
-func (p *Parser) TypecheckFile(file *ast.File, globalScope *Scope) {
+func (p *Typer) TypecheckFile(file *ast.File, globalScope *Scope) {
 	scope := NewScope(globalScope)
 	p.typecheckStatements(file, scope)
 }
 
-func (p *Parser) TypecheckAndFinalize(files []*ast.File) {
+func (p *Typer) TypecheckAndFinalize(files []*ast.File) {
 	globalScope := NewScope(nil)
 
 	// Get all global/top-level identifiers

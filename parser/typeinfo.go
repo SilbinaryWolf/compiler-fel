@@ -280,7 +280,7 @@ func (manager *TypeInfoManager) InternalWorkspaceStruct() *TypeInfo_Struct {
 }
 
 // Functions
-func (p *Parser) DetermineType(node *ast.TypeIdent) types.TypeInfo {
+func (p *Typer) DetermineType(node *ast.TypeIdent) types.TypeInfo {
 	return p.typeinfo.get(TypeInfo_Identifier{
 		Name:       node.Name.String(),
 		ArrayDepth: node.ArrayDepth,

@@ -15,13 +15,12 @@ type Parser struct {
 	scanner.Scanner
 	errors.ErrorHandler
 
-	// Typechecking-only
-	// NOTE(Jake): 2018-01-14
+	// NOTE(Jake): 2018-04-09
 	//
-	// Want to potentially decouple the checker structure data
-	// from the parser in the future.
-	typeinfo                      TypeInfoManager
-	typecheckHtmlNodeDependencies map[string]*ast.Call
+	// Decoupled to Typer
+	//
+	//typeinfo                      TypeInfoManager
+	//typecheckHtmlNodeDependencies map[string]*ast.Call
 }
 
 func New() *Parser {
@@ -30,7 +29,7 @@ func New() *Parser {
 	p.ErrorHandler.Init()
 	p.ErrorHandler.SetDeveloperMode(true)
 
-	p.typeinfo.Init()
+	//p.typeinfo.Init()
 	//p.typecheckHtmlDefinitionDependencies = make(map[string]*ast.HTMLComponentDefinition)
 	//p.typecheckHtmlDefinitionStack = make([]*ast.HTMLComponentDefinition, 0, 20)
 	return p

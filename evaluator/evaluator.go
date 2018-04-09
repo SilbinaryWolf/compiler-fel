@@ -1,21 +1,21 @@
 package evaluator
 
 import (
-	"bytes"
-	"encoding/json"
+	//"bytes"
+	//"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
-	"path"
-	"path/filepath"
-	"strings"
-	"time"
+	//"path"
+	//"path/filepath"
+	//"strings"
+	//"time"
 
 	"github.com/silbinarywolf/compiler-fel/ast"
 	"github.com/silbinarywolf/compiler-fel/bytecode"
 	"github.com/silbinarywolf/compiler-fel/data"
 	"github.com/silbinarywolf/compiler-fel/emitter"
-	"github.com/silbinarywolf/compiler-fel/generate"
+	//"github.com/silbinarywolf/compiler-fel/generate"
 	"github.com/silbinarywolf/compiler-fel/parser"
 	"github.com/silbinarywolf/compiler-fel/vm"
 )
@@ -41,33 +41,38 @@ func GetWorkspacesFromConfig(configFilepath string) ([]Workspace, error) {
 	}
 	//var readFileTime time.Duration
 
-	filepath := configFilepath
+	var astFile *ast.File
+	{
+		p := parser.New()
+		filepath := configFilepath
 
-	p := parser.New()
+		//fileReadStart := time.Now()
+		filecontentsAsBytes, err := ioutil.ReadFile(filepath)
+		//readFileTime += time.Since(fileReadStart)
 
-	//fileReadStart := time.Now()
-	filecontentsAsBytes, err := ioutil.ReadFile(filepath)
-	//readFileTime += time.Since(fileReadStart)
-
-	if err != nil {
-		return nil, fmt.Errorf("An error occurred reading file: %v, Error message: %v", filepath, err)
+		if err != nil {
+			return nil, fmt.Errorf("An error occurred reading file: %v, Error message: %v", filepath, err)
+		}
+		astFile = p.Parse(filecontentsAsBytes, filepath)
+		if astFile == nil {
+			if p.HasErrors() {
+				p.PrintErrors()
+			}
+			return nil, fmt.Errorf("Parse errors in config.fel in root of project directory")
+		}
 	}
-	astFile := p.Parse(filecontentsAsBytes, filepath)
-	if astFile == nil {
+	{
+		p := parser.NewTyper()
+		p.TypecheckFile(astFile, nil)
 		if p.HasErrors() {
 			p.PrintErrors()
+			return nil, fmt.Errorf("Parse errors in config.fel in root of project directory")
 		}
-		return nil, fmt.Errorf("Parse errors in config.fel in root of project directory")
-	}
-	p.TypecheckFile(astFile, nil)
-	if p.HasErrors() {
-		p.PrintErrors()
-		return nil, fmt.Errorf("Parse errors in config.fel in root of project directory")
-	}
-	p.TypecheckAndFinalize([]*ast.File{astFile})
-	if p.HasErrors() {
-		p.PrintErrors()
-		return nil, fmt.Errorf("Parse errors in config.fel in root of project directory")
+		p.TypecheckAndFinalize([]*ast.File{astFile})
+		if p.HasErrors() {
+			p.PrintErrors()
+			return nil, fmt.Errorf("Parse errors in config.fel in root of project directory")
+		}
 	}
 	if astFile == nil {
 		return nil, fmt.Errorf("Cannot find config.fel:: %s", configFilepath)
@@ -151,7 +156,7 @@ func folderExistsMaybeCreate(directory string, configName string, createIfDoesnt
 	return nil
 }
 
-func (program *Program) RunProject(projectDirpath string) error {
+/*func (program *Program) RunProject(projectDirpath string) error {
 	totalTimeStart := time.Now()
 
 	configFilepath := projectDirpath + "/config.fel"
@@ -165,7 +170,6 @@ func (program *Program) RunProject(projectDirpath string) error {
 
 	{
 		filepath := configFilepath
-
 		p := parser.New()
 
 		fileReadStart := time.Now()
@@ -183,6 +187,9 @@ func (program *Program) RunProject(projectDirpath string) error {
 			return fmt.Errorf("Parse errors in config.fel in root of project directory")
 		}
 		configAstFile = astFile
+	}
+	{
+		p := parser.NewTyper()
 		p.TypecheckFile(configAstFile, nil)
 		if p.HasErrors() {
 			p.PrintErrors()
@@ -386,7 +393,7 @@ func (program *Program) RunProject(projectDirpath string) error {
 				if len(name) == 0 {
 					name = "<anonymous>"
 				}
-				cssOutput.WriteString(fmt.Sprintf("/* Name: %s */\n", name))
+				cssOutput.WriteString(fmt.Sprintf("/* Name: %s \n", name))
 				cssOutput.WriteString(generate.PrettyCSS(cssDefinition))
 			}
 			outputFilepath := filepath.Clean(fmt.Sprintf("%s/%s.css", cssOutputDirectory, "main"))
@@ -422,4 +429,4 @@ func (program *Program) RunProject(projectDirpath string) error {
 	totalTimeElapsed := time.Since(totalTimeStart)
 	fmt.Printf("Total time: %s\n", totalTimeElapsed)
 	return nil
-}
+}*/

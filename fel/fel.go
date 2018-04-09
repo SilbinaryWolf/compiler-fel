@@ -123,6 +123,7 @@ func compileProject(projectDirpath string) error {
 		// Typecheck when we've parsed all files
 		{
 			typerSpentTimer := time.Now()
+			p := parser.NewTyper()
 			p.TypecheckAndFinalize(astFiles)
 			typerTimeSpent += time.Since(typerSpentTimer)
 			if p.HasErrors() {

@@ -10,3 +10,11 @@ package types
 type TypeInfo interface {
 	String() string
 }
+
+//
+// Int
+//
+
+type Int struct{}
+
+func (info *Int) String() string { return "int" }
