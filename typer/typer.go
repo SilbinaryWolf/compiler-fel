@@ -143,7 +143,7 @@ func (p *Typer) typecheckCall(scope *Scope, node *ast.Call) {
 
 func (p *Typer) typecheckProcedureCall(scope *Scope, node *ast.Call) {
 	typeInfo := p.typeinfo.getByName(node.Name.String())
-	callTypeInfo, ok := typeInfo.(*TypeInfo_Procedure)
+	callTypeInfo, ok := typeInfo.(*types.Procedure)
 	if !ok {
 		// todo(Jake): 2018-01-14
 		//

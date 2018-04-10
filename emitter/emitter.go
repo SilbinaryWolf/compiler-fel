@@ -9,7 +9,6 @@ import (
 	"github.com/silbinarywolf/compiler-fel/bytecode"
 	//"github.com/silbinarywolf/compiler-fel/data"
 	"github.com/silbinarywolf/compiler-fel/token"
-	"github.com/silbinarywolf/compiler-fel/typer"
 	"github.com/silbinarywolf/compiler-fel/types"
 )
 
@@ -165,7 +164,7 @@ func (emit *Emitter) emitNewFromType(opcodes []bytecode.Code, typeInfo types.Typ
 			Kind:  bytecode.Push,
 			Value: "",
 		})
-	case *typer.TypeInfo_Bool:
+	case *types.Bool:
 		opcodes = append(opcodes, bytecode.Code{
 			Kind:  bytecode.Push,
 			Value: false,
@@ -908,7 +907,7 @@ func (emit *Emitter) emitStatement(opcodes []bytecode.Code, node ast.Node) []byt
 			opcodes = append(opcodes, bytecode.Code{
 				Kind: bytecode.AppendPopHTMLElementToHTMLElement,
 			})
-		case *typer.TypeInfo_HTMLNode:
+		case *types.HTMLNode:
 			opcodes = emit.emitExpression(opcodes, node)
 			opcodes = append(opcodes, bytecode.Code{
 				Kind: bytecode.AppendPopHTMLElementToHTMLElement,

@@ -14,8 +14,8 @@ type TypeInfoManager struct {
 	intInfo      types.Int
 	floatInfo    types.Float
 	stringInfo   types.String
-	boolInfo     TypeInfo_Bool
-	htmlNodeInfo TypeInfo_HTMLNode
+	boolInfo     types.Bool
+	htmlNodeInfo types.HTMLNode
 
 	// built-in structs
 	workspaceInfo *types.Struct
@@ -28,15 +28,21 @@ func (manager *TypeInfoManager) Init() {
 	manager.registeredTypes = make(map[types.Identifier]types.TypeInfo)
 
 	// Primitives
+	manager.register("bool", manager.NewTypeInfoBool())
 	manager.register("int", manager.NewTypeInfoInt())
 	manager.register("string", manager.NewTypeInfoString())
 	manager.register("float", manager.NewTypeInfoFloat())
-	manager.register("bool", manager.NewTypeInfoBool())
 
 	// Internal types
 	manager.workspaceInfo = types.NewInternalStruct(
 		"Workspace",
 		[]types.StructField{
+			// NOTE(Jake): 2018-04-10
+			//
+			// Using a space with " name" as a hack so that it can't
+			// be accessed by user-code, but can be read/understood by
+			// internal tools. (the workspace name)
+			//
 			manager.NewInternalStructField(" name", "string"),
 			manager.NewInternalStructField("template_input_directory", "string"),
 			manager.NewInternalStructField("template_output_directory", "string"),
@@ -46,12 +52,12 @@ func (manager *TypeInfoManager) Init() {
 	)
 }
 
-func (manager *TypeInfoManager) Clear() {
+/*func (manager *TypeInfoManager) Clear() {
 	if manager.registeredTypes == nil {
 		panic("Cannot clear TypeInfoManager if it's already cleared..")
 	}
 	manager.registeredTypes = nil
-}
+}*/
 
 func (manager *TypeInfoManager) register(name string, typeInfo types.TypeInfo) {
 	key := types.Identifier{
@@ -88,71 +94,26 @@ func (manager *TypeInfoManager) get(identifier types.Identifier) types.TypeInfo 
 	return resultType
 }
 
-// Int
-func (manager *TypeInfoManager) NewTypeInfoInt() *types.Int {
-	return &manager.intInfo
-}
+func (manager *TypeInfoManager) NewTypeInfoBool() *types.Bool     { return &manager.boolInfo }
+func (manager *TypeInfoManager) NewTypeInfoInt() *types.Int       { return &manager.intInfo }
+func (manager *TypeInfoManager) NewTypeInfoFloat() *types.Float   { return &manager.floatInfo }
+func (manager *TypeInfoManager) NewTypeInfoString() *types.String { return &manager.stringInfo }
 
-// Float
-func (manager *TypeInfoManager) NewTypeInfoFloat() *types.Float {
-	return &manager.floatInfo
-}
+// Internal Struct Types
+func (manager *TypeInfoManager) InternalWorkspaceStruct() *types.Struct { return manager.workspaceInfo }
 
-// String
-func (manager *TypeInfoManager) NewTypeInfoString() *types.String {
-	return &manager.stringInfo
-}
-
-// Array
-func (manager *TypeInfoManager) NewTypeInfoArray(underlying types.TypeInfo) *types.Array {
+func (_ *TypeInfoManager) NewTypeInfoArray(underlying types.TypeInfo) *types.Array {
 	return types.NewArray(underlying)
 }
 
-// Procedure
-type TypeInfo_Procedure struct {
-	name       string
-	definition *ast.ProcedureDefinition
-}
-
-func (info *TypeInfo_Procedure) String() string                       { return "procedure " + info.name + "()" }
-func (info *TypeInfo_Procedure) Definition() *ast.ProcedureDefinition { return info.definition }
-
-func (manager *TypeInfoManager) NewProcedureInfo(definiton *ast.ProcedureDefinition) *TypeInfo_Procedure {
-	result := new(TypeInfo_Procedure)
-	result.name = definiton.Name.String()
-	result.definition = definiton
-	return result
-}
-
-type TypeInfo_Bool struct{}
-
-func (info *TypeInfo_Bool) String() string { return "bool" }
-
-func (manager *TypeInfoManager) NewTypeInfoBool() *TypeInfo_Bool {
-	return &manager.boolInfo
+func (_ *TypeInfoManager) NewProcedureInfo(definiton *ast.ProcedureDefinition) *types.Procedure {
+	return types.NewProcedure(definiton)
 }
 
 // HTMLNode
-type TypeInfo_HTMLNode struct{}
-
-func (info *TypeInfo_HTMLNode) String() string { return "html node" }
-
-func (manager *TypeInfoManager) NewHTMLNode() *TypeInfo_HTMLNode {
+func (manager *TypeInfoManager) NewHTMLNode() *types.HTMLNode {
 	return &manager.htmlNodeInfo
 }
-
-// HTMLComponentNode
-/*type TypeInfo_HTMLComponentNode struct {
-	name       string
-	definition *ast.HTMLComponentDefinition
-}
-
-func NewHTMLComponentNode(name string) TypeInfo {
-	result := new(TypeInfo_HTMLComponentNode)
-	result.name = definition.Name.String()
-	//result.definition = definiton
-	return result
-}*/
 
 func (_ *TypeInfoManager) NewStructInfo(definiton *ast.StructDefinition) *types.Struct {
 	return types.NewStruct(definiton)
@@ -166,7 +127,6 @@ func (manager *TypeInfoManager) NewInternalStructField(name string, typeIdentNam
 			arrayDepth++
 		}
 	}
-	//arrayDepth := strings.Count(typeIdentName, "[]")
 	typeIdent := types.Identifier{
 		Name:       typeIdentName,
 		ArrayDepth: arrayDepth,
@@ -182,11 +142,6 @@ func (manager *TypeInfoManager) NewInternalStructField(name string, typeIdentNam
 	}
 	result.DefaultValue.TypeInfo = typeInfo
 	return result
-}
-
-// Internal Structs
-func (manager *TypeInfoManager) InternalWorkspaceStruct() *types.Struct {
-	return manager.workspaceInfo
 }
 
 // Functions

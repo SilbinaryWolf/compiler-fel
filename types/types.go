@@ -60,6 +60,38 @@ func (info *Array) String() string { return "[]" + info.underlying.String() }
 func (info *Array) Underlying() TypeInfo { return info.underlying }
 
 //
+// Procedure
+//
+type Procedure struct {
+	name       string
+	definition *ast.ProcedureDefinition
+}
+
+func (info *Procedure) String() string                       { return "procedure " + info.name + "()" }
+func (info *Procedure) Definition() *ast.ProcedureDefinition { return info.definition }
+
+func NewProcedure(definiton *ast.ProcedureDefinition) *Procedure {
+	result := new(Procedure)
+	result.name = definiton.Name.String()
+	result.definition = definiton
+	return result
+}
+
+//
+// Bool
+//
+type Bool struct{}
+
+func (info *Bool) String() string { return "bool" }
+
+//
+// HTML Node
+//
+type HTMLNode struct{}
+
+func (info *HTMLNode) String() string { return "html node" }
+
+//
 // Struct
 //
 type Struct struct {

@@ -14,13 +14,6 @@ import (
 type Parser struct {
 	scanner.Scanner
 	errors.ErrorHandler
-
-	// NOTE(Jake): 2018-04-09
-	//
-	// Decoupled to Typer
-	//
-	//typeinfo                      TypeInfoManager
-	//typecheckHtmlNodeDependencies map[string]*ast.Call
 }
 
 func New() *Parser {
@@ -28,10 +21,6 @@ func New() *Parser {
 
 	p.ErrorHandler.Init()
 	p.ErrorHandler.SetDeveloperMode(true)
-
-	//p.typeinfo.Init()
-	//p.typecheckHtmlDefinitionDependencies = make(map[string]*ast.HTMLComponentDefinition)
-	//p.typecheckHtmlDefinitionStack = make([]*ast.HTMLComponentDefinition, 0, 20)
 	return p
 }
 
