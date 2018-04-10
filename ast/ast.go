@@ -38,16 +38,6 @@ func (parts LeftHandSide) String() string {
 	return result
 }
 
-/*type TypeKind int
-
-const (
-	TypeUnknown TypeKind = 0 + iota
-	TypeString
-	TypeInteger64
-	TypeFloat64
-	TypeHTMLDefinitionNode
-)*/
-
 type Node interface {
 	Nodes() []Node
 }
@@ -55,6 +45,10 @@ type Node interface {
 type Base struct {
 	ChildNodes []Node
 }
+
+//func (node *Base) SetNodes(nodes []Node) {
+//	node.childNodes = nodes
+//}
 
 func (node *Base) Nodes() []Node {
 	return node.ChildNodes
@@ -97,12 +91,13 @@ func (node *Call) Kind() CallKind {
 	return node.kind
 }
 
-/*type Block struct {
-	Base
-}*/
+//type Block struct {
+//	Base
+//}
 
 type TypeInfo interface {
 	String() string
+	ImplementsTypeInfo()
 }
 
 type TypeIdent struct {
@@ -188,7 +183,7 @@ type Expression struct {
 
 func (exprNode *Expression) String() string {
 	result := ""
-	for i, node := range exprNode.ChildNodes {
+	for i, node := range exprNode.Nodes() {
 		if i != 0 {
 			result += " | "
 		}

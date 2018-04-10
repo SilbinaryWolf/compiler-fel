@@ -36,7 +36,7 @@ func New() *Typer {
 	return p
 }
 
-func (p *Typer) typecheckStructLiteral(scope *Scope, literal *ast.StructLiteral) {
+func (p *Typer) typerStructLiteral(scope *Scope, literal *ast.StructLiteral) {
 	name := literal.Name.String()
 	def, ok := scope.GetStructDefinition(name)
 	if !ok {
@@ -66,7 +66,7 @@ func (p *Typer) typecheckStructLiteral(scope *Scope, literal *ast.StructLiteral)
 			if defName != property.Name.String() {
 				continue
 			}
-			p.typecheckExpression(scope, &property.Expression)
+			p.typerExpression(scope, &property.Expression)
 			litTypeInfo := property.Expression.TypeInfo
 			if litTypeInfo != defTypeInfo {
 				p.AddError(property.Name, fmt.Errorf("Mismatching type, expected \"%s\" but got \"%s\"", defField.TypeIdentifier.Name.String(), property.Expression.TypeInfo.String()))
@@ -86,7 +86,7 @@ func (p *Typer) typecheckStructLiteral(scope *Scope, literal *ast.StructLiteral)
 	}
 }
 
-func (p *Typer) typecheckArrayLiteral(scope *Scope, literal *ast.ArrayLiteral) {
+func (p *Typer) typerArrayLiteral(scope *Scope, literal *ast.ArrayLiteral) {
 	//test := [][]string{
 	//	[]string{"test"}
 	//}
@@ -117,31 +117,31 @@ func (p *Typer) typecheckArrayLiteral(scope *Scope, literal *ast.ArrayLiteral) {
 		node := node.(*ast.Expression)
 		// NOTE(Jake): Set to 'string' type info so
 		//			   type checking will catch things immediately
-		//			   when we call `typecheckExpression`
+		//			   when we call `typerExpression`
 		//			   ie. Won't infer, will mark as invalid.
 		if node.TypeInfo == nil {
 			node.TypeInfo = underlyingTypeInfo
 		}
-		p.typecheckExpression(scope, node)
+		p.typerExpression(scope, node)
 
 		if node.TypeInfo == nil {
-			panic(fmt.Sprintf("typecheckArrayLiteral: Missing type on array literal item #%d.", i))
+			panic(fmt.Sprintf("typerArrayLiteral: Missing type on array literal item #%d.", i))
 		}
 	}
 }
 
-func (p *Typer) typecheckCall(scope *Scope, node *ast.Call) {
+func (p *Typer) typerCall(scope *Scope, node *ast.Call) {
 	switch node.Kind() {
 	case ast.CallProcedure:
-		p.typecheckProcedureCall(scope, node)
+		p.typerProcedureCall(scope, node)
 	case ast.CallHTMLNode:
-		p.typecheckHTMLNode(scope, node)
+		p.typerHTMLNode(scope, node)
 	default:
 		p.PanicError(node.Name, fmt.Errorf("Unhandled ast.Call kind: %s", node.Name))
 	}
 }
 
-func (p *Typer) typecheckProcedureCall(scope *Scope, node *ast.Call) {
+func (p *Typer) typerProcedureCall(scope *Scope, node *ast.Call) {
 	typeInfo := p.typeinfo.getByName(node.Name.String())
 	callTypeInfo, ok := typeInfo.(*types.Procedure)
 	if !ok {
@@ -164,7 +164,7 @@ func (p *Typer) typecheckProcedureCall(scope *Scope, node *ast.Call) {
 	hasMismatchingTypes := len(definitionParameters) != len(parameters)
 	for i := 0; i < len(parameters); i++ {
 		parameter := parameters[i]
-		p.typecheckExpression(scope, &parameter.Expression)
+		p.typerExpression(scope, &parameter.Expression)
 		if hasMismatchingTypes == false && i < len(definitionParameters) {
 			definitionParameter := definitionParameters[i]
 			if !TypeEquals(parameter.TypeInfo, definitionParameter.TypeInfo) {
@@ -182,7 +182,7 @@ func (p *Typer) typecheckProcedureCall(scope *Scope, node *ast.Call) {
 			if parameter.TypeInfo == nil {
 				// NOTE(Jake): 2018-01-03
 				//
-				// This should be applied in p.typecheckExpression(scope, &parameter.Expression)
+				// This should be applied in p.typerExpression(scope, &parameter.Expression)
 				//
 				haveStr += "missing"
 				continue
@@ -199,7 +199,7 @@ func (p *Typer) typecheckProcedureCall(scope *Scope, node *ast.Call) {
 			if parameter.TypeInfo == nil {
 				// NOTE(Jake): 2018-01-03
 				//
-				// This should be applied in p.typecheckExpression(scope, &parameter.Expression)
+				// This should be applied in p.typerExpression(scope, &parameter.Expression)
 				//
 				haveStr += "missing"
 				continue
@@ -216,7 +216,7 @@ func (p *Typer) typecheckProcedureCall(scope *Scope, node *ast.Call) {
 	}
 }
 
-func (p *Typer) typecheckExpression(scope *Scope, expression *ast.Expression) {
+func (p *Typer) typerExpression(scope *Scope, expression *ast.Expression) {
 	resultTypeInfo := expression.TypeInfo
 
 	// Get type info from text (ie. "string", "int", etc)
@@ -234,7 +234,7 @@ func (p *Typer) typecheckExpression(scope *Scope, expression *ast.Expression) {
 	for i, itNode := range nodes {
 		switch node := itNode.(type) {
 		case *ast.StructLiteral:
-			p.typecheckStructLiteral(scope, node)
+			p.typerStructLiteral(scope, node)
 			expectedTypeInfo := node.TypeInfo
 			if expectedTypeInfo == nil {
 				p.PanicError(node.Name, fmt.Errorf("Missing type info for \"%s :: struct\".", node.Name.String()))
@@ -248,7 +248,7 @@ func (p *Typer) typecheckExpression(scope *Scope, expression *ast.Expression) {
 			}
 			continue
 		case *ast.ArrayLiteral:
-			p.typecheckArrayLiteral(scope, node)
+			p.typerArrayLiteral(scope, node)
 			expectedTypeInfo := node.TypeInfo
 			if resultTypeInfo == nil {
 				resultTypeInfo = expectedTypeInfo
@@ -258,7 +258,7 @@ func (p *Typer) typecheckExpression(scope *Scope, expression *ast.Expression) {
 			}
 			continue
 		case *ast.Call:
-			p.typecheckCall(scope, node)
+			p.typerCall(scope, node)
 			switch node.Kind() {
 			case ast.CallProcedure:
 				if node.Definition != nil {
@@ -273,12 +273,12 @@ func (p *Typer) typecheckExpression(scope *Scope, expression *ast.Expression) {
 			case ast.CallHTMLNode:
 				p.AddError(node.Name, fmt.Errorf("Cannot use HTML node in expression."))
 			default:
-				panic(fmt.Sprintf("typecheckExpression:Call: Unhandled call kind: %s", node.Kind()))
+				panic(fmt.Sprintf("typerExpression:Call: Unhandled call kind: %s", node.Kind()))
 			}
 
 			continue
 		case *ast.HTMLBlock:
-			panic("typecheckExpression: todo(Jake): Fix HTMLBlock")
+			panic("typerExpression: todo(Jake): Fix HTMLBlock")
 			/*variableType := data.KindHTMLNode
 			if exprType == data.KindUnknown {
 				exprType = variableType
@@ -286,7 +286,7 @@ func (p *Typer) typecheckExpression(scope *Scope, expression *ast.Expression) {
 			if exprType != variableType {
 				p.addErrorToken(fmt.Errorf("\":: html\" must be a %s not %s.", exprType.String(), variableType.String()), node.HTMLKeyword)
 			}
-			p.typecheckHTMLBlock(node, scope)*/
+			p.typerHTMLBlock(node, scope)*/
 		case *ast.TokenList:
 			tokens := node.Tokens()
 			expectedTypeInfo := p.getTypeFromLeftHandSide(tokens, scope)
@@ -323,7 +323,7 @@ func (p *Typer) typecheckExpression(scope *Scope, expression *ast.Expression) {
 				}
 				if !TypeEquals(resultTypeInfo, variableTypeInfo) {
 					if variableTypeInfo == nil {
-						p.PanicError(node.Token, fmt.Errorf("Unable to determine type, typechecker must have failed."))
+						p.PanicError(node.Token, fmt.Errorf("Unable to determine type, typerer must have failed."))
 						return
 					}
 					p.AddError(node.Token, fmt.Errorf("Identifier \"%s\" must be a %s not %s.", name, resultTypeInfo.String(), variableTypeInfo.String()))
@@ -374,20 +374,20 @@ func (p *Typer) typecheckExpression(scope *Scope, expression *ast.Expression) {
 					p.AddError(node.Token, fmt.Errorf("Cannot use %s with %s \"%s\"", resultTypeInfo.String(), expectedTypeInfo.String(), node.String()))
 				}
 			default:
-				panic(fmt.Sprintf("typecheckExpression: Unhandled token kind: \"%s\" with value: %s", node.Kind.String(), node.String()))
+				panic(fmt.Sprintf("typerExpression: Unhandled token kind: \"%s\" with value: %s", node.Kind.String(), node.String()))
 			}
 			leftToken = node.Token
 			continue
 		}
-		panic(fmt.Sprintf("typecheckExpression: Unhandled type %T", itNode))
+		panic(fmt.Sprintf("typerExpression: Unhandled type %T", itNode))
 	}
 
 	expression.TypeInfo = resultTypeInfo
 }
 
-//func (p *Typer) typecheckHTMLBlock(htmlBlock *ast.HTMLBlock, scope *Scope) {
+//func (p *Typer) typerHTMLBlock(htmlBlock *ast.HTMLBlock, scope *Scope) {
 //	scope = NewScope(scope)
-//	p.typecheckStatements(htmlBlock, scope)
+//	p.typerStatements(htmlBlock, scope)
 //}
 
 func (p *Typer) getTypeFromLeftHandSide(leftHandSideTokens []token.Token, scope *Scope) types.TypeInfo {
@@ -403,7 +403,7 @@ func (p *Typer) getTypeFromLeftHandSide(leftHandSideTokens []token.Token, scope 
 		return nil
 	}
 	if variableTypeInfo == nil {
-		p.PanicError(nameToken, fmt.Errorf("Variable declared \"%s\" but it has \"nil\" type information, this is a bug in typechecking scope.", name))
+		p.PanicError(nameToken, fmt.Errorf("Variable declared \"%s\" but it has \"nil\" type information, this is a bug in typering scope.", name))
 		return nil
 	}
 	var concatPropertyName bytes.Buffer
@@ -427,11 +427,11 @@ func (p *Typer) getTypeFromLeftHandSide(leftHandSideTokens []token.Token, scope 
 	return variableTypeInfo
 }
 
-func (p *Typer) typecheckHTMLNode(scope *Scope, node *ast.Call) {
-	p.typecheckExpression(scope, &node.IfExpression)
+func (p *Typer) typerHTMLNode(scope *Scope, node *ast.Call) {
+	p.typerExpression(scope, &node.IfExpression)
 
 	for i, _ := range node.Parameters {
-		p.typecheckExpression(scope, &node.Parameters[i].Expression)
+		p.typerExpression(scope, &node.Parameters[i].Expression)
 	}
 
 	name := node.Name.String()
@@ -448,8 +448,8 @@ func (p *Typer) typecheckHTMLNode(scope *Scope, node *ast.Call) {
 		p.AddError(node.Name, fmt.Errorf("\"%s\" is not a valid HTML5 element or defined component.", name))
 		return
 	}
-	//fmt.Printf("%s -- %d\n", htmlComponentDefinition.Name.String(), len(p.typecheckHtmlDefinitionStack))
-	//for _, itHtmlDefinition := range p.typecheckHtmlDefinitionStack {
+	//fmt.Printf("%s -- %d\n", htmlComponentDefinition.Name.String(), len(p.typerHtmlDefinitionStack))
+	//for _, itHtmlDefinition := range p.typerHtmlDefinitionStack {
 	//	if htmlComponentDefinition == itHtmlDefinition {
 	//		p.addErrorLine(fmt.Errorf("Cannot reference self in \"%s :: html\".", htmlComponentDefinition.Name.String()), node.Name.Line)
 	//		//continue Loop
@@ -487,7 +487,7 @@ func (p *Typer) typecheckHTMLNode(scope *Scope, node *ast.Call) {
 	}
 }
 
-func (p *Typer) typecheckHTMLDefinition(htmlDefinition *ast.HTMLComponentDefinition, parentScope *Scope) {
+func (p *Typer) typerHTMLDefinition(htmlDefinition *ast.HTMLComponentDefinition, parentScope *Scope) {
 	// Attach CSSDefinition if found
 	name := htmlDefinition.Name.String()
 	if cssDefinition, ok := parentScope.GetCSSDefinition(name); ok {
@@ -518,7 +518,7 @@ func (p *Typer) typecheckHTMLDefinition(htmlDefinition *ast.HTMLComponentDefinit
 	if structDef := htmlDefinition.Struct; structDef != nil {
 		for i, _ := range structDef.Fields {
 			var propertyNode *ast.StructField = &structDef.Fields[i]
-			p.typecheckExpression(scope, &propertyNode.Expression)
+			p.typerExpression(scope, &propertyNode.Expression)
 			name := propertyNode.Name.String()
 			_, ok := scope.Get(name)
 			if ok {
@@ -537,12 +537,12 @@ func (p *Typer) typecheckHTMLDefinition(htmlDefinition *ast.HTMLComponentDefinit
 		panic("typecheckHtmlNodeDependencies must be nil before being re-assigned")
 	}
 	p.typecheckHtmlNodeDependencies = make(map[string]*ast.Call)
-	p.typecheckStatements(htmlDefinition, scope)
+	p.typerStatements(htmlDefinition, scope)
 	htmlDefinition.Dependencies = p.typecheckHtmlNodeDependencies
 	p.typecheckHtmlNodeDependencies = nil
 }
 
-func (p *Typer) typecheckStatements(topNode ast.Node, scope *Scope) {
+func (p *Typer) typerStatements(topNode ast.Node, scope *Scope) {
 	nodeStack := make([]ast.Node, 0, 50)
 	nodes := topNode.Nodes()
 	for i := len(nodes) - 1; i >= 0; i-- {
@@ -571,12 +571,12 @@ func (p *Typer) typecheckStatements(topNode ast.Node, scope *Scope) {
 			// Skip nodes and child nodes
 			continue
 		case *ast.Call:
-			p.typecheckCall(scope, node)
+			p.typerCall(scope, node)
 		case *ast.HTMLBlock:
 			panic("todo(Jake): Remove below commented out line if this is unused.")
-			//p.typecheckHTMLBlock(node, scope)
+			//p.typerHTMLBlock(node, scope)
 		case *ast.Return:
-			p.typecheckExpression(scope, &node.Expression)
+			p.typerExpression(scope, &node.Expression)
 			continue
 		case *ast.ArrayAppendStatement:
 			nameToken := node.LeftHandSide[0]
@@ -594,7 +594,7 @@ func (p *Typer) typecheckStatements(topNode ast.Node, scope *Scope) {
 				p.AddError(nameToken, fmt.Errorf("Cannot do \"%s []=\" as it's not an array type.", name))
 				continue
 			}
-			p.typecheckExpression(scope, &node.Expression)
+			p.typerExpression(scope, &node.Expression)
 			resultTypeInfo := node.Expression.TypeInfo
 			if !TypeEquals(variableTypeInfo.Underlying(), resultTypeInfo) {
 				// todo(Jake): 2017-12-25
@@ -610,7 +610,7 @@ func (p *Typer) typecheckStatements(topNode ast.Node, scope *Scope) {
 			if variableTypeInfo == nil {
 				continue
 			}
-			p.typecheckExpression(scope, &node.Expression)
+			p.typerExpression(scope, &node.Expression)
 			resultTypeInfo := node.Expression.TypeInfo
 			if !TypeEquals(variableTypeInfo, resultTypeInfo) {
 				nameToken := node.LeftHandSide[0]
@@ -631,7 +631,7 @@ func (p *Typer) typecheckStatements(topNode ast.Node, scope *Scope) {
 			continue
 		case *ast.DeclareStatement:
 			expr := &node.Expression
-			p.typecheckExpression(scope, expr)
+			p.typerExpression(scope, expr)
 			name := node.Name.String()
 			_, ok := scope.GetFromThisScope(name)
 			if ok {
@@ -641,12 +641,12 @@ func (p *Typer) typecheckStatements(topNode ast.Node, scope *Scope) {
 			scope.Set(name, expr.TypeInfo)
 			continue
 		case *ast.Expression:
-			p.typecheckExpression(scope, node)
+			p.typerExpression(scope, node)
 			continue
 		case *ast.If:
 			expr := &node.Condition
 			//expr.TypeInfo = types.Bool()
-			p.typecheckExpression(scope, expr)
+			p.typerExpression(scope, expr)
 
 			scope = NewScope(scope)
 			nodeStack = append(nodeStack, nil)
@@ -673,7 +673,7 @@ func (p *Typer) typecheckStatements(topNode ast.Node, scope *Scope) {
 			if !node.IsDeclareSet {
 				panic("todo(Jake): handle array without declare set")
 			}
-			p.typecheckExpression(scope, &node.Array)
+			p.typerExpression(scope, &node.Array)
 			iTypeInfo := node.Array.TypeInfo
 			typeInfo, ok := iTypeInfo.(*types.Array)
 			if !ok {
@@ -729,7 +729,7 @@ func (p *Typer) typecheckStatements(topNode ast.Node, scope *Scope) {
 	}
 }
 
-func (p *Typer) typecheckStruct(node *ast.StructDefinition, scope *Scope) {
+func (p *Typer) typerStruct(node *ast.StructDefinition, scope *Scope) {
 	// Add typeinfo to each struct field
 	for i := 0; i < len(node.Fields); i++ {
 		structField := &node.Fields[i]
@@ -746,12 +746,12 @@ func (p *Typer) typecheckStruct(node *ast.StructDefinition, scope *Scope) {
 		}
 		structField.TypeInfo = resultTypeInfo
 		if len(structField.Expression.Nodes()) > 0 {
-			p.typecheckExpression(NewScope(nil), &structField.Expression)
+			p.typerExpression(NewScope(nil), &structField.Expression)
 		}
 	}
 }
 
-func (p *Typer) typecheckProcedureDefinition(node *ast.ProcedureDefinition, scope *Scope) {
+func (p *Typer) typerProcedureDefinition(node *ast.ProcedureDefinition, scope *Scope) {
 	scope = NewScope(scope)
 
 	for i := 0; i < len(node.Parameters); i++ {
@@ -767,7 +767,7 @@ func (p *Typer) typecheckProcedureDefinition(node *ast.ProcedureDefinition, scop
 	if p.HasErrors() {
 		return
 	}
-	p.typecheckStatements(node, scope)
+	p.typerStatements(node, scope)
 
 	var returnType types.TypeInfo
 	if node.TypeIdentifier.Name.Kind != token.Unknown {
@@ -778,7 +778,7 @@ func (p *Typer) typecheckProcedureDefinition(node *ast.ProcedureDefinition, scop
 	// NOTE(Jake): 2017-12-30
 	//
 	// The code below is probably super slow compared
-	// to if we just added a flag/callback to `typecheckStatements`
+	// to if we just added a flag/callback to `typerStatements`
 	// this would probably be faster.
 	//
 	nodes := node.ChildNodes
@@ -818,16 +818,16 @@ func (p *Typer) typecheckProcedureDefinition(node *ast.ProcedureDefinition, scop
 	p.typeinfo.register(node.Name.String(), functionType)
 }
 
-func (p *Typer) typecheckWorkspaceDefinition(node *ast.WorkspaceDefinition) {
+func (p *Typer) typerWorkspaceDefinition(node *ast.WorkspaceDefinition) {
 	scope := NewScope(nil)
 	node.WorkspaceTypeInfo = p.typeinfo.InternalWorkspaceStruct()
 	scope.Set("workspace", node.WorkspaceTypeInfo)
-	p.typecheckStatements(node, scope)
+	p.typerStatements(node, scope)
 }
 
 func (p *Typer) TypecheckFile(file *ast.File, globalScope *Scope) {
 	scope := NewScope(globalScope)
-	p.typecheckStatements(file, scope)
+	p.typerStatements(file, scope)
 }
 
 func (p *Typer) TypecheckAndFinalize(files []*ast.File) {
@@ -854,13 +854,13 @@ func (p *Typer) TypecheckAndFinalize(files []*ast.File) {
 					p.PanicMessage(fmt.Errorf("Found nil top-level %T.", node))
 					continue
 				}
-				p.typecheckWorkspaceDefinition(node)
+				p.typerWorkspaceDefinition(node)
 			case *ast.ProcedureDefinition:
 				if node == nil {
 					p.PanicMessage(fmt.Errorf("Found nil top-level %T.", node))
 					continue
 				}
-				p.typecheckProcedureDefinition(node, scope)
+				p.typerProcedureDefinition(node, scope)
 			case *ast.StructDefinition:
 				if node == nil {
 					p.PanicMessage(fmt.Errorf("Found nil top-level %T.", node))
@@ -879,7 +879,7 @@ func (p *Typer) TypecheckAndFinalize(files []*ast.File) {
 					continue
 				}
 
-				p.typecheckStruct(node, scope)
+				p.typerStruct(node, scope)
 
 				scope.structDefinitions[name] = node
 				typeinfo := p.typeinfo.NewStructInfo(node)
@@ -945,7 +945,7 @@ func (p *Typer) TypecheckAndFinalize(files []*ast.File) {
 
 	//
 	for _, htmlDefinition := range globalScope.htmlDefinitions {
-		p.typecheckHTMLDefinition(htmlDefinition, globalScope)
+		p.typerHTMLDefinition(htmlDefinition, globalScope)
 	}
 
 	// Check if CSS config matches a HTML or CSS component. If not, throw error.

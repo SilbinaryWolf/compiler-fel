@@ -6,6 +6,7 @@ import (
 
 type TypeInfo interface {
 	String() string
+	ImplementsTypeInfo()
 }
 
 //
@@ -23,7 +24,8 @@ type Identifier struct {
 
 type Int struct{}
 
-func (info *Int) String() string { return "int" }
+func (_ *Int) String() string      { return "int" }
+func (_ *Int) ImplementsTypeInfo() {}
 
 //
 // Float
@@ -31,7 +33,8 @@ func (info *Int) String() string { return "int" }
 
 type Float struct{}
 
-func (info *Float) String() string { return "float" }
+func (_ *Float) String() string      { return "float" }
+func (_ *Float) ImplementsTypeInfo() {}
 
 //
 // String
@@ -39,7 +42,8 @@ func (info *Float) String() string { return "float" }
 
 type String struct{}
 
-func (info *String) String() string { return "string" }
+func (_ *String) String() string      { return "string" }
+func (_ *String) ImplementsTypeInfo() {}
 
 //
 // Array
@@ -55,9 +59,9 @@ func NewArray(underlying TypeInfo) *Array {
 	return info
 }
 
-func (info *Array) String() string { return "[]" + info.underlying.String() }
-
+func (info *Array) String() string       { return "[]" + info.underlying.String() }
 func (info *Array) Underlying() TypeInfo { return info.underlying }
+func (_ *Array) ImplementsTypeInfo()     {}
 
 //
 // Procedure
@@ -69,6 +73,7 @@ type Procedure struct {
 
 func (info *Procedure) String() string                       { return "procedure " + info.name + "()" }
 func (info *Procedure) Definition() *ast.ProcedureDefinition { return info.definition }
+func (_ *Procedure) ImplementsTypeInfo()                     {}
 
 func NewProcedure(definiton *ast.ProcedureDefinition) *Procedure {
 	result := new(Procedure)
@@ -82,14 +87,16 @@ func NewProcedure(definiton *ast.ProcedureDefinition) *Procedure {
 //
 type Bool struct{}
 
-func (info *Bool) String() string { return "bool" }
+func (_ *Bool) String() string      { return "bool" }
+func (_ *Bool) ImplementsTypeInfo() {}
 
 //
 // HTML Node
 //
 type HTMLNode struct{}
 
-func (info *HTMLNode) String() string { return "html node" }
+func (_ *HTMLNode) String() string      { return "html node" }
+func (_ *HTMLNode) ImplementsTypeInfo() {}
 
 //
 // Struct
@@ -103,14 +110,18 @@ type Struct struct {
 func (info *Struct) String() string        { return info.name }
 func (info *Struct) Name() string          { return info.name }
 func (info *Struct) Fields() []StructField { return info.fields }
+func (_ *Struct) ImplementsTypeInfo()      {}
 
 //func (info *Struct) Definition() *ast.StructDefinition { return info.definition }
 
 func NewStruct(definiton *ast.StructDefinition) *Struct {
+	name := definiton.Name
+	fields := definiton.Fields
+
 	result := new(Struct)
-	result.name = definiton.Name.String()
-	result.fields = make([]StructField, 0, len(definiton.Fields))
-	for i, field := range definiton.Fields {
+	result.name = name.String()
+	result.fields = make([]StructField, 0, len(fields))
+	for i, field := range fields {
 		result.fields = append(result.fields, StructField{
 			index: i,
 			Name:  field.Name.String(),
