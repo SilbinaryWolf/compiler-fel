@@ -4,22 +4,6 @@ Header :: css_config {
 	}
 }
 
-default :: workspace {
-	// NOTE(Jake): Where to output HTML / PHP / JavaScript, depending on `backendLanguage`
-	//             This is a 1-1 mapping, so if you made "Page.fel" it would output in /templates/Page.php
-	w := workspace
-	w.template_input_directory = "templates"
-	w.template_output_directory = "../public/templates"
-	w.css_output_directory = "../public/css"
-	w.css_files = []string{
-		"main.css",
-	}
-}
-
-//Me :: struct {
-//	arr: []string = []string{"ayyy"}
-//}
-
 Header :: struct {
 	isBlue: bool = true
 	hey: string = "woop"
@@ -46,56 +30,20 @@ Header :: html {
 		// test
 		class = "blue"
 	}
+	Blah() {
+
+	}
 	header(class="header "+class+" "+hey) {
 		"header text"
 		children
 	}
 }
 
-myFunc :: (a string, b string) string {
-	return a + b
-}
-
-/*blah := myFunc("Test", "best")
-
-test := []string{"item1", "meow"}
-
-test []= "test"
-
-me := Me{}
-me.arr []= "wop"*/
-
-Moo :: html {
-	div(class="godddddamn") {
-		children
-	}
-}
-
-Header(hey="afjkfajk!") {
-	// todo(Jake): 2018-02-05
-	// 
-	// Test
-	//
-
+Blah :: html {
 	div {
-		Moo {
-			span {
-				"oi!"
-			}
-		}
-		"more text"
+		"Blah Component"
+	}	
+	Header() {
+		
 	}
 }
-
-/*<header class="header blue yo!">
-		header text
-		<div>
-			<div class="godddddamn">
-				<span>
-					oi!
-				</span>
-			</div>
-			more text
-		</div>
-	</header>
-*/

@@ -100,6 +100,7 @@ type BlockKind int
 
 const (
 	BlockDefault BlockKind = 0 + iota
+	BlockUnresolved
 	BlockTemplate
 	BlockProcedure
 	BlockHTMLComponentDefinition
@@ -131,6 +132,7 @@ func (code *Code) String() string {
 // ie. a function, block-scope, HTMLComponent
 type Block struct {
 	kind           BlockKind
+	isUnresolved   bool
 	Name           string // procedure name / workspace name / etc
 	Opcodes        []Code
 	StackSize      int
@@ -140,6 +142,13 @@ type Block struct {
 func NewBlock(kind BlockKind) *Block {
 	block := new(Block)
 	block.kind = kind
+	return block
+}
+
+func NewUnresolvedBlock(name string) *Block {
+	block := new(Block)
+	block.kind = BlockUnresolved
+	block.Name = name
 	return block
 }
 

@@ -997,6 +997,12 @@ func (p *Typer) TypecheckAndFinalize(files []*ast.File) {
 		if !ok {
 			continue
 		}
+		//
+		// todo(Jake): 2018-04-13
+		//
+		// Add a better dependency solver wherein it has detailed information
+		// about what isn't allowed, rather than a vague message.
+		//
 		p.AddError(node.Name, fmt.Errorf("Cannot use \"%s\". Cyclic references are not allowed.", name))
 	}
 

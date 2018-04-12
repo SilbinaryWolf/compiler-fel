@@ -135,16 +135,7 @@ func compileProject(projectDirpath string) error {
 
 		// Emit bytecode
 		emit := emitter.New()
-		for _, astFile := range astFiles {
-			// NOTE(Jake): 2018-03-16
-			//
-			// Not pulled out as dependencies aren't resolved properly yet
-			//
-			if len(astFile.Nodes()) == 0 {
-				continue
-			}
-			emit.EmitGlobalScope(astFile)
-		}
+		emit.EmitGlobalScope(astFiles)
 
 		// Emit template directories
 		for _, astFile := range astFiles {

@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 
@@ -14,6 +15,9 @@ import (
 type Parser struct {
 	scanner.Scanner
 	errors.ErrorHandler
+
+	// Used per-file
+	dependencies map[string]bool
 }
 
 func New() *Parser {
@@ -42,16 +46,24 @@ func (p *Parser) ParseFile(filepath string) (*ast.File, error) {
 
 func (p *Parser) Parse(filecontentsAsBytes []byte, filepath string) *ast.File {
 	p.Scanner.Init(filecontentsAsBytes, filepath)
-	resultNode := &ast.File{
-		Filepath: filepath,
-	}
 	t := p.PeekNextToken()
 	if t.Kind == token.EOF {
 		p.AddError(t, fmt.Errorf("Empty source file: %s", filepath))
 		return nil
 	}
-	resultNode.ChildNodes = p.parseStatements()
-	return resultNode
+
+	//
+	p.dependencies = make(map[string]bool)
+	astFile := &ast.File{
+		Filepath: filepath,
+	}
+	astFile.ChildNodes = p.parseStatements()
+	astFile.Dependencies = p.dependencies
+	json, _ := json.MarshalIndent(astFile.Dependencies, "", "   ")
+	fmt.Printf("%s\nJSON AST\n---------------\n", string(json))
+	p.dependencies = nil
+
+	return astFile
 }
 
 func (p *Parser) validateHTMLNode(node *ast.Call) {
@@ -59,12 +71,12 @@ func (p *Parser) validateHTMLNode(node *ast.Call) {
 	if len(node.ChildNodes) > 0 && util.IsSelfClosingTagName(name) {
 		p.AddError(node.Name, fmt.Errorf("%s is a self-closing tag and cannot have child elements.", name))
 	}
+	p.dependencies[name] = true
 	// todo(Jake): Extend this to allow user configured/whitelisted tag names
 	//
 	//isValidHTML5TagName := util.IsValidHTML5TagName(name)
 	//if !isValidHTML5TagName {
-	//p.htmlComponentNodes = append(p.htmlComponentNodes, node)
-	//p.addErrorLine(fmt.Errorf("\"%s\" is not a valid HTML5 element.", name), node.Name.Line)
+	//	p.AddError(node.Name, fmt.Errorf("\"%s\" is not a valid HTML5 element.", name))
 	//}
 }
 
@@ -872,6 +884,7 @@ func (p *Parser) parseProcedureOrHTMLNode(name token.Token) *ast.Call {
 		node := ast.NewCall()
 		node.Name = name
 		node.Parameters = parameters
+		p.dependencies[name.String()] = true
 		return node
 	}
 	node := ast.NewHTMLNode()

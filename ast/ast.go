@@ -55,7 +55,8 @@ func (node *Base) Nodes() []Node {
 }
 
 type File struct {
-	Filepath string
+	Filepath     string
+	Dependencies map[string]bool
 	Base
 }
 

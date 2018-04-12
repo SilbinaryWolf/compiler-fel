@@ -88,7 +88,7 @@ func GetWorkspacesFromConfig(configFilepath string) ([]Workspace, error) {
 	//
 	// Not pulled out as dependencies aren't resolved properly yet
 	//
-	emit.EmitGlobalScope(astFile)
+	emit.EmitGlobalScope([]*ast.File{astFile})
 	_ = emit.EmitBytecode(astFile, emitter.FileOptions{
 		IsTemplateFile: true,
 	})

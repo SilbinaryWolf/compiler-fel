@@ -268,6 +268,7 @@ func (program *Program) executeBytecode(codeBlock *bytecode.Block) {
 	if codeBlock.HasReturnValue {
 		expectedRegisterStackSize = 1
 	}
+
 	if len(program.registerStack) > expectedRegisterStackSize {
 		debugPrintStack("VM Stack Values", program.stack)
 		debugPrintStack(fmt.Sprintf("VM Register Stack (Size: %d)", len(program.registerStack)), program.registerStack)
@@ -275,11 +276,11 @@ func (program *Program) executeBytecode(codeBlock *bytecode.Block) {
 	}
 
 	// Debug
-	debugPrintStack("VM Stack Values", program.stack)
+	/*debugPrintStack("VM Stack Values", program.stack)
 	if len(program.returnHTMLNodes) > 0 {
 		fmt.Printf("Result HTML Nodes:\n")
 		for _, node := range program.returnHTMLNodes {
 			fmt.Printf("- %s\n", node.Debug())
 		}
-	}
+	}*/
 }

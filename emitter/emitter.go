@@ -34,13 +34,17 @@ type Scope struct {
 }
 
 type Emitter struct {
-	symbols map[string]*bytecode.Block
-	//unresolvedSymbols []bytecode.
-	workspaces       []*bytecode.Block
+	symbols           map[string]*bytecode.Block
+	unresolvedSymbols map[string]*bytecode.Block
+	workspaces        []*bytecode.Block
+	fileOptions       FileOptions
+	EmitterScope
+}
+
+type EmitterScope struct {
 	scope            *Scope
 	stackPos         int
 	htmlElementStack []string
-	fileOptions      FileOptions
 }
 
 type FileOptions struct {
@@ -94,6 +98,7 @@ func (scope *Scope) Get(name string) (VariableInfo, bool) {
 func New() *Emitter {
 	emit := new(Emitter)
 	emit.symbols = make(map[string]*bytecode.Block)
+	emit.unresolvedSymbols = make(map[string]*bytecode.Block)
 	emit.workspaces = make([]*bytecode.Block, 0, 3)
 	emit.PushScope()
 	return emit
@@ -101,6 +106,58 @@ func New() *Emitter {
 
 func (emit *Emitter) Workspaces() []*bytecode.Block {
 	return emit.workspaces
+}
+
+func (emit *Emitter) EmitGlobalScope(nodes []*ast.File) {
+	for _, astFile := range nodes {
+		for _, node := range astFile.Nodes() {
+			emit.emitGlobalScope(node)
+		}
+	}
+	if len(emit.unresolvedSymbols) > 0 {
+		panic("todo(Jake): Handle unresolved symbols.")
+	}
+}
+
+func (emit *Emitter) EmitBytecode(node ast.Node, fileOptions FileOptions) *bytecode.Block {
+	oldOptions := emit.fileOptions
+	emit.fileOptions = fileOptions
+	defer func() {
+		emit.fileOptions = oldOptions
+	}()
+	isTemplateFile := emit.IsTemplateFile()
+
+	// Emit bytecode
+	opcodes := make([]bytecode.Code, 0, 50)
+	codeBlockType := bytecode.BlockDefault
+	{
+		if isTemplateFile {
+			// NOTE(Jake): 2018-02-17
+			//
+			// For template files we need this for the return value
+			//
+			opcodes = append(opcodes, bytecode.Code{
+				Kind: bytecode.PushAllocHTMLFragment,
+			})
+			codeBlockType = bytecode.BlockTemplate
+		}
+		for _, node := range node.Nodes() {
+			opcodes = emit.emitStatement(opcodes, node)
+		}
+		if isTemplateFile {
+			opcodes = append(opcodes, bytecode.Code{
+				Kind: bytecode.Return,
+			})
+		}
+	}
+
+	codeBlock := bytecode.NewBlock(codeBlockType)
+	codeBlock.Opcodes = opcodes
+	codeBlock.StackSize = emit.stackPos
+	codeBlock.HasReturnValue = codeBlockType == bytecode.BlockTemplate
+	debugOpcodes(opcodes)
+	fmt.Printf("Final bytecode output above\nStack Size: %d\n", codeBlock.StackSize)
+	return codeBlock
 }
 
 func appendReverse(nodes []ast.Node, nodesToPrepend []ast.Node) []ast.Node {
@@ -130,6 +187,17 @@ func debugOpcodes(opcodes []bytecode.Code) {
 func (emit *Emitter) registerSymbol(name string, block *bytecode.Block) bool {
 	_, ok := emit.symbols[name]
 	if ok {
+		if symbol, ok := emit.unresolvedSymbols[name]; ok {
+			// NOTE(Jake): 2018-04-13
+			//
+			// If a symbol isn't found, we create it and use it in
+			// an uninitialized state. Later to resolve the symbol, we
+			// simply copy the data over the "placeholder"
+			//
+			*symbol = *block
+			delete(emit.unresolvedSymbols, name)
+			return true
+		}
 		return false
 	}
 	emit.symbols[name] = block
@@ -308,7 +376,11 @@ func (emit *Emitter) emitHTMLNode(opcodes []bytecode.Code, node *ast.Call) []byt
 		name := node.Name.String()
 		block, ok := emit.symbols[name]
 		if !ok {
-			panic(fmt.Sprintf("Missing HTML component \"%s\" symbol. Either this is:\n- Uncaught in the typechecker.\nor\n- A component that hasnt been emitted.", name))
+			block = bytecode.NewUnresolvedBlock(name)
+			emit.symbols[name] = block
+			emit.unresolvedSymbols[name] = block
+			//fmt.Printf("Unresovled Symbol added: %s", name)
+			//panic(fmt.Sprintf("Missing HTML component \"%s\" symbol. Either this is:\n- Uncaught in the typechecker.\nor\n- A component that hasnt been emitted.", name))
 		}
 
 		// If definition has used the "children" keyword
@@ -608,8 +680,14 @@ func (emit *Emitter) emitLeftHandSide(opcodes []bytecode.Code, leftHandSide []as
 	return opcodes
 }
 
-func emitHTMLComponentDefinition(node *ast.HTMLComponentDefinition) *bytecode.Block {
-	emit := New()
+func (emit *Emitter) emitHTMLComponentDefinition(node *ast.HTMLComponentDefinition) *bytecode.Block {
+	// Reset scope / html nest variables
+	oldEmitterScope := emit.EmitterScope
+	emit.EmitterScope = EmitterScope{}
+	emit.PushScope()
+	defer func() {
+		emit.EmitterScope = oldEmitterScope
+	}()
 
 	opcodes := make([]bytecode.Code, 0, 15)
 	opcodes = append(opcodes, bytecode.Code{
@@ -735,7 +813,7 @@ func (emit *Emitter) emitGlobalScope(node ast.Node) {
 			panic(fmt.Sprintf("Procedure name %s is used already. This should be caught in the typechecker.", node.Name.String()))
 		}
 	case *ast.HTMLComponentDefinition:
-		block := emitHTMLComponentDefinition(node)
+		block := emit.emitHTMLComponentDefinition(node)
 		ok := emit.registerSymbol(node.Name.String(), block)
 		if !ok {
 			panic(fmt.Sprintf("HTML Component name %s is used already. This should be caught in the typechecker.", node.Name.String()))
@@ -1086,51 +1164,4 @@ func (emit *Emitter) emitStatement(opcodes []bytecode.Code, node ast.Node) []byt
 		panic(fmt.Sprintf("emitStatement: Unhandled type %T", node))
 	}
 	return opcodes
-}
-
-func (emit *Emitter) EmitGlobalScope(node ast.Node) {
-	for _, node := range node.Nodes() {
-		emit.emitGlobalScope(node)
-	}
-}
-
-func (emit *Emitter) EmitBytecode(node ast.Node, fileOptions FileOptions) *bytecode.Block {
-	oldOptions := emit.fileOptions
-	emit.fileOptions = fileOptions
-	defer func() {
-		emit.fileOptions = oldOptions
-	}()
-	isTemplateFile := emit.IsTemplateFile()
-
-	// Emit bytecode
-	opcodes := make([]bytecode.Code, 0, 50)
-	codeBlockType := bytecode.BlockDefault
-	{
-		if isTemplateFile {
-			// NOTE(Jake): 2018-02-17
-			//
-			// For template files we need this for the return value
-			//
-			opcodes = append(opcodes, bytecode.Code{
-				Kind: bytecode.PushAllocHTMLFragment,
-			})
-			codeBlockType = bytecode.BlockTemplate
-		}
-		for _, node := range node.Nodes() {
-			opcodes = emit.emitStatement(opcodes, node)
-		}
-		if isTemplateFile {
-			opcodes = append(opcodes, bytecode.Code{
-				Kind: bytecode.Return,
-			})
-		}
-	}
-
-	codeBlock := bytecode.NewBlock(codeBlockType)
-	codeBlock.Opcodes = opcodes
-	codeBlock.StackSize = emit.stackPos
-	codeBlock.HasReturnValue = codeBlockType == bytecode.BlockTemplate
-	debugOpcodes(opcodes)
-	fmt.Printf("Final bytecode output above\nStack Size: %d\n", codeBlock.StackSize)
-	return codeBlock
 }
