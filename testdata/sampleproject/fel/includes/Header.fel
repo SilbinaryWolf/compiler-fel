@@ -30,8 +30,10 @@ Header :: html {
 		// test
 		class = "blue"
 	}
-	Blah() {
-
+	Blah(title="Huzzah") {
+		div {
+			"Neat!"
+		}
 	}
 	header(class="header "+class+" "+hey) {
 		"header text"
@@ -39,11 +41,13 @@ Header :: html {
 	}
 }
 
+Blah :: struct {
+	title: string = ""
+}
+
 Blah :: html {
 	div {
-		"Blah Component"
-	}	
-	Header() {
-		
+		title + " Blah Component"
+		children
 	}
 }

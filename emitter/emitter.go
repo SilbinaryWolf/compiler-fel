@@ -38,13 +38,13 @@ type Emitter struct {
 	unresolvedSymbols map[string]*bytecode.Block
 	workspaces        []*bytecode.Block
 	fileOptions       FileOptions
+	htmlElementStack  []string // mostly for debug purposes, can possibly be removed
 	EmitterScope
 }
 
 type EmitterScope struct {
-	scope            *Scope
-	stackPos         int
-	htmlElementStack []string
+	scope    *Scope
+	stackPos int
 }
 
 type FileOptions struct {
