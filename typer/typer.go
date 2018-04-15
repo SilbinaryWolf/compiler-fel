@@ -43,12 +43,13 @@ func (p *Typer) typerStructLiteral(scope *Scope, literal *ast.StructLiteral) {
 		p.AddError(literal.Name, fmt.Errorf("Undeclared \"%s :: struct\"", name))
 		return
 	}
-	def := symbol.structDefinition
-	if def == nil {
-		p.AddError(literal.Name, fmt.Errorf("Expected \"%s\" to be \"%s :: struct\", not \"%s\".", name, name, symbol.GetType()))
+	def, ok := symbol.(*types.Struct)
+	if !ok {
+		p.AddError(literal.Name, fmt.Errorf("Expected \"%s\" to be \"%s :: struct\", not \"%s\".", name, name, "<todo(Jake): 2018-04-15 >)"))
 		return
 	}
-	if len(def.Fields) == 0 && len(literal.Fields) > 0 {
+	defFields := def.Fields()
+	if len(defFields) == 0 && len(literal.Fields) > 0 {
 		p.AddError(literal.Name, fmt.Errorf("Struct %s does not have any fields.", name))
 		return
 	}
@@ -59,13 +60,13 @@ func (p *Typer) typerStructLiteral(scope *Scope, literal *ast.StructLiteral) {
 	}
 
 	// Check literal against definition
-	for _, defField := range def.Fields {
-		defTypeInfo := defField.Expression.TypeInfo
+	for _, defField := range defFields {
+		defTypeInfo := defField.TypeInfo
 		if defTypeInfo == nil {
-			p.PanicError(defField.Name, fmt.Errorf("Missing type info from field \"%s\" on \"%s :: struct\".", defField.Name.String(), name))
+			p.PanicError(literal.Name, fmt.Errorf("Missing type info from field \"%s\" on \"%s :: struct\".", defField.Name, name))
 			return
 		}
-		defName := defField.Name.String()
+		defName := defField.Name
 		for i := 0; i < len(literal.Fields); i++ {
 			property := &literal.Fields[i]
 			if defName != property.Name.String() {
@@ -74,7 +75,7 @@ func (p *Typer) typerStructLiteral(scope *Scope, literal *ast.StructLiteral) {
 			p.typerExpression(scope, &property.Expression)
 			litTypeInfo := property.Expression.TypeInfo
 			if litTypeInfo != defTypeInfo {
-				p.AddError(property.Name, fmt.Errorf("Mismatching type, expected \"%s\" but got \"%s\"", defField.TypeIdentifier.Name.String(), property.Expression.TypeInfo.String()))
+				p.AddError(property.Name, fmt.Errorf("Mismatching type, expected \"%s\" but got \"%s\"", defField.TypeIdentifier.Name, property.Expression.TypeInfo))
 			}
 		}
 	}
@@ -82,8 +83,8 @@ func (p *Typer) typerStructLiteral(scope *Scope, literal *ast.StructLiteral) {
 	for _, property := range literal.Fields {
 		propertyName := property.Name.String()
 		hasFieldNameOnDef := false
-		for _, defField := range def.Fields {
-			hasFieldNameOnDef = hasFieldNameOnDef || defField.Name.String() == propertyName
+		for _, defField := range defFields {
+			hasFieldNameOnDef = hasFieldNameOnDef || defField.Name == propertyName
 		}
 		if !hasFieldNameOnDef {
 			p.AddError(property.Name, fmt.Errorf("Field \"%s\" does not exist on \"%s :: struct\"", propertyName, name))
@@ -318,9 +319,9 @@ func (p *Typer) typerExpression(scope *Scope, expression *ast.Expression) {
 					p.AddError(node.Token, fmt.Errorf("Undeclared identifier \"%s\".", name))
 					continue
 				}
-				variableTypeInfo := symbol.variable
+				variableTypeInfo := symbol
 				if variableTypeInfo == nil {
-					if htmlComponentDefinition := symbol.htmlDefinition; htmlComponentDefinition != nil {
+					if _, ok := symbol.(*types.HTMLComponent); ok {
 						p.AddError(node.Token, fmt.Errorf("Undeclared identifier \"%s\". Did you mean \"%s()\" or \"%s{ }\" to reference the \"%s :: html\" component?", name, name, name, name))
 						continue
 					}
@@ -411,7 +412,7 @@ func (p *Typer) getTypeFromLeftHandSide(leftHandSideTokens []token.Token, scope 
 		p.AddError(nameToken, fmt.Errorf("Undeclared variable \"%s\".", name))
 		return nil
 	}
-	variableTypeInfo := symbol.variable
+	variableTypeInfo := symbol
 	if variableTypeInfo == nil {
 		p.AddError(nameToken, fmt.Errorf("Identifier \"%s\" is not a variable", name))
 		return nil
@@ -462,9 +463,9 @@ func (p *Typer) typerHTMLNode(scope *Scope, node *ast.Call) {
 		p.AddError(node.Name, fmt.Errorf("\"%s\" is not a valid HTML5 element or defined component.", name))
 		return
 	}
-	htmlDefinition := symbol.htmlDefinition
-	if htmlDefinition == nil {
-		p.AddError(node.Name, fmt.Errorf("Expected \"%s\" to be \"%s :: html\", not \"%s\".", name, name, symbol.GetType()))
+	htmlDefinition, ok := symbol.(*types.HTMLComponent)
+	if !ok {
+		p.AddError(node.Name, fmt.Errorf("Expected \"%s\" to be \"%s :: html\", not \"%s\".", name, name, "<todo(Jake): 2018-04-15 symbol.GetType()>"))
 		return
 	}
 	//fmt.Printf("%s -- %d\n", htmlComponentDefinition.Name.String(), len(p.typerHtmlDefinitionStack))
@@ -478,7 +479,7 @@ func (p *Typer) typerHTMLNode(scope *Scope, node *ast.Call) {
 	if p.typecheckHtmlNodeDependencies != nil {
 		p.typecheckHtmlNodeDependencies[name] = node
 	}
-	node.HTMLDefinition = htmlDefinition
+	//node.HTMLDefinition = htmlDefinition
 	structDef := node.HTMLDefinition.Struct
 	if structDef != nil && len(structDef.Fields) > 0 {
 		// Check if parameters exist
@@ -513,15 +514,26 @@ func (p *Typer) typerHTMLDefinition(htmlDefinition *ast.HTMLComponentDefinition,
 		panic(fmt.Sprintf("Cannot find symbol for \"%s\", this should not be possible.", name))
 	}
 
+	/*htmlTypeInfo := types.NewHTMLComponent(htmlDefinition)
 	// Attach CSSDefinition if found
-	if symbol.cssDefinition != nil {
-		htmlDefinition.CSSDefinition = symbol.cssDefinition
+	if symbol, ok := symbol.(*types.HTMLComponent); ok {
+		if definition := symbol.CSSDefinition(); definition != nil {
+			htmlTypeInfo.SetCSSDefinition(definition)
+		}
+		if definition := symbol.CSSConfigDefinition(); definition != nil {
+			htmlTypeInfo.SetCSSConfigDefinition(definition)
+		}
+	}
+	if symbol, ok := symbol.(*types.HTMLComponent); ok {
+		if definition := symbol.CSSConfigDefinition(); definition != nil {
+			htmlTypeInfo.SetCSSConfigDefinition(definition)
+		}
 	}
 
 	// Attach CSSConfigDefinition if found
 	if symbol.cssConfigDefinition != nil {
 		htmlDefinition.CSSConfigDefinition = symbol.cssConfigDefinition
-	}
+	}*/
 
 	// Attach StructDefinition if found
 	if structDef := symbol.structDefinition; structDef != nil {
@@ -949,7 +961,16 @@ func (p *Typer) ApplyTypeInfoAndTypecheck(files []*ast.File) {
 					continue
 				}
 				name := node.Name.String()
-				symbol := scope.getOrCreateSymbol(name)
+				//var ident *types.HTMLComponent
+				symbol := scope.GetSymbolFromThisScope(name)
+				if symbol == nil {
+					//ident = types.NewHTMLComponent(node)
+				} else {
+					panic(scope.debug() + "\ntodo")
+				}
+				panic("todo")
+
+				/*symbol := scope.getOrCreateSymbol(name)
 				if definition := symbol.htmlDefinition; definition != nil {
 					errorMessage := fmt.Errorf("Cannot redeclare \"%s :: html\" more than once in global scope.", name)
 					p.AddError(definition.Name, errorMessage)
@@ -957,7 +978,7 @@ func (p *Typer) ApplyTypeInfoAndTypecheck(files []*ast.File) {
 					continue
 				}
 				symbol.htmlDefinition = node
-				globalScopeHtmlDefinitions = append(globalScopeHtmlDefinitions, node)
+				globalScopeHtmlDefinitions = append(globalScopeHtmlDefinitions, node)*/
 			case *ast.CSSDefinition:
 				if node == nil {
 					p.PanicMessage(fmt.Errorf("Found nil top-level %T.", node))

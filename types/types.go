@@ -100,6 +100,45 @@ func (_ *HTMLNode) String() string      { return "html node" }
 func (_ *HTMLNode) ImplementsTypeInfo() {}
 
 //
+// HTML Component
+//
+type HTMLComponent struct {
+	name                string
+	htmlDefinition      *ast.HTMLComponentDefinition
+	cssDefinition       *ast.CSSDefinition
+	cssConfigDefinition *ast.CSSConfigDefinition
+	structDefinition    *ast.StructDefinition
+}
+
+func (info *HTMLComponent) String() string { return info.name }
+func (info *HTMLComponent) SetHTMLDefinition(definition *ast.HTMLComponentDefinition) {
+	info.htmlDefinition = definition
+}
+func (info *HTMLComponent) HTMLDefinition() *ast.HTMLComponentDefinition { return info.htmlDefinition }
+func (info *HTMLComponent) CSSDefinition() *ast.CSSDefinition            { return info.cssDefinition }
+func (info *HTMLComponent) SetCSSDefinition(definition *ast.CSSDefinition) {
+	info.cssDefinition = definition
+}
+func (info *HTMLComponent) StructDefinition() *ast.StructDefinition { return info.structDefinition }
+func (info *HTMLComponent) SetStructDefinition(definition *ast.StructDefinition) {
+	info.structDefinition = definition
+}
+func (info *HTMLComponent) CSSConfigDefinition() *ast.CSSConfigDefinition {
+	return info.cssConfigDefinition
+}
+func (info *HTMLComponent) SetCSSConfigDefinition(definition *ast.CSSConfigDefinition) {
+	info.cssConfigDefinition = definition
+}
+func (_ *HTMLComponent) ImplementsTypeInfo() {}
+
+func NewHTMLComponent(htmlDefiniton *ast.HTMLComponentDefinition) *HTMLComponent {
+	result := new(HTMLComponent)
+	result.name = htmlDefiniton.Name.String()
+	result.htmlDefinition = htmlDefiniton
+	return result
+}
+
+//
 // Struct
 //
 type Struct struct {

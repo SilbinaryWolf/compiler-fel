@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 
-	"github.com/silbinarywolf/compiler-fel/ast"
 	"github.com/silbinarywolf/compiler-fel/types"
 )
 
@@ -18,12 +17,12 @@ const (
 )*/
 
 type Scope struct {
-	identifiers map[string]*Symbol
+	identifiers map[string]types.TypeInfo
 	parent      *Scope
 }
 
-type Symbol struct {
-	name string
+/*type Symbol struct {
+	//name string
 
 	// For variables
 	variable types.TypeInfo
@@ -51,7 +50,7 @@ func (symbol *Symbol) GetType() string {
 		}
 	}
 	return "<error calling symbol.GetType()>"
-}
+}*/
 
 /*func (symbol *Symbol) expected(kind SymbolKind) error {
 	name := symbol.name
@@ -66,21 +65,12 @@ func (symbol *Symbol) GetType() string {
 
 func NewScope(parent *Scope) *Scope {
 	result := new(Scope)
-	result.identifiers = make(map[string]*Symbol)
+	result.identifiers = make(map[string]types.TypeInfo)
 	result.parent = parent
 	return result
 }
 
-func (scope *Scope) getOrCreateSymbol(name string) *Symbol {
-	symbol := scope.identifiers[name]
-	if symbol == nil {
-		symbol = new(Symbol)
-		scope.identifiers[name] = symbol
-	}
-	return symbol
-}
-
-func (scope *Scope) GetSymbols(name string) *Symbol {
+func (scope *Scope) GetSymbol(name string) types.TypeInfo {
 	symbol := scope.identifiers[name]
 	if symbol == nil && scope.parent != nil {
 		return scope.parent.GetSymbol(name)
@@ -88,15 +78,7 @@ func (scope *Scope) GetSymbols(name string) *Symbol {
 	return symbol
 }
 
-func (scope *Scope) GetSymbol(name string) *Symbol {
-	symbol := scope.identifiers[name]
-	if symbol == nil && scope.parent != nil {
-		return scope.parent.GetSymbol(name)
-	}
-	return symbol
-}
-
-func (scope *Scope) GetSymbolFromThisScope(name string) *Symbol {
+func (scope *Scope) GetSymbolFromThisScope(name string) types.TypeInfo {
 	symbol := scope.identifiers[name]
 	return symbol
 }
@@ -104,11 +86,11 @@ func (scope *Scope) GetSymbolFromThisScope(name string) *Symbol {
 //
 
 func (scope *Scope) SetVariable(name string, typeinfo types.TypeInfo) {
-	symbol := scope.getOrCreateSymbol(name)
-	if symbol.variable != nil {
+	_, ok := scope.identifiers[name]
+	if ok {
 		panic(fmt.Sprintf("Cannot set \"variable\" of symbol \"%s\" more than once.", name))
 	}
-	symbol.variable = typeinfo
+	scope.identifiers[name] = typeinfo
 }
 
 /*func (scope *Scope) GetVariable(name string) (types.TypeInfo, bool) {
