@@ -38,9 +38,14 @@ func New() *Typer {
 
 func (p *Typer) typerStructLiteral(scope *Scope, literal *ast.StructLiteral) {
 	name := literal.Name.String()
-	def, ok := scope.GetStructDefinition(name)
-	if !ok {
+	symbol := scope.GetSymbol(name)
+	if symbol == nil {
 		p.AddError(literal.Name, fmt.Errorf("Undeclared \"%s :: struct\"", name))
+		return
+	}
+	def := symbol.structDefinition
+	if def == nil {
+		p.AddError(literal.Name, fmt.Errorf("Expected \"%s\" to be \"%s :: struct\", not \"%s\".", name, name, symbol.GetType()))
 		return
 	}
 	if len(def.Fields) == 0 && len(literal.Fields) > 0 {
@@ -308,13 +313,18 @@ func (p *Typer) typerExpression(scope *Scope, expression *ast.Expression) {
 			switch node.Kind {
 			case token.Identifier:
 				name := node.String()
-				variableTypeInfo, ok := scope.GetVariable(name)
-				if !ok {
-					if htmlComponentDefinition := scope.GetHTMLDefinition(name); htmlComponentDefinition != nil {
+				symbol := scope.GetSymbol(name)
+				if symbol == nil {
+					p.AddError(node.Token, fmt.Errorf("Undeclared identifier \"%s\".", name))
+					continue
+				}
+				variableTypeInfo := symbol.variable
+				if variableTypeInfo == nil {
+					if htmlComponentDefinition := symbol.htmlDefinition; htmlComponentDefinition != nil {
 						p.AddError(node.Token, fmt.Errorf("Undeclared identifier \"%s\". Did you mean \"%s()\" or \"%s{ }\" to reference the \"%s :: html\" component?", name, name, name, name))
 						continue
 					}
-					p.AddError(node.Token, fmt.Errorf("Undeclared identifier \"%s\".", name))
+					p.AddError(node.Token, fmt.Errorf("Identifier \"%s\" is not a variable", name))
 					continue
 				}
 				if resultTypeInfo == nil {
@@ -396,9 +406,14 @@ func (p *Typer) getTypeFromLeftHandSide(leftHandSideTokens []token.Token, scope 
 		return nil
 	}
 	name := nameToken.String()
-	variableTypeInfo, ok := scope.GetVariable(name)
-	if !ok {
+	symbol := scope.GetSymbol(name)
+	if symbol == nil {
 		p.AddError(nameToken, fmt.Errorf("Undeclared variable \"%s\".", name))
+		return nil
+	}
+	variableTypeInfo := symbol.variable
+	if variableTypeInfo == nil {
+		p.AddError(nameToken, fmt.Errorf("Identifier \"%s\" is not a variable", name))
 		return nil
 	}
 	if variableTypeInfo == nil {
@@ -438,13 +453,18 @@ func (p *Typer) typerHTMLNode(scope *Scope, node *ast.Call) {
 	if isValidHTML5TagName {
 		return
 	}
-	htmlComponentDefinition := scope.GetHTMLDefinition(name)
-	if htmlComponentDefinition == nil {
+	symbol := scope.GetSymbol(name)
+	if symbol == nil {
 		if name != strings.ToLower(name) {
 			p.AddError(node.Name, fmt.Errorf("\"%s\" is an undefined component. If you want to use a standard HTML5 element, the name must all be in lowercase.", name))
 			return
 		}
 		p.AddError(node.Name, fmt.Errorf("\"%s\" is not a valid HTML5 element or defined component.", name))
+		return
+	}
+	htmlDefinition := symbol.htmlDefinition
+	if htmlDefinition == nil {
+		p.AddError(node.Name, fmt.Errorf("Expected \"%s\" to be \"%s :: html\", not \"%s\".", name, name, symbol.GetType()))
 		return
 	}
 	//fmt.Printf("%s -- %d\n", htmlComponentDefinition.Name.String(), len(p.typerHtmlDefinitionStack))
@@ -458,7 +478,7 @@ func (p *Typer) typerHTMLNode(scope *Scope, node *ast.Call) {
 	if p.typecheckHtmlNodeDependencies != nil {
 		p.typecheckHtmlNodeDependencies[name] = node
 	}
-	node.HTMLDefinition = htmlComponentDefinition
+	node.HTMLDefinition = htmlDefinition
 	structDef := node.HTMLDefinition.Struct
 	if structDef != nil && len(structDef.Fields) > 0 {
 		// Check if parameters exist
@@ -531,8 +551,7 @@ func (p *Typer) typerHTMLDefinition(htmlDefinition *ast.HTMLComponentDefinition,
 			var propertyNode *ast.StructField = &structDef.Fields[i]
 			p.typerExpression(scope, &propertyNode.Expression)
 			name := propertyNode.Name.String()
-			_, ok := scope.GetVariable(name)
-			if ok {
+			if symbol := scope.GetSymbol(name); symbol != nil {
 				if name == "children" {
 					p.AddError(propertyNode.Name, fmt.Errorf("Cannot use \"children\" as it's a reserved property."))
 					continue
@@ -540,6 +559,15 @@ func (p *Typer) typerHTMLDefinition(htmlDefinition *ast.HTMLComponentDefinition,
 				p.AddError(propertyNode.Name, fmt.Errorf("Property \"%s\" declared twice.", name))
 				continue
 			}
+			/*_, ok := scope.GetVariable(name)
+			if ok {
+				if name == "children" {
+					p.AddError(propertyNode.Name, fmt.Errorf("Cannot use \"children\" as it's a reserved property."))
+					continue
+				}
+				p.AddError(propertyNode.Name, fmt.Errorf("Property \"%s\" declared twice.", name))
+				continue
+			}*/
 			scope.SetVariable(name, propertyNode.TypeInfo)
 		}
 	}
@@ -654,8 +682,7 @@ func (p *Typer) typerStatements(topNode ast.Node, scope *Scope) {
 			expr := &node.Expression
 			p.typerExpression(scope, expr)
 			name := node.Name.String()
-			_, ok := scope.GetVariableThisScope(name)
-			if ok {
+			if symbol := scope.GetSymbolFromThisScope(name); symbol != nil {
 				p.AddError(node.Name, fmt.Errorf("Cannot redeclare \"%s\".", name))
 				continue
 			}
@@ -716,8 +743,7 @@ func (p *Typer) typerStatements(topNode ast.Node, scope *Scope) {
 			// Add "i" to scope if used
 			if node.IndexName.Kind != token.Unknown {
 				indexName := node.IndexName.String()
-				_, ok = scope.GetVariableThisScope(indexName)
-				if ok {
+				if scope := scope.GetSymbolFromThisScope(indexName); scope != nil {
 					p.AddError(node.IndexName, fmt.Errorf("Cannot redeclare \"%s\" in for-loop.", indexName))
 					continue
 				}
@@ -726,8 +752,7 @@ func (p *Typer) typerStatements(topNode ast.Node, scope *Scope) {
 
 			// Set left-hand value type
 			name := node.RecordName.String()
-			_, ok = scope.GetVariableThisScope(name)
-			if ok {
+			if scope := scope.GetSymbolFromThisScope(name); scope != nil {
 				p.AddError(node.RecordName, fmt.Errorf("Cannot redeclare \"%s\" in for-loop.", name))
 				continue
 			}
@@ -778,8 +803,16 @@ func (p *Typer) typerStruct(node *ast.StructDefinition, scope *Scope) {
 }
 
 func (p *Typer) typerProcedureDefinition(node *ast.ProcedureDefinition, scope *Scope) {
-	scope = NewScope(scope)
+	name := node.Name.String()
+	symbol := scope.getOrCreateSymbol(name)
+	if typeInfo := symbol.variable; typeInfo != nil {
+		errorMessage := fmt.Errorf("Cannot redeclare \"%s :: ()\" more than once in global scope.", name)
+		//p.AddError(symbol..Name, errorMessage)
+		p.AddError(node.Name, errorMessage)
+		return
+	}
 
+	scope = NewScope(scope)
 	for i := 0; i < len(node.Parameters); i++ {
 		parameter := &node.Parameters[i]
 		typeinfo := p.DetermineType(&parameter.TypeIdentifier)
@@ -841,6 +874,7 @@ func (p *Typer) typerProcedureDefinition(node *ast.ProcedureDefinition, scope *S
 	}
 
 	functionType := p.typeinfo.NewProcedureInfo(node)
+	symbol.variable = functionType
 	p.typeinfo.register(node.Name.String(), functionType)
 }
 
@@ -859,8 +893,8 @@ func (p *Typer) ApplyTypeInfoAndTypecheck(files []*ast.File) {
 	globalScope := NewScope(nil)
 
 	//
-	htmlDefinitions := make([]*ast.HTMLComponentDefinition, 0, 10)
-	cssConfigDefinitions := make([]*ast.CSSConfigDefinition, 0, 10)
+	globalScopeHtmlDefinitions := make([]*ast.HTMLComponentDefinition, 0, 10)
+	globalScopeCssConfigDefinitions := make([]*ast.CSSConfigDefinition, 0, 10)
 
 	// Get all global/top-level identifiers
 	for _, file := range files {
@@ -895,24 +929,16 @@ func (p *Typer) ApplyTypeInfoAndTypecheck(files []*ast.File) {
 					continue
 				}
 				name := node.Name.String()
-				if existingNode := scope.GetStructDefinitionFromThisScope(name); existingNode != nil {
-					errorMessage := fmt.Errorf("Cannot declare \"%s :: struct\" more than once in global scope.", name)
-					p.AddError(existingNode.Name, errorMessage)
+				symbol := scope.getOrCreateSymbol(name)
+				if definition := symbol.structDefinition; definition != nil {
+					errorMessage := fmt.Errorf("Cannot redeclare \"%s :: struct\" more than once in global scope.", name)
+					p.AddError(definition.Name, errorMessage)
 					p.AddError(node.Name, errorMessage)
 					continue
 				}
-
 				p.typerStruct(node, scope)
-
-				// Register struct
-
-				// todo(Jake): 2018-04-15
-				//
-				// Types should be scoped to their block
-				//
-				scope.SetStructDefinition(name, node)
-				typeinfo := p.typeinfo.NewStructInfo(node)
-				p.typeinfo.register(name, typeinfo)
+				symbol.structDefinition = node
+				p.typeinfo.register(name, p.typeinfo.NewStructInfo(node))
 			case *ast.HTMLComponentDefinition:
 				if node == nil {
 					p.PanicMessage(fmt.Errorf("Found nil top-level %T.", node))
@@ -923,14 +949,15 @@ func (p *Typer) ApplyTypeInfoAndTypecheck(files []*ast.File) {
 					continue
 				}
 				name := node.Name.String()
-				if existingDefinition := scope.GetHTMLDefinitionFromThisScope(name); existingDefinition != nil {
-					errorMessage := fmt.Errorf("Cannot declare \"%s :: html\" more than once in global scope.", name)
-					p.AddError(existingDefinition.Name, errorMessage)
+				symbol := scope.getOrCreateSymbol(name)
+				if definition := symbol.htmlDefinition; definition != nil {
+					errorMessage := fmt.Errorf("Cannot redeclare \"%s :: html\" more than once in global scope.", name)
+					p.AddError(definition.Name, errorMessage)
 					p.AddError(node.Name, errorMessage)
 					continue
 				}
-				scope.SetHTMLDefinition(name, node)
-				htmlDefinitions = append(htmlDefinitions, node)
+				symbol.htmlDefinition = node
+				globalScopeHtmlDefinitions = append(globalScopeHtmlDefinitions, node)
 			case *ast.CSSDefinition:
 				if node == nil {
 					p.PanicMessage(fmt.Errorf("Found nil top-level %T.", node))
@@ -940,13 +967,14 @@ func (p *Typer) ApplyTypeInfoAndTypecheck(files []*ast.File) {
 					continue
 				}
 				name := node.Name.String()
-				if existingDefinition := scope.GetCSSDefinitionFromThisScope(name); existingDefinition != nil {
-					errorMessage := fmt.Errorf("Cannot declare \"%s :: css\" more than once in global scope.", name)
-					p.AddError(existingDefinition.Name, errorMessage)
+				symbol := scope.getOrCreateSymbol(name)
+				if definition := symbol.cssDefinition; definition != nil {
+					errorMessage := fmt.Errorf("Cannot redeclare \"%s :: html\" more than once in global scope.", name)
+					p.AddError(definition.Name, errorMessage)
 					p.AddError(node.Name, errorMessage)
 					continue
 				}
-				scope.SetCSSDefinition(name, node)
+				symbol.cssDefinition = node
 			case *ast.CSSConfigDefinition:
 				if node == nil {
 					p.PanicMessage(fmt.Errorf("Found nil top-level %T.", node))
@@ -957,14 +985,15 @@ func (p *Typer) ApplyTypeInfoAndTypecheck(files []*ast.File) {
 					continue
 				}
 				name := node.Name.String()
-				if existingDefinition := scope.getCSSConfigDefinitionFromThisScope(name); existingDefinition != nil {
-					errorMessage := fmt.Errorf("Cannot declare \"%s :: css_config\" more than once in global scope.", name)
-					p.AddError(existingDefinition.Name, errorMessage)
+				symbol := scope.getOrCreateSymbol(name)
+				if definition := symbol.cssConfigDefinition; definition != nil {
+					errorMessage := fmt.Errorf("Cannot redeclare \"%s :: css_config\" more than once in global scope.", name)
+					p.AddError(definition.Name, errorMessage)
 					p.AddError(node.Name, errorMessage)
 					continue
 				}
-				scope.SetCSSConfigDefinition(name, node)
-				cssConfigDefinitions = append(cssConfigDefinitions, node)
+				symbol.cssConfigDefinition = node
+				globalScopeCssConfigDefinitions = append(globalScopeCssConfigDefinitions, node)
 			default:
 				panic(fmt.Sprintf("TypecheckAndFinalize: Unknown type %T", node))
 			}
@@ -972,12 +1001,12 @@ func (p *Typer) ApplyTypeInfoAndTypecheck(files []*ast.File) {
 	}
 
 	//
-	for _, htmlDefinition := range htmlDefinitions {
+	for _, htmlDefinition := range globalScopeHtmlDefinitions {
 		p.typerHTMLDefinition(htmlDefinition, globalScope)
 	}
 
 	// Check if CSS config matches a HTML or CSS component. If not, throw error.
-	for _, cssConfigDefinition := range cssConfigDefinitions {
+	for _, cssConfigDefinition := range globalScopeCssConfigDefinitions {
 		name := cssConfigDefinition.Name.String()
 		symbol := globalScope.GetSymbolFromThisScope(name)
 
@@ -991,7 +1020,7 @@ func (p *Typer) ApplyTypeInfoAndTypecheck(files []*ast.File) {
 	}
 
 	// Get nested dependencies
-	for _, htmlDefinition := range htmlDefinitions {
+	for _, htmlDefinition := range globalScopeHtmlDefinitions {
 		nodeStack := make([]*ast.Call, 0, 50)
 		for _, subNode := range htmlDefinition.Dependencies {
 			nodeStack = append(nodeStack, subNode)
@@ -1020,7 +1049,7 @@ func (p *Typer) ApplyTypeInfoAndTypecheck(files []*ast.File) {
 	}
 
 	// Lookup if component depends on itself
-	for _, htmlDefinition := range htmlDefinitions {
+	for _, htmlDefinition := range globalScopeHtmlDefinitions {
 		name := htmlDefinition.Name.String()
 		node, ok := htmlDefinition.Dependencies[name]
 		if !ok {
@@ -1040,3 +1069,20 @@ func (p *Typer) ApplyTypeInfoAndTypecheck(files []*ast.File) {
 		p.typecheckFile(file, globalScope)
 	}
 }
+
+/*func (p *Typer) checkForRedeclareErrors(nameToken token.Token, scope *Scope) bool {
+	name := nameToken.String()
+	if symbol := scope.GetSymbolFromThisScope(name); symbol != nil {
+		errorMessage := fmt.Errorf("Cannot redeclare \"%s\" more than once in global scope.", name)
+		if structDef := symbol.structDefinition; structDef != nil {
+			p.AddError(structDef.Name, errorMessage)
+		} else if htmlDef := symbol.htmlDefinition; htmlDef != nil {
+			p.AddError(htmlDef.Name, errorMessage)
+		} else if cssDef := symbol.cssDefinition; cssDef != nil {
+			p.AddError(cssDef.Name, errorMessage)
+		}
+		p.AddError(nameToken, errorMessage)
+		return true
+	}
+	return false
+}*/

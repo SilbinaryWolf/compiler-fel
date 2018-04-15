@@ -72,6 +72,7 @@ type Procedure struct {
 }
 
 func (info *Procedure) String() string                       { return "procedure " + info.name + "()" }
+func (info *Procedure) Name() string                         { return info.name }
 func (info *Procedure) Definition() *ast.ProcedureDefinition { return info.definition }
 func (_ *Procedure) ImplementsTypeInfo()                     {}
 

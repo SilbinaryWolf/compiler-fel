@@ -8,18 +8,61 @@ import (
 	"github.com/silbinarywolf/compiler-fel/types"
 )
 
+/*type SymbolKind int
+
+const (
+	SymbolUnknown SymbolKind = 0 + iota
+	SymbolVariable
+	SymbolHTMLComponent
+	SymbolStructDefinition
+)*/
+
 type Scope struct {
 	identifiers map[string]*Symbol
 	parent      *Scope
 }
 
 type Symbol struct {
-	variable            types.TypeInfo
+	name string
+
+	// For variables
+	variable types.TypeInfo
+
+	// For combined symbol (Component-pieces)
 	cssDefinition       *ast.CSSDefinition
 	cssConfigDefinition *ast.CSSConfigDefinition
 	htmlDefinition      *ast.HTMLComponentDefinition
 	structDefinition    *ast.StructDefinition
 }
+
+func (symbol *Symbol) GetType() string {
+	if symbol.htmlDefinition != nil {
+		return fmt.Sprintf("%s :: html", symbol.htmlDefinition.Name.String())
+	}
+	if symbol.cssDefinition != nil {
+		return fmt.Sprintf("%s :: css", symbol.cssDefinition.Name.String())
+	}
+	if symbol.variable != nil {
+		switch variable := symbol.variable.(type) {
+		case *types.Procedure:
+			return fmt.Sprintf("%s :: ()", variable.Name())
+		default:
+			return fmt.Sprintf("unknown variable type: %T", variable)
+		}
+	}
+	return "<error calling symbol.GetType()>"
+}
+
+/*func (symbol *Symbol) expected(kind SymbolKind) error {
+	name := symbol.name
+	switch kind {
+	case SymbolHTMLComponent:
+		return fmt.Errorf("Expected identifier \"%s\" to be a HTML component.", name)
+	case SymbolStructDefinition:
+		return fmt.Errorf("Expected identifier \"%s\" to be a struct.", name)
+	}
+	return fmt.Errorf("Expected identifier \"%s\" to be a <a different type>.", name)
+}*/
 
 func NewScope(parent *Scope) *Scope {
 	result := new(Scope)
@@ -60,7 +103,15 @@ func (scope *Scope) GetSymbolFromThisScope(name string) *Symbol {
 
 //
 
-func (scope *Scope) GetVariable(name string) (types.TypeInfo, bool) {
+func (scope *Scope) SetVariable(name string, typeinfo types.TypeInfo) {
+	symbol := scope.getOrCreateSymbol(name)
+	if symbol.variable != nil {
+		panic(fmt.Sprintf("Cannot set \"variable\" of symbol \"%s\" more than once.", name))
+	}
+	symbol.variable = typeinfo
+}
+
+/*func (scope *Scope) GetVariable(name string) (types.TypeInfo, bool) {
 	symbol := scope.identifiers[name]
 	if symbol == nil && scope.parent != nil {
 		return scope.parent.GetVariable(name)
@@ -137,14 +188,6 @@ func (scope *Scope) GetStructDefinitionFromThisScope(name string) *ast.StructDef
 	return symbol.structDefinition
 }
 
-func (scope *Scope) SetStructDefinition(name string, definition *ast.StructDefinition) {
-	symbol := scope.getOrCreateSymbol(name)
-	if symbol.structDefinition != nil {
-		panic(fmt.Sprintf("Cannot set \"struct definition\" of symbol \"%s\" more than once.", name))
-	}
-	symbol.structDefinition = definition
-}
-
 //
 
 func (scope *Scope) GetCSSDefinition(name string) (*ast.CSSDefinition, bool) {
@@ -201,7 +244,7 @@ func (scope *Scope) SetCSSConfigDefinition(name string, definition *ast.CSSConfi
 		panic(fmt.Sprintf("Cannot set \"css config definition\" of symbol \"%s\" more than once.", name))
 	}
 	symbol.cssConfigDefinition = definition
-}
+}*/
 
 func (scope *Scope) debug() string {
 	var buffer bytes.Buffer
