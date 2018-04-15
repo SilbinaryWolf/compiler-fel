@@ -1,66 +1,225 @@
 package typer
 
 import (
+	"bytes"
+	"fmt"
+
 	"github.com/silbinarywolf/compiler-fel/ast"
 	"github.com/silbinarywolf/compiler-fel/types"
 )
 
 type Scope struct {
-	identifiers map[string]types.TypeInfo
+	identifiers map[string]*Symbol
+	parent      *Scope
+}
 
-	cssDefinitions       map[string]*ast.CSSDefinition
-	cssConfigDefinitions map[string]*ast.CSSConfigDefinition
-	htmlDefinitions      map[string]*ast.HTMLComponentDefinition
-	structDefinitions    map[string]*ast.StructDefinition
-
-	parent *Scope
+type Symbol struct {
+	variable            types.TypeInfo
+	cssDefinition       *ast.CSSDefinition
+	cssConfigDefinition *ast.CSSConfigDefinition
+	htmlDefinition      *ast.HTMLComponentDefinition
+	structDefinition    *ast.StructDefinition
 }
 
 func NewScope(parent *Scope) *Scope {
 	result := new(Scope)
-
-	result.identifiers = make(map[string]types.TypeInfo)
-
-	// todo(jake): Refactor this so they all just go into "result.identifiers".
-	//			   Will need some kind of system so that " :: html", " :: css" etc
-	//			   blocks with the same name be stored in the same key.
-	result.cssDefinitions = make(map[string]*ast.CSSDefinition)
-	result.cssConfigDefinitions = make(map[string]*ast.CSSConfigDefinition)
-	result.htmlDefinitions = make(map[string]*ast.HTMLComponentDefinition)
-	result.structDefinitions = make(map[string]*ast.StructDefinition)
-
+	result.identifiers = make(map[string]*Symbol)
 	result.parent = parent
 	return result
 }
 
-func (scope *Scope) Set(name string, info types.TypeInfo) {
-	scope.identifiers[name] = info
+func (scope *Scope) getOrCreateSymbol(name string) *Symbol {
+	symbol := scope.identifiers[name]
+	if symbol == nil {
+		symbol = new(Symbol)
+		scope.identifiers[name] = symbol
+	}
+	return symbol
 }
 
-func (scope *Scope) Get(name string) (types.TypeInfo, bool) {
-	info, ok := scope.identifiers[name]
-	if !ok && scope.parent != nil {
-		info, ok = scope.parent.Get(name)
+func (scope *Scope) GetSymbols(name string) *Symbol {
+	symbol := scope.identifiers[name]
+	if symbol == nil && scope.parent != nil {
+		return scope.parent.GetSymbol(name)
 	}
-	return info, ok
+	return symbol
 }
 
-func (scope *Scope) GetHTMLDefinition(name string) (*ast.HTMLComponentDefinition, bool) {
-	value, ok := scope.htmlDefinitions[name]
-	if !ok && scope.parent != nil {
-		value, ok = scope.parent.GetHTMLDefinition(name)
+func (scope *Scope) GetSymbol(name string) *Symbol {
+	symbol := scope.identifiers[name]
+	if symbol == nil && scope.parent != nil {
+		return scope.parent.GetSymbol(name)
 	}
-	return value, ok
+	return symbol
 }
+
+func (scope *Scope) GetSymbolFromThisScope(name string) *Symbol {
+	symbol := scope.identifiers[name]
+	return symbol
+}
+
+//
+
+func (scope *Scope) GetVariable(name string) (types.TypeInfo, bool) {
+	symbol := scope.identifiers[name]
+	if symbol == nil && scope.parent != nil {
+		return scope.parent.GetVariable(name)
+	}
+	if symbol == nil {
+		return nil, false
+	}
+	return symbol.variable, true
+}
+
+func (scope *Scope) GetVariableThisScope(name string) (types.TypeInfo, bool) {
+	symbol := scope.identifiers[name]
+	if symbol == nil {
+		return nil, false
+	}
+	return symbol.variable, true
+}
+
+func (scope *Scope) SetVariable(name string, typeinfo types.TypeInfo) {
+	symbol := scope.getOrCreateSymbol(name)
+	if symbol.variable != nil {
+		panic(fmt.Sprintf("Cannot set \"variable\" of symbol \"%s\" more than once.", name))
+	}
+	symbol.variable = typeinfo
+}
+
+//
+
+func (scope *Scope) GetHTMLDefinition(name string) *ast.HTMLComponentDefinition {
+	symbol := scope.identifiers[name]
+	if symbol == nil && scope.parent != nil {
+		return scope.parent.GetHTMLDefinition(name)
+	}
+	if symbol == nil {
+		return nil
+	}
+	return symbol.htmlDefinition
+}
+
+func (scope *Scope) GetHTMLDefinitionFromThisScope(name string) *ast.HTMLComponentDefinition {
+	symbol := scope.identifiers[name]
+	if symbol == nil {
+		return nil
+	}
+	return symbol.htmlDefinition
+}
+
+func (scope *Scope) SetHTMLDefinition(name string, definition *ast.HTMLComponentDefinition) {
+	symbol := scope.getOrCreateSymbol(name)
+	if symbol.htmlDefinition != nil {
+		panic(fmt.Sprintf("Cannot set \"HTML definition\" of symbol \"%s\" more than once.", name))
+	}
+	symbol.htmlDefinition = definition
+}
+
+//
 
 func (scope *Scope) GetStructDefinition(name string) (*ast.StructDefinition, bool) {
-	value, ok := scope.structDefinitions[name]
-	if !ok && scope.parent != nil {
-		value, ok = scope.parent.GetStructDefinition(name)
+	symbol := scope.identifiers[name]
+	if symbol == nil && scope.parent != nil {
+		return scope.parent.GetStructDefinition(name)
 	}
-	return value, ok
+	if symbol == nil {
+		return nil, false
+	}
+	return symbol.structDefinition, true
 }
 
+func (scope *Scope) GetStructDefinitionFromThisScope(name string) *ast.StructDefinition {
+	symbol := scope.identifiers[name]
+	if symbol == nil {
+		return nil
+	}
+	return symbol.structDefinition
+}
+
+func (scope *Scope) SetStructDefinition(name string, definition *ast.StructDefinition) {
+	symbol := scope.getOrCreateSymbol(name)
+	if symbol.structDefinition != nil {
+		panic(fmt.Sprintf("Cannot set \"struct definition\" of symbol \"%s\" more than once.", name))
+	}
+	symbol.structDefinition = definition
+}
+
+//
+
+func (scope *Scope) GetCSSDefinition(name string) (*ast.CSSDefinition, bool) {
+	symbol := scope.identifiers[name]
+	if symbol == nil && scope.parent != nil {
+		return scope.parent.GetCSSDefinition(name)
+	}
+	if symbol == nil {
+		return nil, false
+	}
+	return symbol.cssDefinition, true
+}
+
+func (scope *Scope) GetCSSDefinitionFromThisScope(name string) *ast.CSSDefinition {
+	symbol := scope.identifiers[name]
+	if symbol == nil {
+		return nil
+	}
+	return symbol.cssDefinition
+}
+
+func (scope *Scope) SetCSSDefinition(name string, definition *ast.CSSDefinition) {
+	symbol := scope.getOrCreateSymbol(name)
+	if symbol.cssDefinition != nil {
+		panic(fmt.Sprintf("Cannot set \"css definition\" of symbol \"%s\" more than once.", name))
+	}
+	symbol.cssDefinition = definition
+}
+
+//
+
+func (scope *Scope) getCSSConfigDefinition(name string) (*ast.CSSConfigDefinition, bool) {
+	symbol := scope.identifiers[name]
+	if symbol == nil && scope.parent != nil {
+		return scope.parent.getCSSConfigDefinition(name)
+	}
+	if symbol == nil {
+		return nil, false
+	}
+	return symbol.cssConfigDefinition, true
+}
+
+func (scope *Scope) getCSSConfigDefinitionFromThisScope(name string) *ast.CSSConfigDefinition {
+	symbol := scope.identifiers[name]
+	if symbol == nil {
+		return nil
+	}
+	return symbol.cssConfigDefinition
+}
+
+func (scope *Scope) SetCSSConfigDefinition(name string, definition *ast.CSSConfigDefinition) {
+	symbol := scope.getOrCreateSymbol(name)
+	if symbol.cssDefinition != nil {
+		panic(fmt.Sprintf("Cannot set \"css config definition\" of symbol \"%s\" more than once.", name))
+	}
+	symbol.cssConfigDefinition = definition
+}
+
+func (scope *Scope) debug() string {
+	var buffer bytes.Buffer
+	if scope.parent != nil {
+		buffer.WriteString(scope.parent.debug())
+	}
+	buffer.WriteString("\nScope:\n")
+	if len(scope.identifiers) > 0 {
+		for name, _ := range scope.identifiers {
+			buffer.WriteString(fmt.Sprintf("- %s\n", name))
+		}
+	} else {
+		buffer.WriteString(fmt.Sprintf("<no symbols in this scope>\n"))
+	}
+	return buffer.String()
+}
+
+/*
 func (scope *Scope) GetCSSDefinition(name string) (*ast.CSSDefinition, bool) {
 	value, ok := scope.cssDefinitions[name]
 	if !ok && scope.parent != nil {
@@ -75,9 +234,4 @@ func (scope *Scope) GetCSSConfigDefinition(name string) (*ast.CSSConfigDefinitio
 		value, ok = scope.parent.GetCSSConfigDefinition(name)
 	}
 	return value, ok
-}
-
-func (scope *Scope) GetFromThisScope(name string) (types.TypeInfo, bool) {
-	info, ok := scope.identifiers[name]
-	return info, ok
-}
+}*/

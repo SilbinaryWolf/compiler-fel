@@ -126,11 +126,11 @@ func compileProject(projectDirpath string) error {
 			astFiles = append(astFiles, astFile)
 		}
 
-		// Typecheck when we've parsed all files
+		// Apply type information and typecheck when we've parsed all files
 		{
 			typerSpentTimer := time.Now()
 			p := typer.New()
-			p.TypecheckAndFinalize(astFiles)
+			p.ApplyTypeInfoAndTypecheck(astFiles)
 			typerTimeSpent += time.Since(typerSpentTimer)
 			if p.HasErrors() {
 				p.PrintErrors()

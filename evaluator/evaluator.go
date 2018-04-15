@@ -64,12 +64,7 @@ func GetWorkspacesFromConfig(configFilepath string) ([]Workspace, error) {
 	}
 	{
 		p := typer.New()
-		p.TypecheckFile(astFile, nil)
-		if p.HasErrors() {
-			p.PrintErrors()
-			return nil, fmt.Errorf("Parse errors in config.fel in root of project directory")
-		}
-		p.TypecheckAndFinalize([]*ast.File{astFile})
+		p.ApplyTypeInfoAndTypecheck([]*ast.File{astFile})
 		if p.HasErrors() {
 			p.PrintErrors()
 			return nil, fmt.Errorf("Parse errors in config.fel in root of project directory")
