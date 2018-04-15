@@ -6,6 +6,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
@@ -18,8 +19,9 @@ import (
 	"github.com/silbinarywolf/compiler-fel/vm"
 )
 
-type Test struct {
-	test int
+type File struct {
+	ast  *ast.File
+	code *bytecode.Block
 }
 
 func compileProject(projectDirpath string) error {
@@ -35,6 +37,9 @@ func compileProject(projectDirpath string) error {
 	var diskIOTimeSpent time.Duration
 	var parsingTimeSpent time.Duration
 	var typerTimeSpent time.Duration
+	var emitTimeSpent time.Duration
+	var executionTimeSpent time.Duration
+	totalTimeSpentTimer := time.Now()
 
 	for i, workspace := range workspaces {
 		templateInputDirectory := workspace.TemplateInputDirectory()
@@ -134,35 +139,60 @@ func compileProject(projectDirpath string) error {
 		}
 
 		// Emit bytecode
-		emit := emitter.New()
-		emit.EmitGlobalScope(astFiles)
+		codeRecords := make([]File, 0, len(astFiles))
+		{
+			emitSpentTimer := time.Now()
+			emit := emitter.New()
+			emit.EmitGlobalScope(astFiles)
 
-		// Emit template directories
-		for _, astFile := range astFiles {
-			if !strings.HasPrefix(astFile.Filepath, templateInputDirectory) ||
-				len(astFile.Nodes()) == 0 {
-				continue
-			}
-			codeBlock := emit.EmitBytecode(astFile, emitter.FileOptions{
-				IsTemplateFile: true,
-			})
+			// Emit template directories
+			fmt.Printf("\n")
+			for _, astFile := range astFiles {
+				if !strings.HasPrefix(astFile.Filepath, templateInputDirectory) ||
+					len(astFile.Nodes()) == 0 {
+					continue
+				}
+				codeBlock := emit.EmitBytecode(astFile, emitter.FileOptions{
+					IsTemplateFile: true,
+				})
 
-			result := vm.ExecuteNewProgram(codeBlock)
-			switch result := result.(type) {
-			case *bytecode.HTMLElement:
-				panic(result.Debug())
-			case nil:
-				// no-op
-			default:
-				panic(fmt.Sprintf("Unknown type: %T", result))
+				codeRecords = append(codeRecords, File{
+					ast:  astFile,
+					code: codeBlock,
+				})
 			}
+			emitTimeSpent += time.Since(emitSpentTimer)
+		}
+
+		// Execute template code
+		{
+			executionSpentTimer := time.Now()
+			for _, codeRecord := range codeRecords {
+				result := vm.ExecuteNewProgram(codeRecord.code)
+				switch result := result.(type) {
+				case *bytecode.HTMLElement:
+					//htmlElements = append(htmlElements, result)
+					fmt.Printf("Filename: %s\n%s\n", codeRecord.ast.Filepath, result.Debug())
+				case nil:
+					panic(fmt.Sprintf("Unexpected type: nil"))
+				default:
+					panic(fmt.Sprintf("Unknown type: %T", result))
+				}
+			}
+			executionTimeSpent += time.Since(executionSpentTimer)
 		}
 
 		fmt.Printf("\n")
 		fmt.Printf("Building workspace #%d \"%s\"...\n", i, workspace.Name())
 		fmt.Printf("Disk IO time: %s\n", diskIOTimeSpent)
 		fmt.Printf("Parsing time: %s (Typer: %s)\n", parsingTimeSpent+typerTimeSpent, typerTimeSpent)
+		fmt.Printf("Emitter time: %s\n", emitTimeSpent)
+		fmt.Printf("Execution time: %s\n", executionTimeSpent)
 
+		var m runtime.MemStats
+		runtime.ReadMemStats(&m)
+		fmt.Printf("Total time: %s (Memory used: %fmb)\n", time.Since(totalTimeSpentTimer), float32(m.TotalAlloc/1024)/100)
+		//fmt.Printf("\nAlloc = %v\nTotalAlloc = %v\nSys = %v\nNumGC = %v\n\n", m.Alloc/1024, (m.TotalAlloc/1024)/100, m.Sys/1024, m.NumGC)
 	}
 	return nil
 }

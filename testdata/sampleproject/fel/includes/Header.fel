@@ -41,7 +41,11 @@ Header :: html {
 	}
 }
 
-Blah :: struct {
+Blah :: () {
+	
+}
+
+/*Blah :: struct {
 	title: string = ""
 }
 
@@ -51,3 +55,4 @@ Blah :: html {
 		children
 	}
 }
+*/

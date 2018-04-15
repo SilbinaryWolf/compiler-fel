@@ -31,6 +31,7 @@ type VariableInfo struct {
 type Scope struct {
 	mapToInfo map[string]VariableInfo
 	parent    *Scope
+	stackPos  int
 }
 
 type Emitter struct {
@@ -43,8 +44,7 @@ type Emitter struct {
 }
 
 type EmitterScope struct {
-	scope    *Scope
-	stackPos int
+	scope *Scope
 }
 
 type FileOptions struct {
@@ -56,11 +56,16 @@ func (emit *Emitter) IsTemplateFile() bool {
 }
 
 func (emit *Emitter) PushScope() {
-	scope := new(Scope)
-	scope.mapToInfo = make(map[string]VariableInfo)
-	scope.parent = emit.scope
+	oldScope := emit.scope
 
-	emit.scope = scope
+	newScope := new(Scope)
+	newScope.mapToInfo = make(map[string]VariableInfo)
+	if oldScope != nil {
+		newScope.parent = oldScope
+		newScope.stackPos = oldScope.stackPos
+	}
+
+	emit.scope = newScope
 }
 
 func (emit *Emitter) PopScope() {
@@ -119,7 +124,7 @@ func (emit *Emitter) EmitGlobalScope(nodes []*ast.File) {
 	}
 }
 
-func (emit *Emitter) EmitBytecode(node ast.Node, fileOptions FileOptions) *bytecode.Block {
+func (emit *Emitter) EmitBytecode(node *ast.File, fileOptions FileOptions) *bytecode.Block {
 	oldOptions := emit.fileOptions
 	emit.fileOptions = fileOptions
 	defer func() {
@@ -151,9 +156,9 @@ func (emit *Emitter) EmitBytecode(node ast.Node, fileOptions FileOptions) *bytec
 		}
 	}
 
-	codeBlock := bytecode.NewBlock(codeBlockType)
+	codeBlock := bytecode.NewBlock(node.Filepath, codeBlockType)
 	codeBlock.Opcodes = opcodes
-	codeBlock.StackSize = emit.stackPos
+	codeBlock.StackSize = emit.scope.stackPos
 	codeBlock.HasReturnValue = codeBlockType == bytecode.BlockTemplate
 	debugOpcodes(opcodes)
 	fmt.Printf("Final bytecode output above\nStack Size: %d\n", codeBlock.StackSize)
@@ -376,7 +381,7 @@ func (emit *Emitter) emitHTMLNode(opcodes []bytecode.Code, node *ast.Call) []byt
 		name := node.Name.String()
 		block, ok := emit.symbols[name]
 		if !ok {
-			block = bytecode.NewUnresolvedBlock(name)
+			block = bytecode.NewUnresolvedBlock(name, bytecode.BlockHTMLComponentDefinition)
 			emit.symbols[name] = block
 			emit.unresolvedSymbols[name] = block
 			//fmt.Printf("Unresovled Symbol added: %s", name)
@@ -712,21 +717,21 @@ func (emit *Emitter) emitHTMLComponentDefinition(node *ast.HTMLComponentDefiniti
 			for i := len(structDef.Fields) - 1; i >= 0; i-- {
 				structField := structDef.Fields[i]
 				exprNode := &structField.Expression
-				opcodes = emit.emitParameter(opcodes, structField.Name.String(), exprNode.TypeInfo, (parameterCount-1)-emit.stackPos)
-				emit.stackPos++
+				opcodes = emit.emitParameter(opcodes, structField.Name.String(), exprNode.TypeInfo, (parameterCount-1)-emit.scope.stackPos)
+				emit.scope.stackPos++
 			}
 		}
 		if hasChildren {
 			// Add special optional "children" parameter as first parameter
-			opcodes = emit.emitParameter(opcodes, "children", nil, (parameterCount-1)-emit.stackPos)
-			emit.stackPos++
+			opcodes = emit.emitParameter(opcodes, "children", nil, (parameterCount-1)-emit.scope.stackPos)
+			emit.scope.stackPos++
 		}
 	}
 
 	opcodes = append(opcodes, bytecode.Code{
 		Kind: bytecode.PushAllocHTMLFragment,
 	})
-	emit.stackPos++
+	emit.scope.stackPos++
 
 	for _, node := range node.Nodes() {
 		opcodes = emit.emitStatement(opcodes, node)
@@ -737,9 +742,9 @@ func (emit *Emitter) emitHTMLComponentDefinition(node *ast.HTMLComponentDefiniti
 		Kind: bytecode.Return,
 	})
 
-	block := bytecode.NewBlock(bytecode.BlockHTMLComponentDefinition)
+	block := bytecode.NewBlock(node.Name.String(), bytecode.BlockHTMLComponentDefinition)
 	block.Opcodes = opcodes
-	block.StackSize = emit.stackPos
+	block.StackSize = emit.scope.stackPos
 	block.HasReturnValue = true
 	return block
 }
@@ -777,7 +782,7 @@ func emitProcedureDefinition(node *ast.ProcedureDefinition) *bytecode.Block {
 	})
 
 	stackSize := len(node.Parameters)
-	emit.stackPos = stackSize
+	emit.scope.stackPos = stackSize
 	for i := len(node.Parameters) - 1; i >= 0; i-- {
 		parameter := node.Parameters[i]
 		opcodes = emit.emitParameter(opcodes, parameter.Name.String(), parameter.TypeInfo, i)
@@ -793,10 +798,9 @@ func emitProcedureDefinition(node *ast.ProcedureDefinition) *bytecode.Block {
 		panic("emitProcedureDefinition: Automatically add return")
 	}
 
-	block := bytecode.NewBlock(bytecode.BlockProcedure)
-	block.Name = node.Name.String()
+	block := bytecode.NewBlock(node.Name.String(), bytecode.BlockProcedure)
 	block.Opcodes = opcodes
-	block.StackSize = emit.stackPos
+	block.StackSize = emit.scope.stackPos
 	block.HasReturnValue = node.TypeInfo != nil
 	return block
 }
@@ -830,8 +834,8 @@ func emitWorkspaceDefinition(node *ast.WorkspaceDefinition) *bytecode.Block {
 	opcodes := make([]bytecode.Code, 0, 35)
 	{
 		// Push "workspace" as first parameter
-		workspaceStackPos := emit.stackPos
-		emit.stackPos++
+		workspaceStackPos := emit.scope.stackPos
+		emit.scope.stackPos++
 		emit.scope.DeclareSet("workspace", VariableInfo{
 			kind:           VariableStruct,
 			structTypeInfo: structTypeInfo,
@@ -846,7 +850,7 @@ func emitWorkspaceDefinition(node *ast.WorkspaceDefinition) *bytecode.Block {
 			Kind: bytecode.Pop,
 		})
 
-		// Store name of workspace from ast in " name" field.
+		// Store name of workspace from ast in inaccessible " name" field.
 		{
 			opcodes = append(opcodes, bytecode.Code{
 				Kind:  bytecode.PushStackVar,
@@ -877,10 +881,9 @@ func emitWorkspaceDefinition(node *ast.WorkspaceDefinition) *bytecode.Block {
 		})
 	}
 
-	block := bytecode.NewBlock(bytecode.BlockWorkspaceDefinition)
-	block.Name = node.Name.String()
+	block := bytecode.NewBlock(node.Name.String(), bytecode.BlockWorkspaceDefinition)
 	block.Opcodes = opcodes
-	block.StackSize = emit.stackPos
+	block.StackSize = emit.scope.stackPos
 	block.HasReturnValue = true
 	return block
 }
@@ -952,7 +955,7 @@ func (emit *Emitter) emitStatement(opcodes []bytecode.Code, node ast.Node) []byt
 
 		opcodes = append(opcodes, bytecode.Code{
 			Kind:  bytecode.Store,
-			Value: emit.stackPos,
+			Value: emit.scope.stackPos,
 		})
 		opcodes = append(opcodes, bytecode.Code{
 			Kind: bytecode.Pop,
@@ -965,10 +968,10 @@ func (emit *Emitter) emitStatement(opcodes []bytecode.Code, node ast.Node) []byt
 			}
 			emit.scope.DeclareSet(nameString, VariableInfo{
 				kind:           VariableStruct,
-				stackPos:       emit.stackPos,
+				stackPos:       emit.scope.stackPos,
 				structTypeInfo: varStructTypeInfo,
 			})
-			emit.stackPos++
+			emit.scope.stackPos++
 		}
 	case *ast.Expression:
 		// todo(Jake): 2018-02-01

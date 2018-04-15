@@ -3,6 +3,7 @@ package bytecode
 import (
 	"bytes"
 	"fmt"
+
 	"github.com/silbinarywolf/compiler-fel/types"
 )
 
@@ -131,24 +132,28 @@ func (code *Code) String() string {
 
 // ie. a function, block-scope, HTMLComponent
 type Block struct {
+	name           string // procedure name / workspace name / etc
 	kind           BlockKind
 	isUnresolved   bool
-	Name           string // procedure name / workspace name / etc
 	Opcodes        []Code
 	StackSize      int
 	HasReturnValue bool
 }
 
-func NewBlock(kind BlockKind) *Block {
+func (block *Block) Name() string { return block.name }
+
+func NewBlock(name string, kind BlockKind) *Block {
 	block := new(Block)
+	block.name = name
 	block.kind = kind
 	return block
 }
 
-func NewUnresolvedBlock(name string) *Block {
+func NewUnresolvedBlock(name string, kind BlockKind) *Block {
 	block := new(Block)
-	block.kind = BlockUnresolved
-	block.Name = name
+	block.name = name
+	block.kind = kind
+	block.isUnresolved = true
 	return block
 }
 
