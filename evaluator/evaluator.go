@@ -12,7 +12,6 @@ import (
 	//"time"
 
 	"github.com/silbinarywolf/compiler-fel/ast"
-	"github.com/silbinarywolf/compiler-fel/bytecode"
 	"github.com/silbinarywolf/compiler-fel/data"
 	"github.com/silbinarywolf/compiler-fel/emitter"
 	"github.com/silbinarywolf/compiler-fel/typer"
@@ -92,7 +91,7 @@ func GetWorkspacesFromConfig(configFilepath string) ([]Workspace, error) {
 	workspaces := make([]Workspace, 0, len(workspaceCodeBlocks))
 	for _, workspaceCode := range workspaceCodeBlocks {
 		result := vm.ExecuteNewProgram(workspaceCode)
-		structData := result.(*bytecode.Struct)
+		structData := result.(*data.Struct)
 		workspace := Workspace{}
 		workspace.name = structData.GetFieldByName(" name").(string)
 		workspace.templateInputDirectory = structData.GetFieldByName("template_input_directory").(string)
@@ -107,31 +106,6 @@ func GetWorkspacesFromConfig(configFilepath string) ([]Workspace, error) {
 //////
 ////// Deprecated stuff
 //////
-
-func (program *Program) GetConfigString(configName string) (string, error) {
-	value, ok := program.globalScope.Get(configName)
-	if !ok {
-		return "", fmt.Errorf("%s is undefined in config.fel. This definition is required.", configName)
-	}
-	valueAsserted, ok := value.(*data.String)
-	if !ok {
-		return "", fmt.Errorf("%s is expected to be a string.", configName)
-	}
-	return valueAsserted.String(), nil
-}
-
-/*func (program *Program) CreateDataType(t token.Token) data.Type {
-	typename := t.String()
-	switch typename {
-	case "string":
-		return new(data.String)
-	case "html_node":
-		var empty *data.HTMLNode
-		return empty
-	default:
-		panic(fmt.Sprintf("Unknown type name: %s", typename))
-	}
-}*/
 
 func folderExistsMaybeCreate(directory string, configName string, createIfDoesntExist bool) error {
 	_, err := os.Stat(directory)

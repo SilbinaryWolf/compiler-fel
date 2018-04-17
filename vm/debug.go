@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/silbinarywolf/compiler-fel/bytecode"
+	"github.com/silbinarywolf/compiler-fel/data"
 )
 
 type DebugPrinter struct {
@@ -34,9 +35,9 @@ func debugOpcodes(opcodes []bytecode.Code, offset int) {
 
 func (printer *DebugPrinter) writeValue(value interface{}) {
 	switch value := value.(type) {
-	case *bytecode.HTMLElement:
+	case *data.HTMLElement:
 		printer.WriteString(value.Debug())
-	case *bytecode.Struct:
+	case *data.Struct:
 		addr := fmt.Sprintf("%p", value)
 		if _, ok := printer.seenPointer[addr]; ok {
 			printer.WriteString("(--recursive--)")

@@ -16,6 +16,7 @@ type Typer struct {
 	errors.ErrorHandler
 	typeinfo                      TypeInfoManager
 	typecheckHtmlNodeDependencies map[string]*ast.Call
+	htmlComponentsUsed            []*ast.HTMLComponentDefinition // track used components for emitting css
 }
 
 func New() *Typer {
@@ -26,6 +27,8 @@ func New() *Typer {
 
 	p.typeinfo.Init()
 
+	p.htmlComponentsUsed = make([]*ast.HTMLComponentDefinition, 0, 10)
+
 	// NOTE(Jake): 2018-04-09
 	//
 	// Keeping this value unset is intentional.
@@ -35,6 +38,8 @@ func New() *Typer {
 
 	return p
 }
+
+func (p *Typer) HTMLComponentsUsed() []*ast.HTMLComponentDefinition { return p.htmlComponentsUsed }
 
 func (p *Typer) typerStructLiteral(scope *Scope, literal *ast.StructLiteral) {
 	name := literal.Name.String()
@@ -475,10 +480,23 @@ func (p *Typer) typerHTMLNode(scope *Scope, node *ast.Call) {
 	//		return
 	//	}
 	//}
+
 	if p.typecheckHtmlNodeDependencies != nil {
 		p.typecheckHtmlNodeDependencies[name] = node
 	}
 	node.HTMLDefinition = htmlDefinition
+
+	// Mark this component as used
+	{
+		isFound := false
+		for _, htmlDefinitionUsed := range p.htmlComponentsUsed {
+			isFound = isFound || htmlDefinition == htmlDefinitionUsed
+		}
+		if !isFound {
+			p.htmlComponentsUsed = append(p.htmlComponentsUsed, node.HTMLDefinition)
+		}
+	}
+
 	structDef := node.HTMLDefinition.Struct
 	if structDef != nil && len(structDef.Fields) > 0 {
 		// Check if parameters exist

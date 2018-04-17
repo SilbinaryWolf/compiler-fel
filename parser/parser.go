@@ -16,7 +16,7 @@ type Parser struct {
 	scanner.Scanner
 	errors.ErrorHandler
 
-	// Used per-file
+	// Used and reset per-file parsed
 	dependencies map[string]bool
 }
 

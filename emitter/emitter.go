@@ -160,8 +160,27 @@ func (emit *Emitter) EmitBytecode(node *ast.File, fileOptions FileOptions) *byte
 	codeBlock.Opcodes = opcodes
 	codeBlock.StackSize = emit.scope.stackPos
 	codeBlock.HasReturnValue = codeBlockType == bytecode.BlockTemplate
-	debugOpcodes(opcodes)
-	fmt.Printf("Final bytecode output above\nStack Size: %d\n", codeBlock.StackSize)
+	//debugOpcodes(opcodes)
+	//fmt.Printf("Final bytecode output above\nStack Size: %d\n", codeBlock.StackSize)
+	return codeBlock
+}
+
+func (emit *Emitter) EmitCSSDefinition(node *ast.CSSDefinition) *bytecode.Block {
+	// Emit bytecode
+	opcodes := make([]bytecode.Code, 0, 50)
+	opcodes = append(opcodes, bytecode.Code{
+		Kind: bytecode.PushAllocCSSDefinition,
+	})
+
+	// Create code block
+	codeBlock := bytecode.NewBlock(node.Name.String(), bytecode.BlockCSSDefinition)
+	codeBlock.Opcodes = opcodes
+	codeBlock.StackSize = emit.scope.stackPos
+	codeBlock.HasReturnValue = true
+
+	//debugOpcodes(codeBlock.Opcodes)
+	//fmt.Printf("Final bytecode output above\nStack Size: %d\n", codeBlock.StackSize)
+	//panic("todo(Jake): EmitCSSDefinition")
 	return codeBlock
 }
 
@@ -888,6 +907,34 @@ func emitWorkspaceDefinition(node *ast.WorkspaceDefinition) *bytecode.Block {
 	return block
 }
 
+func (emit *Emitter) emitCSSDefinition(opcodes []bytecode.Code, definition *ast.CSSDefinition) []bytecode.Code {
+	for _, node := range definition.Nodes() {
+		switch node := node.(type) {
+		case *ast.CSSRule:
+			/*var emptyTypeData *data.CSSDefinition
+			internalType := reflect.TypeOf(emptyTypeData)
+			code := bytecode.Init(bytecode.PushAllocInternalStruct)
+			code.Value = internalType
+			opcodes = append(opcodes, code)
+			{
+				fieldMeta, ok := internalType.FieldByName("Name")
+				if !ok {
+					panic("Cannot find \"Name\".")
+				}
+				code := bytecode.Init(bytecode.StoreInternalStructField)
+				code.Value = fieldMeta
+				opcodes = append(opcodes, code)
+			}*/
+			// no-op
+			//debugOpcodes(opcodes)
+			panic("todo(Jake): *ast.CSSRule")
+		case *ast.CSSProperty:
+			panic("todo(Jake): *ast.CSSProperty" + node.Name.String())
+		}
+	}
+	return opcodes
+}
+
 func (emit *Emitter) emitStatement(opcodes []bytecode.Code, node ast.Node) []bytecode.Code {
 	switch node := node.(type) {
 	case *ast.Block:
@@ -897,48 +944,9 @@ func (emit *Emitter) emitStatement(opcodes []bytecode.Code, node ast.Node) []byt
 		}
 		emit.PopScope()
 	case *ast.WorkspaceDefinition,
+		*ast.CSSDefinition,
 		*ast.ProcedureDefinition:
 		// Handled in emitGlobalScope()
-	case *ast.CSSDefinition:
-		fmt.Printf("todo(Jake): *ast.CSSDefinition\n")
-
-		/*nodes := node.Nodes()
-		if len(nodes) > 0 {
-			opcodes = append(opcodes, bytecode.Code{
-				Kind:  bytecode.Label,
-				Value: "css:" + node.Name.String(),
-			})
-
-			opcodes = append(opcodes, bytecode.Code{
-				Kind:  bytecode.PushNewContextNode,
-				Value: bytecode.NodeCSSDefinition,
-			})
-
-			for _, node := range nodes {
-				opcodes = emit.emitStatement(opcodes, node)
-			}
-			//debugOpcodes(opcodes)
-		}*/
-	case *ast.CSSRule:
-		/*var emptyTypeData *data.CSSDefinition
-		internalType := reflect.TypeOf(emptyTypeData)
-		code := bytecode.Init(bytecode.PushAllocInternalStruct)
-		code.Value = internalType
-		opcodes = append(opcodes, code)
-		{
-			fieldMeta, ok := internalType.FieldByName("Name")
-			if !ok {
-				panic("Cannot find \"Name\".")
-			}
-			code := bytecode.Init(bytecode.StoreInternalStructField)
-			code.Value = fieldMeta
-			opcodes = append(opcodes, code)
-		}*/
-		// no-op
-		//debugOpcodes(opcodes)
-		panic("todo(Jake): *ast.CSSRule")
-	case *ast.CSSProperty:
-		panic("todo(Jake): *ast.CSSProperty")
 	case *ast.DeclareStatement:
 		opcodes = append(opcodes, bytecode.Code{
 			Kind:  bytecode.Label,

@@ -12,6 +12,7 @@ import (
 
 	"github.com/silbinarywolf/compiler-fel/ast"
 	"github.com/silbinarywolf/compiler-fel/bytecode"
+	"github.com/silbinarywolf/compiler-fel/data"
 	"github.com/silbinarywolf/compiler-fel/emitter"
 	"github.com/silbinarywolf/compiler-fel/evaluator"
 	"github.com/silbinarywolf/compiler-fel/parser"
@@ -21,6 +22,11 @@ import (
 
 type File struct {
 	ast  *ast.File
+	code *bytecode.Block
+}
+
+type CSSDefinition struct {
+	ast  *ast.CSSDefinition
 	code *bytecode.Block
 }
 
@@ -127,6 +133,7 @@ func compileProject(projectDirpath string) error {
 		}
 
 		// Apply type information and typecheck when we've parsed all files
+		var htmlComponentsUsed []*ast.HTMLComponentDefinition
 		{
 			typerSpentTimer := time.Now()
 			p := typer.New()
@@ -136,14 +143,29 @@ func compileProject(projectDirpath string) error {
 				p.PrintErrors()
 				return fmt.Errorf("Stopping due to parsing errors.")
 			}
+			htmlComponentsUsed = p.HTMLComponentsUsed()
 		}
 
 		// Emit bytecode
 		codeRecords := make([]File, 0, len(astFiles))
+		cssDefinitionBlocks := make([]CSSDefinition, 0, 100)
 		{
 			emitSpentTimer := time.Now()
 			emit := emitter.New()
 			emit.EmitGlobalScope(astFiles)
+
+			// Emit CSS
+			for _, htmlDefinition := range htmlComponentsUsed {
+				cssDef := htmlDefinition.CSSDefinition
+				if cssDef == nil {
+					continue
+				}
+				codeBlock := emit.EmitCSSDefinition(cssDef)
+				cssDefinitionBlocks = append(cssDefinitionBlocks, CSSDefinition{
+					ast:  htmlDefinition.CSSDefinition,
+					code: codeBlock,
+				})
+			}
 
 			// Emit template directories
 			fmt.Printf("\n")
@@ -164,13 +186,32 @@ func compileProject(projectDirpath string) error {
 			emitTimeSpent += time.Since(emitSpentTimer)
 		}
 
+		// Execute CSS code
+		{
+			executionSpentTimer := time.Now()
+			for _, codeRecord := range cssDefinitionBlocks {
+				result := vm.ExecuteNewProgram(codeRecord.code)
+				switch result := result.(type) {
+				case *data.CSSDefinition:
+					//htmlElements = append(htmlElements, result)
+					fmt.Printf("Filename: %s\n%v\n", codeRecord.ast.Name.String(), result)
+				case nil:
+					panic(fmt.Sprintf("Unexpected type: nil"))
+				default:
+					panic(fmt.Sprintf("Unknown type: %T", result))
+				}
+			}
+			executionTimeSpent += time.Since(executionSpentTimer)
+			panic("todo(Jake): Finish EmitCSSDefinition() + Execution of bytecode")
+		}
+
 		// Execute template code
 		{
 			executionSpentTimer := time.Now()
 			for _, codeRecord := range codeRecords {
 				result := vm.ExecuteNewProgram(codeRecord.code)
 				switch result := result.(type) {
-				case *bytecode.HTMLElement:
+				case *data.HTMLElement:
 					//htmlElements = append(htmlElements, result)
 					fmt.Printf("Filename: %s\n%s\n", codeRecord.ast.Filepath, result.Debug())
 				case nil:
