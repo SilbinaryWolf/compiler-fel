@@ -173,12 +173,18 @@ func (emit *Emitter) EmitCSSDefinition(def *ast.CSSDefinition) *bytecode.Block {
 	opcodes := make([]bytecode.Code, 0, 50)
 	opcodes = append(opcodes, bytecode.Code{
 		Kind:  bytecode.PushAllocCSSDefinition,
-		Value: name,
+		Value: data.NewCSSDefinition(name),
 	})
 
 	for _, node := range def.Nodes() {
-		emit.emitStatement(opcodes, node)
+		opcodes = emit.emitStatement(opcodes, node)
 	}
+
+	opcodes = append(opcodes, bytecode.Code{
+		Kind: bytecode.Return,
+	})
+
+	debugOpcodes(opcodes)
 
 	// Create code block
 	codeBlock := bytecode.NewBlock(name, bytecode.BlockCSSDefinition)
@@ -929,40 +935,48 @@ func (emit *Emitter) emitCSSRule(opcodes []bytecode.Code, node *ast.CSSRule) []b
 	emit.PushScope()
 	defer emit.PopScope()
 
-	selectors := emit.emitCSSSelectors(node.Selectors())
-	resultRule := data.NewCSSRule(selectors)
+	// todo(Jake): Track cssRule depth in emitter and handle nested cases below
+	/*switch node.Kind() {
+	case ast.CSSKindRule:
+		// Nested selectors
+		panic("Nested selectors are not allowed. This should be caught by the typechecker.")
+	case ast.CSSKindAtKeyword:
+		panic("todo(Jake): Handle @media nested selector")
+		// Setup rule node
+		selectors := emit.emitCSSSelectors(node.Selectors())
+		mediaRuleNode := data.NewCSSRule(selectors)
+		mediaRuleNode.AddRule(resultRule)
 
+		// Get parent selector
+		//for _, parentSelectorListNode := range parentCSSRule.Selectors {
+		//	selectorList := make(data.CSSSelector, 0, len(parentSelectorListNode))
+		//	selectorList = append(selectorList, parentSelectorListNode...)
+		//	ruleNode.Selectors = append(ruleNode.Selectors, selectorList)
+		//}
+		//mediaRuleNode.Rules = append(mediaRuleNode.Rules, ruleNode)
+
+		// Become the wrapping @media query
+		resultRule = mediaRuleNode
+	default:
+		panic("emitCSSRule(): Unhandled CSSType.")
+	}*/
+
+	resultRule := data.NewCSSRule(emit.emitCSSSelectors(node.Selectors()))
+	opcodes = append(opcodes, bytecode.Code{
+		Kind:  bytecode.PushAllocCSSRule,
+		Value: resultRule,
+	})
+
+	// Attach CSS properties
 	for _, node := range node.Nodes() {
-		switch node := node.(type) {
-		default:
-			panic(fmt.Sprintf("emitCSSRule(): Unhandled type: %T.", node))
-		}
-		/*switch node.Kind {
-		case ast.CSSKindRule:
-			// Nested selectors
-			panic("Nested selectors are not allowed. This should be caught by the typechecker.")
-		case ast.CSSKindAtKeyword:
-			// Setup rule node
-			selectors := emit.emitCSSSelectors(node.Selectors())
-			mediaRuleNode := data.NewCSSRule(selectors)
-			mediaRuleNode.AddRule(resultRule)
-
-			// Get parent selector
-			//for _, parentSelectorListNode := range parentCSSRule.Selectors {
-			//	selectorList := make(data.CSSSelector, 0, len(parentSelectorListNode))
-			//	selectorList = append(selectorList, parentSelectorListNode...)
-			//	ruleNode.Selectors = append(ruleNode.Selectors, selectorList)
-			//}
-			//mediaRuleNode.Rules = append(mediaRuleNode.Rules, ruleNode)
-
-			// Become the wrapping @media query
-			resultRule = mediaRuleNode
-		default:
-			panic("evaluateCSSRule(): Unhandled CSSType.")
-		}*/
+		opcodes = emit.emitStatement(opcodes, node)
 	}
 
-	panic("todo(Jake): handle css rule emit")
+	opcodes = append(opcodes, bytecode.Code{
+		Kind: bytecode.Pop,
+	})
+
+	//panic("todo(Jake): handle css rule emit")
 	return opcodes
 }
 
@@ -1077,6 +1091,65 @@ func (emit *Emitter) emitCSSDefinition(opcodes []bytecode.Code, definition *ast.
 	return opcodes
 }
 
+func (emit *Emitter) emitCSSProperty(opcodes []bytecode.Code, property *ast.CSSProperty) []bytecode.Code {
+	for _, node := range property.Nodes() {
+		switch node := node.(type) {
+		case *ast.TokenList:
+			opcodes, _ = emit.emitVariableIdentWithProperty(opcodes, node.Tokens())
+		case *ast.Call:
+			switch node.Kind() {
+			case ast.CallProcedure:
+				opcodes = emit.emitProcedureCall(opcodes, node)
+			case ast.CallHTMLNode:
+				if len(node.Nodes()) > 0 {
+					panic("emitCSSProperty: Cannot have sub-elements for HTMLNode in an expression.")
+				}
+				panic("emitCSSProperty: Cannot use HTMLNode in expression currently.")
+				//opcodes = emit.emitHTMLNode(opcodes, node)
+			default:
+				panic(fmt.Errorf("emitCSSProperty: Unhandled *ast.Call kind: %s", node.Name))
+			}
+		case *ast.Token:
+			t := node.Token
+			switch t.Kind {
+			case token.Identifier:
+				// NOTE(Jake): 2018-04-22
+				//
+				// Use a variable if it's defined, otherwise print
+				// out the raw identifier.
+				//
+				name := t.String()
+				_, ok := emit.scope.Get(name)
+				if ok {
+					opcodes = emit.emitVariableIdent(opcodes, t)
+					break
+				}
+				opcodes = append(opcodes, bytecode.Code{
+					Kind:  bytecode.Push,
+					Value: t.String(),
+				})
+			case token.Number,
+				token.String:
+				opcodes = append(opcodes, bytecode.Code{
+					Kind:  bytecode.Push,
+					Value: t.String(),
+				})
+			default: // ie. number, string
+				panic(fmt.Sprintf("emitCSSProperty: Unhandled token kind: %s", node.Kind.String()))
+			}
+		default:
+			panic(fmt.Sprintf("emitCSSProperty: Unhandled type: %T", node))
+		}
+	}
+
+	opcodes = append(opcodes, bytecode.Code{
+		Kind:  bytecode.AppendCSSPropertyToCSSRule,
+		Value: property.Name.String(),
+	})
+
+	return opcodes
+}
+
 func (emit *Emitter) emitStatement(opcodes []bytecode.Code, node ast.Node) []bytecode.Code {
 	switch node := node.(type) {
 	case *ast.Block:
@@ -1091,6 +1164,8 @@ func (emit *Emitter) emitStatement(opcodes []bytecode.Code, node ast.Node) []byt
 		// Handled in emitGlobalScope()
 	case *ast.CSSRule:
 		opcodes = emit.emitCSSRule(opcodes, node)
+	case *ast.CSSProperty:
+		opcodes = emit.emitCSSProperty(opcodes, node)
 	case *ast.DeclareStatement:
 		opcodes = append(opcodes, bytecode.Code{
 			Kind:  bytecode.Label,

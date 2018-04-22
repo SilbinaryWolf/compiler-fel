@@ -10,6 +10,8 @@ Header :: struct {
 }
 
 Header :: css {
+	//chicken := "wow"
+
 	.header {
 		width: 100%
 		height: 60px

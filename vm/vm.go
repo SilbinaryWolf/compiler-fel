@@ -86,7 +86,7 @@ func (program *Program) executeBytecode(codeBlock *bytecode.Block) {
 			name := code.Value.(string)
 			value := data.NewCSSDefinition(name)
 			program.registerStack = append(program.registerStack, value)
-		case bytecode.PushAllocCSSSelector:
+		case bytecode.PushAllocCSSSelector: // PushAllocCSSSelectorPart
 			_ = program.registerStack[len(program.registerStack)-1].(*data.CSSDefinition)
 			size := code.Value.(int)
 			value := data.NewCSSSelector(size)
@@ -95,6 +95,23 @@ func (program *Program) executeBytecode(codeBlock *bytecode.Block) {
 		selectorPart := code.Value.(*data.CSSSelectorPart)
 		selector := program.registerStack[len(program.registerStack)-1].(*data.CSSSelector)
 		selector.AddPart(selectorPart)*/
+		case bytecode.PushAllocCSSDefinition:
+			value := code.Value.(*data.CSSDefinition)
+			program.registerStack = append(program.registerStack, value)
+		case bytecode.PushAllocCSSRule:
+			cssDef := program.registerStack[len(program.registerStack)-1].(*data.CSSDefinition)
+			value := code.Value.(*data.CSSRule)
+			cssDef.AddRule(value)
+			program.registerStack = append(program.registerStack, value)
+		case bytecode.AppendCSSPropertyToCSSRule:
+			parentNode := program.registerStack[len(program.registerStack)-2].(*data.CSSRule)
+			value := program.registerStack[len(program.registerStack)-1].(string)
+
+			// Pop value
+			program.registerStack = program.registerStack[:len(program.registerStack)-1]
+
+			name := code.Value.(string)
+			parentNode.SetProperty(name, value)
 		case bytecode.AppendPopArrayString:
 			array := program.registerStack[len(program.registerStack)-2].([]string)
 			value := program.registerStack[len(program.registerStack)-1].(string)

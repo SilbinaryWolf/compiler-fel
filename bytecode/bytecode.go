@@ -18,6 +18,7 @@ const (
 	StoreInternalStructField
 	AppendPopArrayString
 	AppendPopHTMLElementToHTMLElement
+	AppendCSSPropertyToCSSRule
 	CastToHTMLText
 	Push
 
@@ -30,8 +31,9 @@ const (
 
 	// CSS Structure
 	PushAllocCSSDefinition
-	PushAllocCSSSelector
-	PushAllocCSSSelectorPart
+	//PushAllocCSSSelector
+	//PushAllocCSSSelectorPart
+	PushAllocCSSRule
 
 	PushStackVar
 	PushStructFieldVar
@@ -69,28 +71,33 @@ var kindToString = []string{
 	StoreInternalStructField:          "StoreInternalStructField",
 	AppendPopArrayString:              "AppendPopArrayString",
 	AppendPopHTMLElementToHTMLElement: "AppendPopHTMLElementToHTMLElement",
+	AppendCSSPropertyToCSSRule:        "AppendCSSPropertyToCSSRule",
 	CastToHTMLText:                    "CastToHTMLText",
 	Push:                              "Push",
-	PushAllocArrayString:              "PushAllocArrayString",
-	PushAllocArrayInt:                 "PushAllocArrayInt",
-	PushAllocArrayFloat:               "PushAllocArrayFloat",
-	PushAllocArrayStruct:              "PushAllocArrayStruct",
-	PushAllocHTMLFragment:             "PushAllocHTMLFragment",
-	PushReturnHTMLNodeArray:           "PushReturnHTMLNodeArray",
-	PushStackVar:                      "PushStackVar",
-	PushStructFieldVar:                "PushStructFieldVar",
-	ReplaceStructFieldVar:             "ReplaceStructFieldVar",
-	PushAllocStruct:                   "PushAllocStruct",
-	PushAllocInternalStruct:           "PushAllocInternalStruct",
-	PushAllocHTMLNode:                 "PushAllocHTMLNode",
-	ConditionalEqual:                  "ConditionalEqual",
-	Add:                               "Add",
-	AddString:                         "AddString",
-	Jump:                              "Jump",
-	JumpIfFalse:                       "JumpIfFalse",
-	Call:                              "Call",
-	CallHTML:                          "CallHTML",
-	Return:                            "Return",
+	// Array Structures
+	PushAllocArrayString:  "PushAllocArrayString",
+	PushAllocArrayInt:     "PushAllocArrayInt",
+	PushAllocArrayFloat:   "PushAllocArrayFloat",
+	PushAllocArrayStruct:  "PushAllocArrayStruct",
+	PushAllocHTMLFragment: "PushAllocHTMLFragment",
+	// CSS Structures
+	PushAllocCSSDefinition:  "PushAllocCSSDefinition",
+	PushAllocCSSRule:        "PushAllocCSSRule",
+	PushReturnHTMLNodeArray: "PushReturnHTMLNodeArray",
+	PushStackVar:            "PushStackVar",
+	PushStructFieldVar:      "PushStructFieldVar",
+	ReplaceStructFieldVar:   "ReplaceStructFieldVar",
+	PushAllocStruct:         "PushAllocStruct",
+	PushAllocInternalStruct: "PushAllocInternalStruct",
+	PushAllocHTMLNode:       "PushAllocHTMLNode",
+	ConditionalEqual:        "ConditionalEqual",
+	Add:                     "Add",
+	AddString:               "AddString",
+	Jump:                    "Jump",
+	JumpIfFalse:             "JumpIfFalse",
+	Call:                    "Call",
+	CallHTML:                "CallHTML",
+	Return:                  "Return",
 }
 
 type BlockKind int
@@ -157,3 +164,16 @@ func NewUnresolvedBlock(name string, kind BlockKind) *Block {
 func (block *Block) Kind() BlockKind {
 	return block.kind
 }
+
+/*func (block *Block) DebugOpcodes(offset int) {
+	fmt.Printf("Opcode Debug:\n-----------\n")
+	for i, code := range opcodes {
+		if offset == i {
+			fmt.Printf("**%d** - %s\n", i, code.String())
+			continue
+		}
+		fmt.Printf("%d - %s\n", i, code.String())
+	}
+	fmt.Printf("-----------\n")
+}
+*/

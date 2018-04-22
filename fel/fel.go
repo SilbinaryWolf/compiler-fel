@@ -194,7 +194,7 @@ func compileProject(projectDirpath string) error {
 				switch result := result.(type) {
 				case *data.CSSDefinition:
 					//htmlElements = append(htmlElements, result)
-					fmt.Printf("Filename: %s\n%v\n", codeRecord.ast.Name.String(), result)
+					fmt.Printf("Filename: %s\n%v\n\n", codeRecord.ast.Name.String(), result.Debug())
 				case nil:
 					panic(fmt.Sprintf("Unexpected type: nil"))
 				default:

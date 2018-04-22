@@ -308,6 +308,19 @@ func (rule *CSSRule) Selectors() []CSSSelector  { return rule.selectors }
 func (rule *CSSRule) Properties() []CSSProperty { return rule.properties }
 func (rule *CSSRule) Rules() []*CSSRule         { return rule.rules }
 func (rule *CSSRule) AddRule(node *CSSRule)     { rule.rules = append(rule.rules, rule) }
+func (rule *CSSRule) SetProperty(name string, value string) {
+	for i, _ := range rule.properties {
+		property := &rule.properties[i]
+		if property.Name() == name {
+			property.SetValue(value)
+			break
+		}
+	}
+	rule.properties = append(rule.properties, CSSProperty{
+		name:  name,
+		value: value,
+	})
+}
 
 func NewCSSRule(selectors []CSSSelector) *CSSRule {
 	rule := new(CSSRule)
@@ -330,6 +343,13 @@ func (node *CSSSelectorPart) Operator() string          { return node.operator }
 func (node *CSSSelectorPart) Value() string             { return node.value }
 func (node *CSSSelectorPart) String() string {
 	kind := node.Kind()
+	switch kind {
+	case SelectorPartKindAttribute:
+		if operator := node.Operator(); operator != "" {
+			return fmt.Sprintf("[%s%s\"%s\"]", node.Name(), operator, node.Value())
+		}
+		return fmt.Sprintf("[%s]", node.Name())
+	}
 	if kind.IsIdentifier() {
 		return node.Name()
 	}
@@ -364,25 +384,74 @@ func NewCSSSelector(size int) CSSSelector {
 
 func (nodes CSSSelector) String() string {
 	result := ""
-	for _, node := range nodes {
-		result += node.String() + " "
+	for i, node := range nodes {
+		if i != 0 &&
+			node.Kind() == SelectorPartKindAncestor {
+			result += " "
+		}
+		result += node.String()
 	}
-	result = result[:len(result)-1]
+	//result = result[:len(result)-1]
 	return result
 }
 
 type CSSProperty struct {
-	Name  string
-	Value string
+	name  string
+	value string
 }
 
-/*func NewCSSProperty() *CSSProperty {
-	prop := new(CSSProperty)
-	prop.name = name
-	prop.value = value
-	return prop
+/*func NewCSSProperty(name string, value string) *CSSProperty {
+	property := new(CSSProperty)
+	property.name = name
+	property.value = value
+	return property
 }*/
 
+func (property *CSSProperty) Name() string          { return property.name }
+func (property *CSSProperty) Value() string         { return property.value }
+func (property *CSSProperty) SetValue(value string) { property.value = value }
+
 func (property *CSSProperty) String() string {
-	return fmt.Sprintf("%s: %s;", property.Name, property.Value)
+	return fmt.Sprintf("%s: %s;", property.Name(), property.Value())
+}
+
+func (node *CSSDefinition) debugIndent(indent int) string {
+	var buffer bytes.Buffer
+
+	if childNodes := node.Rules(); len(childNodes) > 0 {
+		for _, rule := range childNodes {
+			// Do selectors, ie. ".myClass {"
+			if selectors := rule.Selectors(); len(selectors) > 0 {
+				for i, selector := range selectors {
+					if i != 0 {
+						buffer.WriteString(",")
+					}
+					buffer.WriteString(selector.String())
+				}
+			}
+			buffer.WriteString("{")
+			indent += 1
+			for _, property := range rule.Properties() {
+				buffer.WriteByte('\n')
+				for i := 0; i < indent; i++ {
+					buffer.WriteByte('\t')
+				}
+				buffer.WriteString(property.Name())
+				buffer.WriteString(":")
+				buffer.WriteString(property.Value())
+				buffer.WriteString(";")
+			}
+			indent -= 1
+			buffer.WriteByte('\n')
+			for i := 0; i < indent; i++ {
+				buffer.WriteByte('\t')
+			}
+			buffer.WriteString("}\n")
+		}
+	}
+	return buffer.String()
+}
+
+func (node *CSSDefinition) Debug() string {
+	return node.debugIndent(0)
 }
