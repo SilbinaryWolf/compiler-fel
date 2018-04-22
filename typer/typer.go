@@ -618,28 +618,7 @@ func (p *Typer) typerCSSProperty(property *ast.CSSProperty, scope *Scope) {
 			case token.Identifier,
 				token.Number,
 				token.String:
-				// no-op, valid
-			//case token.Identifier:
-			// NOTE(Jake): 2018-04-22
-			//
-			// Use a variable if it's defined, otherwise print
-			// out the raw identifier.
-			//
-			/*name := t.String()
-			_, ok := scope.GetSymbol(name)
-			if ok {
-				// NOTE(Jake): 2018-04-22
-				//
-				// Should I be typechecking an ident here?
-				//
-				break
-			}
-			// NOTE(Jake): 2018-04-22
-			//
-			// Modifying a token! Should I be doing this?
-			//
-			node.Kind = token.String
-			node.Data = name*/
+				// no-op, valid token kind
 			default: // ie. number, string
 				panic(fmt.Sprintf("emitCSSProperty: Unhandled token kind: %s", node.Kind.String()))
 			}
