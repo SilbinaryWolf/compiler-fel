@@ -524,11 +524,16 @@ func (p *Typer) typerHTMLNode(scope *Scope, node *ast.Call) {
 	}
 }
 
+func (p *Typer) typerCSSDefinition(cssDef *ast.CSSDefinition) {
+	scope := NewScope(nil)
+	p.typerStatements(cssDef, scope)
+}
+
 func (p *Typer) typerHTMLDefinition(htmlDefinition *ast.HTMLComponentDefinition, parentScope *Scope) {
 	name := htmlDefinition.Name.String()
 	symbol := parentScope.GetSymbol(name)
 	if symbol == nil {
-		panic(fmt.Sprintf("Cannot find symbol for \"%s\", this should not be possible.", name))
+		panic(fmt.Sprintf("Cannot find symbol for \"%s :: html\", this should not be possible.", name))
 	}
 
 	// Attach CSSDefinition if found
@@ -597,6 +602,51 @@ func (p *Typer) typerHTMLDefinition(htmlDefinition *ast.HTMLComponentDefinition,
 	p.typerStatements(htmlDefinition, scope)
 	htmlDefinition.Dependencies = p.typecheckHtmlNodeDependencies
 	p.typecheckHtmlNodeDependencies = nil
+}
+
+func (p *Typer) typerCSSProperty(property *ast.CSSProperty, scope *Scope) {
+	for _, node := range property.Nodes() {
+		switch node := node.(type) {
+		case *ast.TokenList:
+			panic("todo: Handle typechecking of property vars, ie. myval.property")
+			//opcodes, _ = emit.emitVariableIdentWithProperty(opcodes, node.Tokens())
+		case *ast.Call:
+			p.typerCall(scope, node)
+		case *ast.Token:
+			t := node.Token
+			switch t.Kind {
+			case token.Identifier,
+				token.Number,
+				token.String:
+				// no-op, valid
+			//case token.Identifier:
+			// NOTE(Jake): 2018-04-22
+			//
+			// Use a variable if it's defined, otherwise print
+			// out the raw identifier.
+			//
+			/*name := t.String()
+			_, ok := scope.GetSymbol(name)
+			if ok {
+				// NOTE(Jake): 2018-04-22
+				//
+				// Should I be typechecking an ident here?
+				//
+				break
+			}
+			// NOTE(Jake): 2018-04-22
+			//
+			// Modifying a token! Should I be doing this?
+			//
+			node.Kind = token.String
+			node.Data = name*/
+			default: // ie. number, string
+				panic(fmt.Sprintf("emitCSSProperty: Unhandled token kind: %s", node.Kind.String()))
+			}
+		default:
+			panic(fmt.Sprintf("emitCSSProperty: Unhandled type: %T", node))
+		}
+	}
 }
 
 func (p *Typer) typerStatements(topNode ast.Node, scope *Scope) {
@@ -733,7 +783,11 @@ func (p *Typer) typerStatements(topNode ast.Node, scope *Scope) {
 				}
 			}
 			continue
-		case *ast.Block:
+		case *ast.CSSProperty:
+			p.typerCSSProperty(node, scope)
+			continue
+		case *ast.Block,
+			*ast.CSSRule:
 			// no-op, will jump to adding child nodes / new scope below
 		case *ast.For:
 			if !node.IsDeclareSet {
@@ -992,6 +1046,7 @@ func (p *Typer) ApplyTypeInfoAndTypecheck(files []*ast.File) {
 					p.AddError(node.Name, errorMessage)
 					continue
 				}
+				p.typerCSSDefinition(node)
 				symbol.cssDefinition = node
 			case *ast.CSSConfigDefinition:
 				if node == nil {

@@ -10,7 +10,7 @@ Header :: struct {
 }
 
 Header :: css {
-	//chicken := "wow"
+	chicken := "wow"
 
 	.header {
 		width: 100%
