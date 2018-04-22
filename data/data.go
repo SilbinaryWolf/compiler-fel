@@ -226,10 +226,71 @@ func (node *HTMLElement) String() string {
 	return buffer.String()
 }
 
-/*type CSSDefinition struct {
-	name       string
-	childNodes []*CSSRule
+type CSSSelectorPartKind int
+
+const (
+	SelectorPartKindUnknown   CSSSelectorPartKind = 0 + iota
+	SelectorPartKindAttribute                     // [type="text"]
+
+	css_selector_identifier_begin
+	SelectorPartKindClass     // .a-class
+	SelectorPartKindTag       // button
+	SelectorPartKindID        // #main
+	SelectorPartKindAtKeyword // @media
+	SelectorPartKindNumber    // 3.3
+	css_selector_identifier_end
+
+	css_selector_operator_begin
+	SelectorPartKindColon       // :
+	SelectorPartKindDoubleColon // ::
+	SelectorPartKindChild       // >
+	SelectorPartKindAncestor    // ' '
+	SelectorPartKindSibling     // ~
+	SelectorPartKindAdjacent    // +
+	//SelectorKindAncestorExplicit    // >>
+	css_selector_operator_end
+)
+
+var selectorKindToString = []string{
+	SelectorPartKindUnknown:   "unknown part",
+	SelectorPartKindAttribute: "attribute",
+
+	//SelectorKindIdentifier: "identifier",
+	SelectorPartKindClass:     "class",
+	SelectorPartKindTag:       "tag",
+	SelectorPartKindID:        "id",
+	SelectorPartKindAtKeyword: "at-keyword",
+	SelectorPartKindNumber:    "number",
+
+	SelectorPartKindColon:       ":",
+	SelectorPartKindDoubleColon: "::",
+	SelectorPartKindChild:       ">",
+	SelectorPartKindAncestor:    " ",
+	SelectorPartKindSibling:     "~",
+	SelectorPartKindAdjacent:    "+",
+	//SelectorKindAncestorExplicit:           ">>",
 }
+
+func (kind CSSSelectorPartKind) IsOperator() bool {
+	return kind > css_selector_operator_begin && kind < css_selector_operator_end
+}
+
+func (kind CSSSelectorPartKind) IsIdentifier() bool {
+	return kind > css_selector_identifier_begin && kind < css_selector_identifier_end
+}
+
+func (kind CSSSelectorPartKind) String() string {
+	return selectorKindToString[kind]
+}
+
+type CSSDefinition struct {
+	name  string
+	rules []*CSSRule
+}
+
+func (def *CSSDefinition) Name() string          { return def.name }
+func (def *CSSDefinition) Rules() []*CSSRule     { return def.rules }
+func (def *CSSDefinition) AddRule(node *CSSRule) { def.rules = append(def.rules, node) }
 
 func NewCSSDefinition(name string) *CSSDefinition {
 	def := new(CSSDefinition)
@@ -237,8 +298,25 @@ func NewCSSDefinition(name string) *CSSDefinition {
 	return def
 }
 
+type CSSRule struct {
+	selectors  []CSSSelector
+	properties []CSSProperty
+	rules      []*CSSRule
+}
+
+func (rule *CSSRule) Selectors() []CSSSelector  { return rule.selectors }
+func (rule *CSSRule) Properties() []CSSProperty { return rule.properties }
+func (rule *CSSRule) Rules() []*CSSRule         { return rule.rules }
+func (rule *CSSRule) AddRule(node *CSSRule)     { rule.rules = append(rule.rules, rule) }
+
+func NewCSSRule(selectors []CSSSelector) *CSSRule {
+	rule := new(CSSRule)
+	rule.selectors = selectors
+	return rule
+}
+
 type CSSSelectorPart struct {
-	Kind CSSSelectorPartKind
+	kind CSSSelectorPartKind
 	// CSSSelectorIdentifier / CSSSelectorAttribute
 	name string
 	// CSSSelectorAttribute
@@ -246,15 +324,65 @@ type CSSSelectorPart struct {
 	value    string
 }
 
-type CSSSelector []CSSSelectorPart
+func (node *CSSSelectorPart) Kind() CSSSelectorPartKind { return node.kind }
+func (node *CSSSelectorPart) Name() string              { return node.name }
+func (node *CSSSelectorPart) Operator() string          { return node.operator }
+func (node *CSSSelectorPart) Value() string             { return node.value }
+func (node *CSSSelectorPart) String() string {
+	kind := node.Kind()
+	if kind.IsIdentifier() {
+		return node.Name()
+	}
+	return kind.String()
+}
 
-type CSSRule struct {
-	selectors  []CSSSelector
-	properties []CSSProperty
-	rules      []*CSSRule
+func NewCSSSelectorPart(kind CSSSelectorPartKind, name string) *CSSSelectorPart {
+	node := new(CSSSelectorPart)
+	node.kind = kind
+	node.name = name
+	return node
+}
+
+func NewCSSSelectorAttributePart(name string, operator string, value string) *CSSSelectorPart {
+	node := new(CSSSelectorPart)
+	node.kind = SelectorPartKindAttribute
+	node.name = name
+	node.operator = operator
+	node.value = value
+	return node
+}
+
+type CSSSelector []*CSSSelectorPart
+
+func (selector *CSSSelector) AddPart(selectorPart *CSSSelectorPart) {
+	*selector = append(*selector, selectorPart)
+}
+
+func NewCSSSelector(size int) CSSSelector {
+	return make(CSSSelector, 0, size)
+}
+
+func (nodes CSSSelector) String() string {
+	result := ""
+	for _, node := range nodes {
+		result += node.String() + " "
+	}
+	result = result[:len(result)-1]
+	return result
 }
 
 type CSSProperty struct {
-	name  string
-	value string
+	Name  string
+	Value string
+}
+
+/*func NewCSSProperty() *CSSProperty {
+	prop := new(CSSProperty)
+	prop.name = name
+	prop.value = value
+	return prop
 }*/
+
+func (property *CSSProperty) String() string {
+	return fmt.Sprintf("%s: %s;", property.Name, property.Value)
+}

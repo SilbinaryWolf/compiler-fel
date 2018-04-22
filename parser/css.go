@@ -229,9 +229,7 @@ Loop:
 			}
 
 			// Add node
-			rule := new(ast.CSSRule)
-			rule.Kind = kind
-			rule.Selectors = selectorList
+			rule := ast.NewCSSRule(kind, selectorList)
 			rule.ChildNodes = p.parseCSSStatements()
 			resultNodes = append(resultNodes, rule)
 

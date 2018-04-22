@@ -7,6 +7,7 @@ import (
 
 	"github.com/silbinarywolf/compiler-fel/ast"
 	"github.com/silbinarywolf/compiler-fel/bytecode"
+	"github.com/silbinarywolf/compiler-fel/data"
 	//"github.com/silbinarywolf/compiler-fel/data"
 	"github.com/silbinarywolf/compiler-fel/token"
 	"github.com/silbinarywolf/compiler-fel/types"
@@ -165,15 +166,22 @@ func (emit *Emitter) EmitBytecode(node *ast.File, fileOptions FileOptions) *byte
 	return codeBlock
 }
 
-func (emit *Emitter) EmitCSSDefinition(node *ast.CSSDefinition) *bytecode.Block {
+func (emit *Emitter) EmitCSSDefinition(def *ast.CSSDefinition) *bytecode.Block {
+	name := def.Name.String()
+
 	// Emit bytecode
 	opcodes := make([]bytecode.Code, 0, 50)
 	opcodes = append(opcodes, bytecode.Code{
-		Kind: bytecode.PushAllocCSSDefinition,
+		Kind:  bytecode.PushAllocCSSDefinition,
+		Value: name,
 	})
 
+	for _, node := range def.Nodes() {
+		emit.emitStatement(opcodes, node)
+	}
+
 	// Create code block
-	codeBlock := bytecode.NewBlock(node.Name.String(), bytecode.BlockCSSDefinition)
+	codeBlock := bytecode.NewBlock(name, bytecode.BlockCSSDefinition)
 	codeBlock.Opcodes = opcodes
 	codeBlock.StackSize = emit.scope.stackPos
 	codeBlock.HasReturnValue = true
@@ -824,6 +832,140 @@ func emitProcedureDefinition(node *ast.ProcedureDefinition) *bytecode.Block {
 	return block
 }
 
+func (emit *Emitter) emitCSSSelectors(selectors []ast.CSSSelector) []data.CSSSelector {
+	// NOTE(Jake): 2018-04-19
+	//
+	// Selector data is all built during this emitter step
+	// as I'm fairly certain I will not want interpolation
+	// in CSS classes or any other fancy features.
+	//
+	// The reasoning is that it'd make static analysis of
+	// used CSS rules harder.
+	//
+	// So we'll build the data structures here and pass them off
+	// to some bytecode.
+	//
+	resultSelectors := make([]data.CSSSelector, 0, 10)
+	for _, selector := range selectors {
+		selectorPartNodes := selector.Nodes()
+		selector := data.NewCSSSelector(len(selectorPartNodes))
+		for _, selectorPartNode := range selectorPartNodes {
+			switch selectorPartNode := selectorPartNode.(type) {
+			case *ast.Token:
+				value := selectorPartNode.String()
+				switch selectorPartNode.Kind {
+				case token.Identifier:
+					switch value[0] {
+					case '.':
+						selector.AddPart(data.NewCSSSelectorPart(data.SelectorPartKindClass, value))
+					case '#':
+						selector.AddPart(data.NewCSSSelectorPart(data.SelectorPartKindID, value))
+					default:
+						selector.AddPart(data.NewCSSSelectorPart(data.SelectorPartKindTag, value))
+					}
+				case token.AtKeyword:
+					selector.AddPart(data.NewCSSSelectorPart(data.SelectorPartKindAtKeyword, value))
+				case token.Number:
+					selector.AddPart(data.NewCSSSelectorPart(data.SelectorPartKindNumber, value))
+				case token.Colon: // :
+					selector.AddPart(data.NewCSSSelectorPart(data.SelectorPartKindColon, value))
+				case token.DoubleColon: // ::
+					selector.AddPart(data.NewCSSSelectorPart(data.SelectorPartKindDoubleColon, value))
+				case token.Whitespace: // ` `
+					selector.AddPart(data.NewCSSSelectorPart(data.SelectorPartKindAncestor, value))
+				case token.GreaterThan: // >
+					selector.AddPart(data.NewCSSSelectorPart(data.SelectorPartKindChild, value))
+				case token.Add: // +
+					selector.AddPart(data.NewCSSSelectorPart(data.SelectorPartKindAdjacent, value))
+				case token.Tilde: // ~
+					selector.AddPart(data.NewCSSSelectorPart(data.SelectorPartKindSibling, value))
+				default:
+					if selectorPartNode.IsOperator() {
+						panic("todo(Jake): Fixme (or add support for operator in above `switch`)")
+						// 	selectorPartString := selectorPartNode.String()
+						// 	selectorList = append(selectorList, data.CSSSelectorOperator{
+						// 		Operator: selectorPartString,
+						// 	})
+						// 	continue
+					}
+					panic(fmt.Sprintf("emitCSSRule(): Unhandled selector part kind: %s", selectorPartNode.Kind.String()))
+				}
+			case *ast.CSSAttributeSelector:
+				if hasValueSet := selectorPartNode.Operator.Kind != 0; hasValueSet {
+					// Handle "input[name="Name"]" selector part
+					selector.AddPart(data.NewCSSSelectorAttributePart(
+						selectorPartNode.Name.String(),
+						selectorPartNode.Operator.String(),
+						selectorPartNode.Value.String(),
+					))
+					break
+				}
+				// Handle "input[name]" selector part
+				selector.AddPart(data.NewCSSSelectorAttributePart(
+					selectorPartNode.Name.String(),
+					"",
+					"",
+				))
+			case *ast.CSSSelector:
+				// todo(Jake)
+				panic(fmt.Sprintf("todo(Jake): Fix this, %v", selectorPartNode.Nodes()))
+			//subSelectorList := program.evaluateSelector(selectorPartNode.Nodes())
+			//selectorList = append(selectorList, subSelectorList)
+
+			//for _, token := range selectorPartNode.ChildNodes {
+			//	value += token.String() + " "
+			//}
+			//value = value[:len(value)-1]
+			default:
+				panic(fmt.Sprintf("emitCSSRule(): Unhandled selector type: %T", selectorPartNode))
+			}
+		}
+		resultSelectors = append(resultSelectors, selector)
+	}
+	return resultSelectors
+}
+
+func (emit *Emitter) emitCSSRule(opcodes []bytecode.Code, node *ast.CSSRule) []bytecode.Code {
+	emit.PushScope()
+	defer emit.PopScope()
+
+	selectors := emit.emitCSSSelectors(node.Selectors())
+	resultRule := data.NewCSSRule(selectors)
+
+	for _, node := range node.Nodes() {
+		switch node := node.(type) {
+		default:
+			panic(fmt.Sprintf("emitCSSRule(): Unhandled type: %T.", node))
+		}
+		/*switch node.Kind {
+		case ast.CSSKindRule:
+			// Nested selectors
+			panic("Nested selectors are not allowed. This should be caught by the typechecker.")
+		case ast.CSSKindAtKeyword:
+			// Setup rule node
+			selectors := emit.emitCSSSelectors(node.Selectors())
+			mediaRuleNode := data.NewCSSRule(selectors)
+			mediaRuleNode.AddRule(resultRule)
+
+			// Get parent selector
+			//for _, parentSelectorListNode := range parentCSSRule.Selectors {
+			//	selectorList := make(data.CSSSelector, 0, len(parentSelectorListNode))
+			//	selectorList = append(selectorList, parentSelectorListNode...)
+			//	ruleNode.Selectors = append(ruleNode.Selectors, selectorList)
+			//}
+			//mediaRuleNode.Rules = append(mediaRuleNode.Rules, ruleNode)
+
+			// Become the wrapping @media query
+			resultRule = mediaRuleNode
+		default:
+			panic("evaluateCSSRule(): Unhandled CSSType.")
+		}*/
+	}
+
+	panic("todo(Jake): handle css rule emit")
+	return opcodes
+}
+
 func (emit *Emitter) emitGlobalScope(node ast.Node) {
 	switch node := node.(type) {
 	case *ast.WorkspaceDefinition:
@@ -947,6 +1089,8 @@ func (emit *Emitter) emitStatement(opcodes []bytecode.Code, node ast.Node) []byt
 		*ast.CSSDefinition,
 		*ast.ProcedureDefinition:
 		// Handled in emitGlobalScope()
+	case *ast.CSSRule:
+		opcodes = emit.emitCSSRule(opcodes, node)
 	case *ast.DeclareStatement:
 		opcodes = append(opcodes, bytecode.Code{
 			Kind:  bytecode.Label,

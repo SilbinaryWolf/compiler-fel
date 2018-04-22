@@ -1128,7 +1128,7 @@ func (p *Parser) parseCSSConfigRuleDefinition(name token.Token) *ast.CSSConfigDe
 			}
 
 			// Get matching parts
-			for _, selector := range node.Selectors {
+			for _, selector := range node.Selectors() {
 				rulePartList := make(ast.CSSConfigMatchPart, 0, len(selector.ChildNodes))
 				for _, itSelectorPart := range selector.ChildNodes {
 					switch selectorPartNode := itSelectorPart.(type) {

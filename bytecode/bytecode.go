@@ -20,12 +20,19 @@ const (
 	AppendPopHTMLElementToHTMLElement
 	CastToHTMLText
 	Push
+
+	// Array Structures
 	PushAllocArrayString
 	PushAllocArrayInt
 	PushAllocArrayFloat
 	PushAllocArrayStruct
 	PushAllocHTMLFragment
+
+	// CSS Structure
 	PushAllocCSSDefinition
+	PushAllocCSSSelector
+	PushAllocCSSSelectorPart
+
 	PushStackVar
 	PushStructFieldVar
 	PushReturnHTMLNodeArray

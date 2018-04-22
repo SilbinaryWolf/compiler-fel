@@ -19,6 +19,10 @@ Header :: css {
 	.header.is-active {
 		display: block;
 	}
+
+	input[type="button"] {
+		display: block;
+	}
 }
 
 Header :: html {

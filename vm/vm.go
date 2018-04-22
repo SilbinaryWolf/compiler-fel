@@ -46,6 +46,14 @@ func (program *Program) executeBytecode(codeBlock *bytecode.Block) {
 			// no-op
 		case bytecode.Push:
 			program.registerStack = append(program.registerStack, code.Value)
+		case bytecode.Pop:
+			program.registerStack = program.registerStack[:len(program.registerStack)-1]
+		case bytecode.PopN:
+			popAmount := code.Value.(int)
+			program.registerStack = program.registerStack[:len(program.registerStack)-popAmount]
+		//
+		// Array Structures
+		//
 		case bytecode.PushAllocArrayString:
 			capacity := code.Value.(int)
 			value := make([]string, 0, capacity)
@@ -65,9 +73,28 @@ func (program *Program) executeBytecode(codeBlock *bytecode.Block) {
 		case bytecode.PushAllocHTMLFragment:
 			value := data.NewHTMLFragment()
 			program.registerStack = append(program.registerStack, value)
-		case bytecode.PushAllocCSSDefinition:
-			value := data.NewCSSDefinition()
+		//
+		// CSS Structures
+		//
+		/*case bytecode.PushAllocCSSDefinition:
+			// NOTE(Jake): 2018-04-17
+			//
+			// We probably don't need to retain the "name"
+			// of the CSS definition, but eh, might help with debugging
+			// and other things
+			//
+			name := code.Value.(string)
+			value := data.NewCSSDefinition(name)
 			program.registerStack = append(program.registerStack, value)
+		case bytecode.PushAllocCSSSelector:
+			_ = program.registerStack[len(program.registerStack)-1].(*data.CSSDefinition)
+			size := code.Value.(int)
+			value := data.NewCSSSelector(size)
+			program.registerStack = append(program.registerStack, value)*/
+		/*case bytecode.AppendPopCSSSelectorPart:
+		selectorPart := code.Value.(*data.CSSSelectorPart)
+		selector := program.registerStack[len(program.registerStack)-1].(*data.CSSSelector)
+		selector.AddPart(selectorPart)*/
 		case bytecode.AppendPopArrayString:
 			array := program.registerStack[len(program.registerStack)-2].([]string)
 			value := program.registerStack[len(program.registerStack)-1].(string)
@@ -101,6 +128,9 @@ func (program *Program) executeBytecode(codeBlock *bytecode.Block) {
 			/*internalType := code.Value.(reflect.Type)
 			structData := reflect.Indirect(reflect.New(internalType)).Interface()
 			program.registerStack = append(program.registerStack, structData)*/
+		//
+		// HTML Structures
+		//
 		case bytecode.PushAllocHTMLNode:
 			tagName := code.Value.(string)
 			htmlElementNode := data.NewHTMLElement(tagName)
@@ -131,6 +161,9 @@ func (program *Program) executeBytecode(codeBlock *bytecode.Block) {
 
 			// Pop
 			program.registerStack = program.registerStack[:len(program.registerStack)-1]
+		//
+		// Expressions
+		//
 		case bytecode.ConditionalEqual:
 			valueA := program.registerStack[len(program.registerStack)-2].(int64)
 			valueB := program.registerStack[len(program.registerStack)-1].(int64)
@@ -155,11 +188,6 @@ func (program *Program) executeBytecode(codeBlock *bytecode.Block) {
 			valueB := program.registerStack[len(program.registerStack)-1].(string)
 			program.registerStack = program.registerStack[:len(program.registerStack)-2]
 			program.registerStack = append(program.registerStack, valueA+valueB)
-		case bytecode.Pop:
-			program.registerStack = program.registerStack[:len(program.registerStack)-1]
-		case bytecode.PopN:
-			popAmount := code.Value.(int)
-			program.registerStack = program.registerStack[:len(program.registerStack)-popAmount]
 		case bytecode.Store:
 			value := program.registerStack[len(program.registerStack)-1]
 
