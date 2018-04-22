@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -188,21 +189,40 @@ func compileProject(projectDirpath string) error {
 
 		// Execute CSS code
 		{
+			var buffer bytes.Buffer
 			executionSpentTimer := time.Now()
 			for _, codeRecord := range cssDefinitionBlocks {
 				result := vm.ExecuteNewProgram(codeRecord.code)
 				switch result := result.(type) {
 				case *data.CSSDefinition:
 					//htmlElements = append(htmlElements, result)
-					fmt.Printf("Filename: %s\n%v\n\n", codeRecord.ast.Name.String(), result.Debug())
+					//fmt.Printf("Filename: %s\n%v\n\n", codeRecord.ast.Name.String(), result.Debug())
+					buffer.WriteString("/* Filename: ")
+					buffer.WriteString(codeRecord.ast.Name.String())
+					buffer.WriteString("*/ \n")
+					buffer.WriteString(result.Debug())
+					buffer.WriteString("\n")
 				case nil:
 					panic(fmt.Sprintf("Unexpected type: nil"))
 				default:
 					panic(fmt.Sprintf("Unknown type: %T", result))
 				}
 			}
+			cssOutput := buffer.String()
 			executionTimeSpent += time.Since(executionSpentTimer)
-			panic("todo(Jake): Finish EmitCSSDefinition() + Execution of bytecode")
+
+			// Generate files
+			cssDirpath := projectDirpath + workspace.CSSOutputDirectory() + "/"
+			diskIOTimeSpentTimer := time.Now()
+			for _, cssFilename := range workspace.CSSFiles() {
+				// todo(Jake): 2018-04-23
+				//
+				// Fix permissions on this file write to a better default
+				//
+				ioutil.WriteFile(cssDirpath+cssFilename, []byte(cssOutput), 0744)
+			}
+			diskIOTimeSpent += time.Since(diskIOTimeSpentTimer)
+			fmt.Printf("CSS Output:\n%s", cssOutput)
 		}
 
 		// Execute template code

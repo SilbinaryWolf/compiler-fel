@@ -20,13 +20,18 @@ Header :: struct {
 }
 
 Header :: css {
-	bg-color := "blue"
+	// NOTE(Jake): 2018-04-23
+	//
+	// Update variable syntax so that you need
+	// to prefix them with a $.
+	//
+	bg_color := "blue"
 	padding := "20px"
 
 	.header {
 		width: 100%
 		height: 60px
-		background-color: bg-color
+		background-color: bg_color
 		padding: padding
 	}
 
