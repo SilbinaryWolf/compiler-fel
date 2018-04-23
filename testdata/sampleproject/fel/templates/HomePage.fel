@@ -9,9 +9,9 @@
 }
 
 Layout(body_class="HomePage") {
-	socialLinks := []string{
+	/*socialLinks := []string{
 		"test"
-	}
+	}*/
 	/*for link := socialLinks {
 		div(class=link) {
 

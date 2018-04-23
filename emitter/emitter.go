@@ -365,7 +365,7 @@ func (emit *Emitter) emitVariableIdentWithProperty(
 		fieldName := leftHandSide[i].String()
 		field := structTypeInfo.GetFieldByName(fieldName)
 		if field == nil {
-			panic(fmt.Sprintf("emitStatement: \"%s :: struct\" does not have property \"%s\". This should be caught in the typechecker.", structTypeInfo.Name, fieldName))
+			panic(fmt.Sprintf("emitStatement: \"%s :: struct\" does not have property \"%s\". This should be caught in the typechecker.", structTypeInfo.Name(), fieldName))
 		}
 		opcodes = append(opcodes, bytecode.Code{
 			Kind:  bytecode.ReplaceStructFieldVar,
@@ -378,7 +378,7 @@ func (emit *Emitter) emitVariableIdentWithProperty(
 	fieldName := leftHandSide[len(leftHandSide)-1].String()
 	lastPropertyField = structTypeInfo.GetFieldByName(fieldName)
 	if lastPropertyField == nil {
-		panic(fmt.Sprintf("emitStatement: \"%s :: struct\" does not have property \"%s\". This should be caught in the typechecker.", structTypeInfo.Name, fieldName))
+		panic(fmt.Sprintf("emitStatement: \"%s :: struct\" does not have property \"%s\". This should be caught in the typechecker.", structTypeInfo.Name(), fieldName))
 	}
 	opcodes = append(opcodes, bytecode.Code{
 		Kind:  bytecode.ReplaceStructFieldVar,
@@ -449,7 +449,7 @@ func (emit *Emitter) emitHTMLNode(opcodes []bytecode.Code, node *ast.Call) []byt
 						Kind: bytecode.AppendPopHTMLElementToHTMLElement,
 					})
 				default:
-					panic(fmt.Sprintf("emitHTMLNode:Component: Unhandled kind %v", kind))
+					panic(fmt.Sprintf("emitHTMLNode:Component: Unhandled kind: %v in ast.Call: %s", kind, name))
 				}
 			}
 		}
@@ -682,7 +682,7 @@ func (emit *Emitter) emitExpression(opcodes []bytecode.Code, topNode *ast.Expres
 						}
 					}
 					if fieldTypeInfo := exprNode.TypeInfo; fieldTypeInfo == nil {
-						panic(fmt.Sprintf("emitExpression: Missing type info on property for \"%s :: struct { %s }\"", structTypeInfo.Name, structField.Name))
+						panic(fmt.Sprintf("emitExpression: Missing type info on property for \"%s :: struct { %s }\"", structTypeInfo.Name(), structField.Name))
 					}
 					if len(exprNode.Nodes()) == 0 {
 						opcodes = emit.emitNewFromType(opcodes, exprNode.TypeInfo)

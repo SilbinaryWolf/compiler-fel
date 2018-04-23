@@ -599,6 +599,14 @@ Loop:
 				continue Loop
 			case token.Newline:
 				// no-op
+			case token.ParenClose:
+				// NOTE(Jake): 2018-04-23
+				//
+				// Ignoring for now so the compiler works.
+				// But I'm not sure why this is needed here.
+				//
+				// Perhaps due to how I use eatNewlines()?
+				//
 			default:
 				if t.IsOperator() {
 					break

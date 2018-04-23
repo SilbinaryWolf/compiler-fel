@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/silbinarywolf/compiler-fel/ast"
+	"github.com/silbinarywolf/compiler-fel/typer"
 )
 
 var basicComponentTest = `
@@ -89,10 +90,15 @@ func BenchmarkParserAndTypecheck(b *testing.B) {
 		for i := 0; i < 4; i++ {
 			astFiles = append(astFiles, parseString(b, p, homePageTemplate))
 		}
-		p.TypecheckAndFinalize(astFiles)
 		if p.HasErrors() {
 			p.PrintErrors()
-			b.Fatalf("Typechecker has hit errors.")
+			b.Fatalf("Parser has hit errors.")
+		}
+		typer := typer.New()
+		typer.ApplyTypeInfoAndTypecheck(astFiles)
+		if typer.HasErrors() {
+			typer.PrintErrors()
+			b.Fatalf("Typer has hit errors.")
 		}
 	}
 }

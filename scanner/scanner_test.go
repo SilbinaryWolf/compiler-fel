@@ -1,8 +1,9 @@
 package scanner
 
 import (
-	"github.com/silbinarywolf/compiler-fel/token"
 	"testing"
+
+	"github.com/silbinarywolf/compiler-fel/token"
 )
 
 //
@@ -14,7 +15,8 @@ import (
 //
 
 func TestEatCommmentLine(t *testing.T) {
-	s := New([]byte(`
+	var s Scanner
+	s.Init([]byte(`
 		// Test Comment A
 
 		// Test Comment B
@@ -31,7 +33,8 @@ func TestEatCommmentLine(t *testing.T) {
 }
 
 func TestEatCommmentBlock(t *testing.T) {
-	s := New([]byte(`
+	var s Scanner
+	s.Init([]byte(`
 		/*
 			Test Comment Block
 		*/

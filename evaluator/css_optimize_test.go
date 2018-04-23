@@ -1,6 +1,6 @@
 package evaluator
 
-import (
+/*import (
 	"strings"
 	"testing"
 
@@ -189,7 +189,7 @@ func TestOptimizeCSSAdjacent(t *testing.T) {
 			section() {}
 			div(class="div") {}
 		}
-		
+
 		MyComponent(){}
 	`, []string{
 		".MyComponent__p+.MyComponent__p",
@@ -244,3 +244,4 @@ func CSSOptimizeRuleCheck(t *testing.T, template string, successContainsList []s
 		t.Fatalf("\nCSS:\n%s\n\nHTML:\n%s", cssOutput, htmlOutput)
 	}
 }
+*/
