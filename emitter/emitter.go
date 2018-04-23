@@ -1150,6 +1150,11 @@ func (emit *Emitter) emitCSSProperty(opcodes []bytecode.Code, property *ast.CSSP
 	return opcodes
 }
 
+func (emit *Emitter) emitFor(opcodes []bytecode.Code, node *ast.For) []bytecode.Code {
+	panic("todo(Jake): emitFor")
+	return opcodes
+}
+
 func (emit *Emitter) emitStatement(opcodes []bytecode.Code, node ast.Node) []bytecode.Code {
 	switch node := node.(type) {
 	case *ast.Block:
@@ -1166,6 +1171,8 @@ func (emit *Emitter) emitStatement(opcodes []bytecode.Code, node ast.Node) []byt
 		opcodes = emit.emitCSSRule(opcodes, node)
 	case *ast.CSSProperty:
 		opcodes = emit.emitCSSProperty(opcodes, node)
+	case *ast.For:
+		opcodes = emit.emitFor(opcodes, node)
 	case *ast.DeclareStatement:
 		opcodes = append(opcodes, bytecode.Code{
 			Kind:  bytecode.Label,

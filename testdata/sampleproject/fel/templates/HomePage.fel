@@ -8,10 +8,20 @@
 	}
 }
 
+socialLinks := []string{
+	"test"
+}
+
+for link := socialLinks {
+	div() {
+		"Test"
+	}
+}
+
 Layout(body_class="HomePage") {
-	/*socialLinks := []string{
-		"test"
-	}*/
+	//socialLinks := []string{
+	//	"test"
+	//}
 	/*for link := socialLinks {
 		div(class=link) {
 

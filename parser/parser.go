@@ -381,7 +381,7 @@ Loop:
 				node = new(ast.For)
 				node.IsDeclareSet = true
 				node.RecordName = varName
-				node.Array.ChildNodes = p.parseExpressionNodes(false)
+				node.Array.ChildNodes = p.parseExpressionNodes(true)
 			case token.Comma:
 				secondVarName := p.GetNextToken()
 				if secondVarName.Kind != token.Identifier {
@@ -397,7 +397,7 @@ Loop:
 				node.IsDeclareSet = true
 				node.IndexName = varName
 				node.RecordName = secondVarName
-				node.Array.ChildNodes = p.parseExpressionNodes(false)
+				node.Array.ChildNodes = p.parseExpressionNodes(true)
 			default:
 				p.AddExpectError(t, token.DeclareSet, token.Comma)
 				return nil
@@ -597,21 +597,22 @@ Loop:
 					Fields: fields,
 				})
 				continue Loop
-			case token.Newline:
+			case token.Newline,
+				token.ParenClose: // for handling the end of an outer function
 				// no-op
-			case token.ParenClose:
-				// NOTE(Jake): 2018-04-23
-				//
-				// Ignoring for now so the compiler works.
-				// But I'm not sure why this is needed here.
-				//
-				// Perhaps due to how I use eatNewlines()?
-				//
+			//case token.ParenClose:
+			// NOTE(Jake): 2018-04-23
+			//
+			// Ignoring for now so the compiler works.
+			// But I'm not sure why this is needed here.
+			//
+			// Perhaps due to how I use eatNewlines()?
+			//
 			default:
 				if t.IsOperator() {
 					break
 				}
-				p.AddError(t, fmt.Errorf("Expected operator, instead got %s.", t.String()))
+				p.AddError(t, fmt.Errorf("Expected operator, instead got %s. (after: %s)", t.String(), name.String()))
 				return nil
 			}
 			expectOperator = true
