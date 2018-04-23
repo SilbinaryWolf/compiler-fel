@@ -1164,7 +1164,45 @@ func (emit *Emitter) emitCSSProperty(opcodes []bytecode.Code, property *ast.CSSP
 }
 
 func (emit *Emitter) emitFor(opcodes []bytecode.Code, node *ast.For) []bytecode.Code {
+	typeInfo := node.Array.TypeInfo
+	//opcodes = emit.emitExpression(opcodes, &node.Array)
+	if node.IsDeclareSet {
+		opcodes = emit.emitDeclareVariable(opcodes, node.IndexName.String(), typeInfo)
+	} else {
+		panic("todo(Jake): Handle just setting a variable in a for-loop.")
+	}
+
+	debugOpcodes(opcodes)
 	panic("todo(Jake): emitFor")
+	return opcodes
+}
+
+func (emit *Emitter) emitDeclareVariable(opcodes []bytecode.Code, nameString string, typeInfo types.TypeInfo) []bytecode.Code {
+	_, ok := emit.scope.GetThisScope(nameString)
+	if ok {
+		panic(fmt.Sprintf("Redeclared \"%s\" in same scope, this should be caught in the type checker.", nameString))
+	}
+
+	opcodes = append(opcodes, bytecode.Code{
+		Kind:  bytecode.Store,
+		Value: emit.scope.stackPos,
+	})
+	opcodes = append(opcodes, bytecode.Code{
+		Kind: bytecode.Pop,
+	})
+
+	{
+		var varStructTypeInfo *types.Struct = nil
+		if typeInfo, ok := typeInfo.(*types.Struct); ok {
+			varStructTypeInfo = typeInfo
+		}
+		emit.scope.DeclareSet(nameString, VariableInfo{
+			kind:           VariableStruct,
+			stackPos:       emit.scope.stackPos,
+			structTypeInfo: varStructTypeInfo,
+		})
+		emit.scope.stackPos++
+	}
 	return opcodes
 }
 
@@ -1194,32 +1232,8 @@ func (emit *Emitter) emitStatement(opcodes []bytecode.Code, node ast.Node) []byt
 		opcodes = emit.emitExpression(opcodes, &node.Expression)
 		typeInfo := node.Expression.TypeInfo
 
-		nameString := node.Name.String()
-		_, ok := emit.scope.GetThisScope(nameString)
-		if ok {
-			panic(fmt.Sprintf("Redeclared \"%s\" in same scope, this should be caught in the type checker.", nameString))
-		}
-
-		opcodes = append(opcodes, bytecode.Code{
-			Kind:  bytecode.Store,
-			Value: emit.scope.stackPos,
-		})
-		opcodes = append(opcodes, bytecode.Code{
-			Kind: bytecode.Pop,
-		})
-
-		{
-			var varStructTypeInfo *types.Struct = nil
-			if typeInfo, ok := typeInfo.(*types.Struct); ok {
-				varStructTypeInfo = typeInfo
-			}
-			emit.scope.DeclareSet(nameString, VariableInfo{
-				kind:           VariableStruct,
-				stackPos:       emit.scope.stackPos,
-				structTypeInfo: varStructTypeInfo,
-			})
-			emit.scope.stackPos++
-		}
+		opcodes = emit.emitDeclareVariable(opcodes, node.Name.String(), typeInfo)
+		return opcodes
 	case *ast.Expression:
 		// todo(Jake): 2018-02-01
 		//

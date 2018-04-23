@@ -18,11 +18,11 @@ Layout(body_class="HomePage") {
 		"test",
 		"meow",
 	}
-	/*for link := socialLinks {
+	for link := socialLinks {
 		div() {
 			"Test"
 		}
-	}*/
+	}
 	/*for link := socialLinks {
 		div(class=link) {
 
