@@ -285,10 +285,12 @@ func (program *Program) executeBytecode(codeBlock *bytecode.Block) {
 			oldStack := program.stack
 			program.stack = program.stack[codeBlock.StackSize:]
 			if value := program.stack[0]; value != nil {
-				debugPrintStack("VM Stack Values", program.stack)
+				debugOpcodes(opcodes, offset)
+				debugPrintStack("VM Stack Values (size: %d)", program.stack)
 				panic("bytecode.Call: Stack already has items in it, need to make sure we dont break the stack.")
+				//block := code.Value.(*bytecode.Block)
+				//panic("bytecode.Call: Stack already has items in it, need to make sure we dont break the stack. Name=" + block.Name())
 			}
-
 			block := code.Value.(*bytecode.Block)
 			program.executeBytecode(block)
 			// Clear for better debuggability

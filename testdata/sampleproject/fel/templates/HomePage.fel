@@ -8,20 +8,21 @@
 	}
 }
 
-socialLinks := []string{
-	"test"
-}
-
-for link := socialLinks {
-	div() {
-		"Test"
-	}
-}
+/*socialLinks := []string{
+	"test",
+	"meow",
+}*/
 
 Layout(body_class="HomePage") {
-	//socialLinks := []string{
-	//	"test"
-	//}
+	socialLinks := []string{
+		"test",
+		"meow",
+	}
+	/*for link := socialLinks {
+		div() {
+			"Test"
+		}
+	}*/
 	/*for link := socialLinks {
 		div(class=link) {
 

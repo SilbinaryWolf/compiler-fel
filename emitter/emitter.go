@@ -45,7 +45,8 @@ type Emitter struct {
 }
 
 type EmitterScope struct {
-	scope *Scope
+	scope     *Scope
+	stackSize int
 }
 
 type FileOptions struct {
@@ -69,10 +70,20 @@ func (emit *Emitter) PushScope() {
 	emit.scope = newScope
 }
 
+func (emit *Emitter) StackSize() int {
+	if emit.stackSize < emit.scope.stackPos {
+		return emit.scope.stackPos
+	}
+	return emit.stackSize
+}
+
 func (emit *Emitter) PopScope() {
 	parentScope := emit.scope.parent
 	if parentScope == nil {
 		panic("Cannot pop last scope item.")
+	}
+	if emit.stackSize < emit.scope.stackPos {
+		emit.stackSize = emit.scope.stackPos
 	}
 	emit.scope = parentScope
 }
@@ -159,7 +170,7 @@ func (emit *Emitter) EmitBytecode(node *ast.File, fileOptions FileOptions) *byte
 
 	codeBlock := bytecode.NewBlock(node.Filepath, codeBlockType)
 	codeBlock.Opcodes = opcodes
-	codeBlock.StackSize = emit.scope.stackPos
+	codeBlock.StackSize = emit.StackSize()
 	codeBlock.HasReturnValue = codeBlockType == bytecode.BlockTemplate
 	//debugOpcodes(opcodes)
 	//fmt.Printf("Final bytecode output above\nStack Size: %d\n", codeBlock.StackSize)
@@ -189,7 +200,7 @@ func (emit *Emitter) EmitCSSDefinition(def *ast.CSSDefinition) *bytecode.Block {
 	// Create code block
 	codeBlock := bytecode.NewBlock(name, bytecode.BlockCSSDefinition)
 	codeBlock.Opcodes = opcodes
-	codeBlock.StackSize = emit.scope.stackPos
+	codeBlock.StackSize = emit.StackSize()
 	codeBlock.HasReturnValue = true
 
 	//debugOpcodes(codeBlock.Opcodes)
@@ -442,6 +453,8 @@ func (emit *Emitter) emitHTMLNode(opcodes []bytecode.Code, node *ast.Call) []byt
 				//
 				lastOpcode := &opcodes[len(opcodes)-1]
 				switch kind := lastOpcode.Kind; kind {
+				case bytecode.Pop:
+					// no-op
 				case bytecode.AppendPopHTMLElementToHTMLElement,
 					bytecode.AppendPopHTMLNodeReturn:
 					opcodes = opcodes[:len(opcodes)-1]
@@ -777,7 +790,7 @@ func (emit *Emitter) emitHTMLComponentDefinition(node *ast.HTMLComponentDefiniti
 
 	block := bytecode.NewBlock(node.Name.String(), bytecode.BlockHTMLComponentDefinition)
 	block.Opcodes = opcodes
-	block.StackSize = emit.scope.stackPos
+	block.StackSize = emit.StackSize()
 	block.HasReturnValue = true
 	return block
 }
@@ -833,7 +846,7 @@ func emitProcedureDefinition(node *ast.ProcedureDefinition) *bytecode.Block {
 
 	block := bytecode.NewBlock(node.Name.String(), bytecode.BlockProcedure)
 	block.Opcodes = opcodes
-	block.StackSize = emit.scope.stackPos
+	block.StackSize = emit.StackSize()
 	block.HasReturnValue = node.TypeInfo != nil
 	return block
 }
@@ -1058,7 +1071,7 @@ func emitWorkspaceDefinition(node *ast.WorkspaceDefinition) *bytecode.Block {
 
 	block := bytecode.NewBlock(node.Name.String(), bytecode.BlockWorkspaceDefinition)
 	block.Opcodes = opcodes
-	block.StackSize = emit.scope.stackPos
+	block.StackSize = emit.StackSize()
 	block.HasReturnValue = true
 	return block
 }
