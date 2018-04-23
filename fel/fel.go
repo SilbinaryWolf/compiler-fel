@@ -21,9 +21,10 @@ import (
 	"github.com/silbinarywolf/compiler-fel/vm"
 )
 
-type File struct {
-	ast  *ast.File
-	code *bytecode.Block
+type TemplateFile struct {
+	ast    *ast.File
+	code   *bytecode.Block
+	output *data.HTMLElement
 }
 
 type CSSDefinition struct {
@@ -106,31 +107,37 @@ func compileProject(projectDirpath string) error {
 
 		// Parse files
 		astFiles := make([]*ast.File, 0, 50)
-		p := parser.New()
-		for _, filepath := range filepathSet {
-			diskIOTimeSpentTimer := time.Now()
-			filecontentsAsBytes, err := ioutil.ReadFile(filepath)
-			diskIOTimeSpent += time.Since(diskIOTimeSpentTimer)
+		{
+			p := parser.New()
+			for _, filepath := range filepathSet {
+				diskIOTimeSpentTimer := time.Now()
+				filecontentsAsBytes, err := ioutil.ReadFile(filepath)
+				diskIOTimeSpent += time.Since(diskIOTimeSpentTimer)
 
-			if err != nil {
-				return fmt.Errorf("An error occurred reading file: %v, Error message: %v", filepath, err)
-			}
-
-			parseSpentTimer := time.Now()
-			astFile := p.Parse(filecontentsAsBytes, filepath)
-			parsingTimeSpent += time.Since(parseSpentTimer)
-
-			if astFile == nil {
-				if p.HasErrors() {
-					p.PrintErrors()
+				if err != nil {
+					return fmt.Errorf("An error occurred reading file: %v, Error message: %v", filepath, err)
 				}
-				return fmt.Errorf("Empty source file: %s.", filepath)
+
+				parseSpentTimer := time.Now()
+				astFile := p.Parse(filecontentsAsBytes, filepath)
+				parsingTimeSpent += time.Since(parseSpentTimer)
+
+				if astFile == nil {
+					if p.HasErrors() {
+						p.PrintErrors()
+					}
+					return fmt.Errorf("Empty source file: %s.", filepath)
+				}
+				if p.Scanner.HasErrors() {
+					p.PrintErrors()
+					return fmt.Errorf("Stopping due to scanning errors.")
+				}
+				astFiles = append(astFiles, astFile)
 			}
-			if p.Scanner.HasErrors() {
+			if p.HasErrors() {
 				p.PrintErrors()
-				return fmt.Errorf("Stopping due to scanning errors.")
+				return fmt.Errorf("Stopping due to parsing errors.")
 			}
-			astFiles = append(astFiles, astFile)
 		}
 
 		// Apply type information and typecheck when we've parsed all files
@@ -148,7 +155,7 @@ func compileProject(projectDirpath string) error {
 		}
 
 		// Emit bytecode
-		codeRecords := make([]File, 0, len(astFiles))
+		codeRecords := make([]TemplateFile, 0, len(astFiles))
 		cssDefinitionBlocks := make([]CSSDefinition, 0, 100)
 		{
 			emitSpentTimer := time.Now()
@@ -179,7 +186,7 @@ func compileProject(projectDirpath string) error {
 					IsTemplateFile: true,
 				})
 
-				codeRecords = append(codeRecords, File{
+				codeRecords = append(codeRecords, TemplateFile{
 					ast:  astFile,
 					code: codeBlock,
 				})
@@ -228,11 +235,12 @@ func compileProject(projectDirpath string) error {
 		// Execute template code
 		{
 			executionSpentTimer := time.Now()
-			for _, codeRecord := range codeRecords {
+			for i, _ := range codeRecords {
+				codeRecord := &codeRecords[i]
 				result := vm.ExecuteNewProgram(codeRecord.code)
 				switch result := result.(type) {
 				case *data.HTMLElement:
-					//htmlElements = append(htmlElements, result)
+					codeRecord.output = result
 					fmt.Printf("Filename: %s\n%s\n", codeRecord.ast.Filepath, result.Debug())
 				case nil:
 					panic(fmt.Sprintf("Unexpected type: nil"))
@@ -241,6 +249,34 @@ func compileProject(projectDirpath string) error {
 				}
 			}
 			executionTimeSpent += time.Since(executionSpentTimer)
+
+			//
+			diskIOTimeSpentTimer := time.Now()
+			for _, codeRecord := range codeRecords {
+				filename := codeRecord.ast.Filepath
+				htmlElement := codeRecord.output
+				if htmlElement == nil {
+					continue
+				}
+
+				baseFilename := filename[len(templateInputDirectory) : len(filename)-4]
+				outputFilepath := filepath.Clean(fmt.Sprintf("%s%s.html", templateOutputDirectory, baseFilename))
+
+				err := ioutil.WriteFile(
+					outputFilepath,
+					[]byte(htmlElement.Debug()),
+					0644,
+				)
+				if err != nil {
+					panic(err)
+				}
+			}
+			diskIOTimeSpent += time.Since(diskIOTimeSpentTimer)
+			/*result := TemplateFile{
+				Filepath: outputFilepath,
+				Content:  generate.PrettyHTML(nodes),
+			}
+			outputTemplateFileSet = append(outputTemplateFileSet, result)*/
 		}
 
 		fmt.Printf("\n")

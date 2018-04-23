@@ -597,6 +597,14 @@ Loop:
 					Fields: fields,
 				})
 				continue Loop
+			case token.Newline:
+				// no-op
+			default:
+				if t.IsOperator() {
+					break
+				}
+				p.AddError(t, fmt.Errorf("Expected operator, instead got %s.", t.String()))
+				return nil
 			}
 			expectOperator = true
 			infixNodes = append(infixNodes, &ast.Token{Token: t})
