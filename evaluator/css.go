@@ -1,6 +1,6 @@
 package evaluator
 
-import (
+/*import (
 	"bytes"
 	"encoding/json"
 	"fmt"
@@ -255,12 +255,12 @@ func (program *Program) evaluateCSSDefinition(topNode *ast.CSSDefinition, scope 
 	if scope == nil {
 		panic("evaluateCSSDefinition(): Null scope provided.")
 	}
-	/*if scope.parent != nil {
-		{
-			json, _ := json.MarshalIndent(scope.parent, "", "   ")
-			fmt.Printf("%s", string(json))
-		}
-		panic("evaluateCSSDefinition(): Todo! Can only have CSS blocks at top-level")
-	}*/
+	//if scope.parent != nil {
+	//	{
+	//		json, _ := json.MarshalIndent(scope.parent, "", "   ")
+	//		fmt.Printf("%s", string(json))
+	//	}
+	//	panic("evaluateCSSDefinition(): Todo! Can only have CSS blocks at top-level")
+	//}
 	return cssDefinition
-}
+}*/

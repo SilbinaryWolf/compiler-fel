@@ -9,26 +9,19 @@ type HTMLBlock struct {
 	Base
 }
 
-type HTMLProperties struct {
-	Statements []*DeclareStatement
-}
-
-func (node *HTMLProperties) Nodes() []Node {
-	return nil
-}
-
 type HTMLComponentDefinition struct {
 	Name                token.Token
-	Dependencies        map[string]*HTMLNode
-	Properties          *HTMLProperties
+	Dependencies        map[string]*Call
+	Struct              *StructDefinition
 	CSSDefinition       *CSSDefinition       // optional
 	CSSConfigDefinition *CSSConfigDefinition // optional
 	Base
 }
 
-type HTMLNode struct {
+/*type HTMLNode struct {
 	Name           token.Token
-	Parameters     []Parameter
+	Parameters     []*Parameter
 	HTMLDefinition *HTMLComponentDefinition // optional
+	IfExpression   Expression               // optional
 	Base
-}
+}*/

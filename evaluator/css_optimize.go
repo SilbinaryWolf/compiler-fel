@@ -1,6 +1,6 @@
 package evaluator
 
-import (
+/*import (
 	"github.com/silbinarywolf/compiler-fel/ast"
 	"github.com/silbinarywolf/compiler-fel/data"
 )
@@ -32,13 +32,13 @@ func optimizeRules(definition *data.CSSDefinition, htmlNodeInfo *HTMLComponentNo
 				}
 			}
 
-			/*{
-				res := ""
-				for _, htmlNode := range htmlNodeInfo.Nodes {
-					res += generate.PrettyHTML([]data.Type{htmlNode}) + "\n"
-				}
-				panic(fmt.Sprintf("%s\nDone %d nodes for \"%s\"", res, len(htmlNodeInfo.Nodes), htmlNodeInfo.HTMLDefinition.Name))
-			}*/
+			//{
+			//	res := ""
+			//	for _, htmlNode := range htmlNodeInfo.Nodes {
+			//		res += generate.PrettyHTML([]data.Type{htmlNode}) + "\n"
+			//	}
+			//	panic(fmt.Sprintf("%s\nDone %d nodes for \"%s\"", res, len(htmlNodeInfo.Nodes), htmlNodeInfo.HTMLDefinition.Name))
+			//}
 
 			// Check for matches
 			nodesMatchedCount := 0
@@ -124,4 +124,4 @@ func (program *Program) evaluateOptimizeAndReturnUsedCSS() []*data.CSSDefinition
 	}
 
 	return outputCSSDefinitionSet
-}
+}*/

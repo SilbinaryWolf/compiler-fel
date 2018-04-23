@@ -9,6 +9,16 @@
 }
 
 Layout(body_class="HomePage") {
+	/*socialLinks := []string{
+		"test"
+	}*/
+	/*for link := socialLinks {
+		div(class=link) {
+
+		}
+	}*/
+	div(class="only-if-true") {
+	}
 	div(class="exists") {
 		"Test"
 	}

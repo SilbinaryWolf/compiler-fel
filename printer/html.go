@@ -1,13 +1,6 @@
-package generate
+package printer
 
-import (
-	"fmt"
-
-	"github.com/silbinarywolf/compiler-fel/data"
-	"github.com/silbinarywolf/compiler-fel/util"
-)
-
-func PrettyHTML(nodes []data.Type) string {
+/*func PrettyHTML(nodes []data.Type) string {
 	gen := new(Generator)
 
 	for _, itNode := range nodes {
@@ -108,3 +101,4 @@ func (gen *Generator) WriteHTMLNode(node *data.HTMLNode) {
 		gen.WriteByte('>')
 	}
 }
+*/

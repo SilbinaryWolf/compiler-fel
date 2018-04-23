@@ -23,10 +23,12 @@ type scannerState struct {
 
 type Scanner struct {
 	scannerState
+
 	scanmode     Mode
 	filecontents []byte
 	Filepath     string
-	Error        error
+
+	Error error
 
 	//peekToken token.Token
 }
@@ -34,12 +36,15 @@ type Scanner struct {
 const BYTE_ORDER_MARK = 0xFEFF // byte order mark, only permitted as very first character
 const END_OF_FILE = 0
 
-func New(filecontents []byte, filepath string) *Scanner {
-	scanner := new(Scanner)
+func (scanner *Scanner) Init(filecontents []byte, filepath string) {
+	// Reset scanner
+	// This is required to reset *all* values of the scanner when
+	// using the same parser object across different files.
+	*scanner = Scanner{}
+
 	scanner.lineNumber = 1
 	scanner.filecontents = filecontents
 	scanner.Filepath = filepath
-	return scanner
 }
 
 func (scanner *Scanner) PeekNextToken() token.Token {
@@ -136,7 +141,8 @@ func (scanner *Scanner) eatEndOfLine() bool {
 	return false
 }
 
-func (scanner *Scanner) eatAllWhitespace() {
+/*func (scanner *Scanner) eatAllWhitespace() bool {
+	originalIndex := scanner.index
 	for {
 		lastIndex := scanner.index
 		C := scanner.nextRune()
@@ -147,21 +153,29 @@ func (scanner *Scanner) eatAllWhitespace() {
 		scanner.index = lastIndex
 		break
 	}
-}
+	return scanner.index != originalIndex
+}*/
 
-func (scanner *Scanner) eatAllComments() {
+func (scanner *Scanner) eatAllCommentsAndMaybeWhitespace() {
 	commentBlockDepth := 0
+
+	// CSS relies on whitespace tokens for parsing selectors
+	// if we aren't parsing CSS, we eat and ignore whitespace.
+	eatWhitespace := scanner.scanmode != ModeCSS
 
 	for {
 		lastIndex := scanner.index
 		C := scanner.nextRune()
+		if eatWhitespace && isWhitespace(C) {
+			continue
+		}
 		C2 := scanner.nextRune()
 		if C == '/' && C2 == '/' {
 			for {
-				C := scanner.nextRune()
 				if scanner.eatEndOfLine() {
 					break
 				}
+				C := scanner.nextRune()
 				if C == 0 {
 					break
 				}
@@ -176,7 +190,7 @@ func (scanner *Scanner) eatAllComments() {
 				}
 				C := scanner.nextRune()
 				if C == 0 {
-					scanner.setError(fmt.Errorf("NUL character found in comment block."))
+					scanner.SetScannerError(fmt.Errorf("NUL character found in comment block."))
 					break
 				}
 				lastIndex := scanner.index
@@ -208,8 +222,8 @@ func (scanner *Scanner) HasErrors() bool {
 	return scanner.Error != nil
 }
 
-func (scanner *Scanner) setError(message error) {
-	scanner.Error = fmt.Errorf("Line %d - %v", scanner.lineNumber, message)
+func (scanner *Scanner) SetScannerError(message error) {
+	scanner.Error = message
 }
 
 func (scanner *Scanner) nextRune() rune {
@@ -219,16 +233,16 @@ func (scanner *Scanner) nextRune() rune {
 	}
 	r, size := rune(scanner.filecontents[index]), 1
 	if r == 0 {
-		scanner.setError(fmt.Errorf("Illegal character NUL."))
+		scanner.SetScannerError(fmt.Errorf("Illegal character NUL."))
 		return END_OF_FILE
 	}
 	if r >= utf8.RuneSelf {
 		r, size = utf8.DecodeRune(scanner.filecontents[index:])
 		if r == utf8.RuneError && size == 1 {
-			scanner.setError(fmt.Errorf("Illegal UTF-8 encoding."))
+			scanner.SetScannerError(fmt.Errorf("Illegal UTF-8 encoding."))
 			return END_OF_FILE
 		} else if r == BYTE_ORDER_MARK && scanner.index > 0 {
-			scanner.setError(fmt.Errorf("Illegal byte order mark."))
+			scanner.SetScannerError(fmt.Errorf("Illegal byte order mark."))
 			return END_OF_FILE
 		}
 	}
@@ -272,15 +286,7 @@ func (scanner *Scanner) _getNextToken() token.Token {
 		}
 	}()
 
-	// NOTE: Eating whitespace before *and* after comments, avoids
-	//	     bug where scanner falls over on "\t" or similar
-	if scanner.scanmode != ModeCSS {
-		scanner.eatAllWhitespace()
-	}
-	scanner.eatAllComments()
-	if scanner.scanmode != ModeCSS {
-		scanner.eatAllWhitespace()
-	}
+	scanner.eatAllCommentsAndMaybeWhitespace()
 
 	t.Start = scanner.index
 	C := scanner.nextRune()
@@ -334,7 +340,7 @@ func (scanner *Scanner) _getNextToken() token.Token {
 		if scanner.scanmode == ModeDefault && C == '\'' {
 			// NOTE(Jake): Enforce that ' cannot be used anywhere eventually. Ideally a 'felfmt' tool would fix
 			//			   those types of strings for you.
-			scanner.setError(fmt.Errorf("Cannot use ' character for strings outside of \":: css\" definitions."))
+			scanner.SetScannerError(fmt.Errorf("Cannot use ' character for strings outside of \":: css\" definitions."))
 		}
 
 		// Handle HereDoc (triple quote """)
@@ -373,7 +379,7 @@ func (scanner *Scanner) _getNextToken() token.Token {
 				break
 			}
 			if subC == END_OF_FILE {
-				scanner.setError(fmt.Errorf("Expected end of string but instead got end of file."))
+				scanner.SetScannerError(fmt.Errorf("Expected end of string but instead got end of file."))
 			}
 		}
 	case ':':
@@ -389,6 +395,12 @@ func (scanner *Scanner) _getNextToken() token.Token {
 	// Operators
 	case '+':
 		t.Kind = token.Add
+		switch lastIndex := scanner.index; scanner.nextRune() {
+		case '=':
+			t.Kind = token.AddEqual
+		default:
+			scanner.index = lastIndex
+		}
 	// todo(Jake): Handle subtract again (identifiers have '-' so needs extra work)
 	//case '-':
 	///./.;'>">">'	t.Kind = token.Subtract
@@ -398,6 +410,12 @@ func (scanner *Scanner) _getNextToken() token.Token {
 		t.Kind = token.Multiply
 	case '!':
 		t.Kind = token.Not
+		switch lastIndex := scanner.index; scanner.nextRune() {
+		case '=':
+			t.Kind = token.ConditionalNotEqual
+		default:
+			scanner.index = lastIndex
+		}
 	case '^':
 		t.Kind = token.Power
 		switch lastIndex := scanner.index; scanner.nextRune() {
@@ -523,8 +541,16 @@ func (scanner *Scanner) _getNextToken() token.Token {
 	if len(t.Data) == 0 && t.HasUniqueData() {
 		t.Data = string(scanner.filecontents[t.Start:t.End])
 	}
-	if scanner.Error != nil {
+	//if t.Kind == token.Identifier && len(t.Data) > 0 && t.Data[len(t.Data)-1] == '-' {
+	//	scanner.setError(fmt.Errorf("Cannot end identifier in -."))
+	//}
+	// NOTE(Jake):2018-01-14
+	//
+	// Force scanner issues to flag a token as illegal.
+	//
+	if scanner.HasErrors() {
 		t.Kind = token.Illegal
+		t.Data = scanner.Error.Error()
 	}
 	t.Filepath = scanner.Filepath
 	return t

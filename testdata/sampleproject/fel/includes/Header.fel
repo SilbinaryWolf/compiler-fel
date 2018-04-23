@@ -1,23 +1,76 @@
 Header :: css_config {
+	// NOTE(Jake): 2018-04-22
+	//
+	// Perhaps be able to define CSS config
+	// variables here?
+	//
+	// Then they can be modified in config.fel with
+	// the intended values.
+	//
+	//button-primary: "red"
+
 	.is-* {
 		modify: false
 	}
 }
 
+Header :: struct {
+	isBlue: bool = true
+	hey: string = "woop"
+}
+
 Header :: css {
+	// NOTE(Jake): 2018-04-23
+	//
+	// Update variable syntax so that you need
+	// to prefix them with a $.
+	//
+	bg_color := "blue"
+	padding := "20px"
+
 	.header {
 		width: 100%
 		height: 60px
-		background-color: blue;
+		background-color: bg_color
+		padding: padding
 	}
 
 	.header.is-active {
-		display: block;
+		display: block
+	}
+
+	input[type="button"] {
+		display: block
 	}
 }
 
 Header :: html {
-	header(class="header") {
-		"Headers"
+	class := "no_blue"
+	test := "more"
+	if isBlue {
+		// todo(Jake): Fix this, something wrong with evaluator not able to set a variable after declaring.
+		// stuff BREAKS!
+		// test
+		class = "blue"
+	}
+	Blah(title="Huzzah") {
+		div {
+			"Neat!"
+		}
+	}
+	header(class="header "+class+" "+hey) {
+		"header text"
+		children
+	}
+}
+
+Blah :: struct {
+	title: string = ""
+}
+
+Blah :: html {
+	div {
+		title + " Blah Component"
+		children
 	}
 }

@@ -18,9 +18,19 @@ type CSSDefinition struct {
 }
 
 type CSSRule struct {
-	Kind      CSSRuleKind
-	Selectors []CSSSelector
+	kind      CSSRuleKind
+	selectors []CSSSelector
 	Base
+}
+
+func (rule *CSSRule) Kind() CSSRuleKind        { return rule.kind }
+func (rule *CSSRule) Selectors() []CSSSelector { return rule.selectors }
+
+func NewCSSRule(kind CSSRuleKind, selectors []CSSSelector) *CSSRule {
+	rule := new(CSSRule)
+	rule.kind = kind
+	rule.selectors = selectors
+	return rule
 }
 
 type CSSSelector struct {
@@ -39,5 +49,5 @@ func (node *CSSAttributeSelector) Nodes() []Node {
 
 type CSSProperty struct {
 	Name token.Token
-	Base
+	Expression
 }

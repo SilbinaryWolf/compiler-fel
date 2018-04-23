@@ -1,4 +1,4 @@
-package generate
+package printer
 
 import (
 	"fmt"
@@ -8,7 +8,7 @@ import (
 
 func PrettyCSS(node *data.CSSDefinition) string {
 	gen := new(Generator)
-	for _, itNode := range node.ChildNodes {
+	for _, itNode := range node.Rules() {
 		gen.WriteCSSRuleNode(itNode)
 	}
 	gen.WriteByte('\n')
@@ -16,12 +16,13 @@ func PrettyCSS(node *data.CSSDefinition) string {
 }
 
 func (gen *Generator) WriteCSSRuleNode(node *data.CSSRule) {
-	if len(node.Selectors) == 0 {
+	selectors := node.Selectors()
+	if len(selectors) == 0 {
 		panic("getCSSRuleNode(): CSSRule with no selectors???")
 	}
 
 	// Print selectors
-	for i, selectorNodes := range node.Selectors {
+	for i, selectorNodes := range selectors {
 		if i != 0 {
 			gen.WriteByte(',')
 			gen.WriteLine()
@@ -29,17 +30,17 @@ func (gen *Generator) WriteCSSRuleNode(node *data.CSSRule) {
 
 		//lastSelectorWasOperator := false
 		for _, node := range selectorNodes {
-			switch node.Kind {
-			case data.SelectorKindAttribute:
+			switch nodeKind := node.Kind(); nodeKind {
+			case data.SelectorPartKindAttribute:
 				//if i != 0 && lastSelectorWasOperator == false {
 				//	gen.WriteByte(' ')
 				//}
 				gen.WriteByte('[')
-				gen.WriteString(node.Name)
-				if node.Operator != "" {
-					gen.WriteString(node.Operator)
+				gen.WriteString(node.Name())
+				if node.Operator() != "" {
+					gen.WriteString(node.Operator())
 					gen.WriteByte('"')
-					gen.WriteString(node.Value)
+					gen.WriteString(node.Value())
 					gen.WriteByte('"')
 				}
 				gen.WriteByte(']')
@@ -53,8 +54,8 @@ func (gen *Generator) WriteCSSRuleNode(node *data.CSSRule) {
 			gen.WriteByte(')')
 			//panic(fmt.Sprintf("getCSSRuleNode(): Unhandled node type: %T, value: %s", node, node.String()))*/
 			default:
-				if node.Kind.IsOperator() ||
-					node.Kind.IsIdentifier() {
+				if nodeKind.IsOperator() ||
+					nodeKind.IsIdentifier() {
 					gen.WriteString(node.String())
 					continue
 				}
@@ -68,7 +69,7 @@ func (gen *Generator) WriteCSSRuleNode(node *data.CSSRule) {
 	gen.WriteLine()
 
 	// Print properties
-	for i, property := range node.Properties {
+	for i, property := range node.Properties() {
 		if i != 0 {
 			gen.WriteLine()
 		}
@@ -76,7 +77,7 @@ func (gen *Generator) WriteCSSRuleNode(node *data.CSSRule) {
 	}
 
 	// Print nested rules
-	for i, rule := range node.Rules {
+	for i, rule := range node.Rules() {
 		if i != 0 {
 			gen.WriteLine()
 		}

@@ -1,3 +1,9 @@
+/*Header :: html {
+	div {
+
+	}
+}*/
+
 Layout :: css {
 	html, 
 	body {
@@ -25,7 +31,7 @@ Layout :: html {
 			link(rel="stylesheet", type="text/css", href="../css/main.css")
 		}
 		body(class="no-js "+body_class) {
-			Header()
+			Header(isBlue=false)
 			children
 		}
 	}
