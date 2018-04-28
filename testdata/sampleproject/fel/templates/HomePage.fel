@@ -18,14 +18,10 @@ Layout(body_class="HomePage") {
 		"test",
 		"meow",
 	}
-	for link := socialLinks {
+	link[0]
+	/*for link := socialLinks {
 		div() {
 			"Test"
-		}
-	}
-	/*for link := socialLinks {
-		div(class=link) {
-
 		}
 	}*/
 	div(class="only-if-true") {

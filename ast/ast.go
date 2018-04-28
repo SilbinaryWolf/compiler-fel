@@ -215,6 +215,11 @@ type OpStatement struct {
 	Expression
 }
 
+type ArrayAccessStatement struct {
+	LeftHandSide []token.Token
+	Expression
+}
+
 type ArrayAppendStatement struct {
 	LeftHandSide []token.Token
 	Expression

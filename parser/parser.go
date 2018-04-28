@@ -80,11 +80,11 @@ func (p *Parser) validateHTMLNode(node *ast.Call) {
 	//}
 }
 
-func (p *Parser) NewDeclareStatement(name token.Token, typeIdent ast.TypeIdent, expressionNodes []ast.Node) *ast.DeclareStatement {
+func (p *Parser) NewDeclareStatement(name token.Token, typeIdent ast.TypeIdent, expression ast.Expression) *ast.DeclareStatement {
 	node := new(ast.DeclareStatement)
 	node.Name = name
 	node.TypeIdentifier = typeIdent
-	node.ChildNodes = expressionNodes
+	node.Expression = expression
 
 	nameString := name.String()
 	if len(nameString) > 0 && nameString[len(nameString)-1] == '-' {
@@ -116,7 +116,7 @@ Loop:
 			// myVar := {Expression} \n
 			//
 			case token.DeclareSet:
-				node := p.NewDeclareStatement(name, ast.TypeIdent{}, p.parseExpressionNodes(false))
+				node := p.NewDeclareStatement(name, ast.TypeIdent{}, p.parseExpression(false))
 				resultNodes = append(resultNodes, node)
 			// myVar : string \n
 			case token.Colon:
@@ -125,30 +125,50 @@ Loop:
 					return nil
 				}
 				// myVar : string = {Expression} \n
-				var expressionNodes []ast.Node
+				var exprNode ast.Expression
 				if p.PeekNextToken().Kind == token.Equal {
 					p.GetNextToken()
-					expressionNodes = p.parseExpressionNodes(false)
+					exprNode = p.parseExpression(false)
 				}
-				node := p.NewDeclareStatement(name, typeName, expressionNodes)
+				node := p.NewDeclareStatement(name, typeName, exprNode)
 				resultNodes = append(resultNodes, node)
 			// myVar []= "append array item"
+			// -or-
+			// myVar[0]
 			case token.BracketOpen:
-				if t := p.GetNextToken(); t.Kind != token.BracketClose {
-					p.AddExpectError(t, token.BracketClose)
+				if t := p.PeekNextToken(); t.Kind != token.BracketClose {
+					// Array Access: myVar[0]
+					p.SetScannerState(storeScannerState)
+					exprNode := p.parseExpressionPtr(true)
+					resultNodes = append(resultNodes, exprNode)
 					continue
+					/*switch t.Kind {
+					case token.Number:
+					case token.String:
+					case token.Identifier:
+						p.SetScannerState(storeScannerState)
+						node := p.parseExpression(true)
+						resultNodes = append(resultNodes, node)
+						continue
+					default:
+						panic(fmt.Sprintf("ArrayAppend: Unable to handle token kind: %s", t.Kind.String()))
+					}
+					p.GetNextToken()
+					p.AddExpectError(t, token.BracketClose)
+					continue*/
 				}
 				if t := p.GetNextToken(); t.Kind != token.Equal {
 					p.AddExpectError(t, token.Equal)
 					continue
 				}
 
+				// myVar []= "append array item"
 				leftHandSide := make([]token.Token, 0, 1)
 				leftHandSide = append(leftHandSide, name)
 
 				node := new(ast.ArrayAppendStatement)
 				node.LeftHandSide = leftHandSide
-				node.Expression.ChildNodes = p.parseExpressionNodes(false)
+				node.Expression = p.parseExpression(false)
 				resultNodes = append(resultNodes, node)
 			// myVar.Property.SubProperty = {Expression}
 			//
@@ -182,7 +202,7 @@ Loop:
 
 					node := new(ast.ArrayAppendStatement)
 					node.LeftHandSide = leftHandSide
-					node.Expression.ChildNodes = p.parseExpressionNodes(false)
+					node.Expression = p.parseExpression(false)
 					resultNodes = append(resultNodes, node)
 					continue
 				}
@@ -200,7 +220,7 @@ Loop:
 				node := new(ast.OpStatement)
 				node.LeftHandSide = leftHandSide
 				node.Operator = operatorToken
-				node.Expression.ChildNodes = p.parseExpressionNodes(false)
+				node.Expression = p.parseExpression(false)
 				resultNodes = append(resultNodes, node)
 			// myVar = {Expression} \n
 			//
@@ -210,14 +230,14 @@ Loop:
 				node := new(ast.OpStatement)
 				node.LeftHandSide = leftHandSide
 				node.Operator = t
-				node.Expression.ChildNodes = p.parseExpressionNodes(false)
+				node.Expression = p.parseExpression(false)
 				resultNodes = append(resultNodes, node)
 			// div if {expr} {
 			//     ^
 			case token.KeywordIf:
 				node := ast.NewHTMLNode()
 				node.Name = name
-				node.IfExpression.ChildNodes = p.parseExpressionNodes(true)
+				node.IfExpression = p.parseExpression(true)
 				if t := p.GetNextToken(); t.Kind != token.BraceOpen {
 					p.AddExpectError(t, token.BraceOpen)
 					return nil
@@ -267,8 +287,8 @@ Loop:
 					continue
 				}
 				p.SetScannerState(storeScannerState)
-				node := p.parseExpression(false)
-				resultNodes = append(resultNodes, node)
+				exprNode := p.parseExpressionPtr(false)
+				resultNodes = append(resultNodes, exprNode)
 			// Normalize :: css {
 			//			 ^
 			case token.DoubleColon:
@@ -280,8 +300,8 @@ Loop:
 			default:
 				if t.IsOperator() {
 					p.SetScannerState(storeScannerState)
-					node := p.parseExpression(false)
-					resultNodes = append(resultNodes, node)
+					exprNode := p.parseExpressionPtr(false)
+					resultNodes = append(resultNodes, exprNode)
 					continue
 				}
 				// return {expr}
@@ -293,7 +313,7 @@ Loop:
 					// NOTE(Jake): 2017-12-30, Hack to store Line/Column/File data from token on ast.Return
 					node.TypeIdentifier.Name.Kind = token.Unknown
 					node.TypeIdentifier.Name.Data = ""
-					node.Expression.ChildNodes = p.parseExpressionNodes(false)
+					node.Expression = p.parseExpression(false)
 					resultNodes = append(resultNodes, node)
 					continue
 				}
@@ -316,8 +336,8 @@ Loop:
 			}
 			resultNodes = append(resultNodes, node)
 		case token.String:
-			node := p.parseExpression(false)
-			resultNodes = append(resultNodes, node)
+			exprNode := p.parseExpressionPtr(false)
+			resultNodes = append(resultNodes, exprNode)
 		case token.BraceClose:
 			p.GetNextToken()
 			break Loop
@@ -332,13 +352,13 @@ Loop:
 			//
 			//			   ie. "if myBool {" vs "if myStructLit{val:3} {"
 			//
-			exprNodes := p.parseExpressionNodes(true)
+			exprNode := p.parseExpression(true)
 			if t := p.GetNextToken(); t.Kind != token.BraceOpen {
 				p.AddExpectError(t, token.BraceOpen)
 				return nil
 			}
 			node := new(ast.If)
-			node.Condition.ChildNodes = exprNodes
+			node.Condition = exprNode
 			node.ChildNodes = p.parseStatements()
 			resultNodes = append(resultNodes, node)
 			p.eatNewlines()
@@ -381,7 +401,7 @@ Loop:
 				node = new(ast.For)
 				node.IsDeclareSet = true
 				node.RecordName = varName
-				node.Array.ChildNodes = p.parseExpressionNodes(true)
+				node.Array = p.parseExpression(true)
 			case token.Comma:
 				secondVarName := p.GetNextToken()
 				if secondVarName.Kind != token.Identifier {
@@ -397,7 +417,7 @@ Loop:
 				node.IsDeclareSet = true
 				node.IndexName = varName
 				node.RecordName = secondVarName
-				node.Array.ChildNodes = p.parseExpressionNodes(true)
+				node.Array = p.parseExpression(true)
 			default:
 				p.AddExpectError(t, token.DeclareSet, token.Comma)
 				return nil
@@ -461,13 +481,23 @@ func (p *Parser) parseTypeIdent() ast.TypeIdent {
 	return result
 }
 
-func (p *Parser) parseExpression(disableStructLiteral bool) *ast.Expression {
-	node := new(ast.Expression)
-	node.ChildNodes = p.parseExpressionNodes(disableStructLiteral)
+func (p *Parser) parseExpression(disableStructLiteral bool) ast.Expression {
+	node := ast.Expression{}
+	node.ChildNodes = p.__parseExpressionNodes(disableStructLiteral)
 	return node
 }
 
-func (p *Parser) parseExpressionNodes(disableStructLiteral bool) []ast.Node {
+func (p *Parser) parseExpressionPtr(disableStructLiteral bool) *ast.Expression {
+	node := new(ast.Expression)
+	*node = p.parseExpression(disableStructLiteral)
+	return node
+}
+
+// todo(Jake): 2018-04-28
+//
+// Remove this function and put the logic inside `parseExpression`
+//
+func (p *Parser) __parseExpressionNodes(disableStructLiteral bool) []ast.Node {
 	parenOpenCount := 0
 	parenCloseCount := 0
 
@@ -516,6 +546,11 @@ Loop:
 				expectOperator = true
 				infixNodes = append(infixNodes, ast.NewTokenList(tokens))
 				continue Loop
+			case token.BracketOpen:
+				p.GetNextToken()
+
+				indexExpression := p.parseExpression(true)
+				panic(fmt.Sprintf("todo(Jake): Parse array access, %v", indexExpression))
 			case token.ParenOpen:
 				p.GetNextToken()
 				node := p.parseProcedureOrHTMLNode(name)
@@ -569,10 +604,9 @@ Loop:
 						p.AddError(t, fmt.Errorf("Expected : after property \"%s\"", propertyName.String()))
 						return nil
 					}
-					exprNodes := p.parseExpressionNodes(false)
 					node := ast.Parameter{}
 					node.Name = propertyName
-					node.ChildNodes = exprNodes
+					node.Expression = p.parseExpression(false)
 					fields = append(fields, node)
 					switch t := p.GetNextToken(); t.Kind {
 					case token.BraceClose:
@@ -643,7 +677,9 @@ Loop:
 			//	continue
 			//}
 			break Loop
-		case token.BraceOpen, token.BraceClose, token.Comma,
+		case token.BraceOpen, token.BraceClose,
+			token.BracketClose,
+			token.Comma,
 			token.EOF, token.Illegal:
 			// NOTE(Jake): We specifically don't call p.GetNextToken()
 			//			   so the calleee function can consume and use
@@ -697,7 +733,7 @@ Loop:
 
 		ArrayLiteralLoop:
 			for i := 0; true; i++ {
-				expr := p.parseExpression(false)
+				expr := p.parseExpressionPtr(false)
 				sep := p.GetNextToken()
 				switch sep.Kind {
 				case token.Comma:
@@ -820,10 +856,10 @@ func (p *Parser) parseProcedureOrHTMLNode(name token.Token) *ast.Call {
 				p.SetScannerState(storeScannerState)
 			}
 
-			exprNodes := p.parseExpressionNodes(false)
+			exprNode := p.parseExpression(false)
 			p.eatNewlines()
 
-			if exprNodes == nil {
+			if exprNode.Nodes() == nil {
 				p.AddError(name, fmt.Errorf("Missing value for parameter #%d", len(parameters)))
 				return nil
 			}
@@ -831,7 +867,7 @@ func (p *Parser) parseProcedureOrHTMLNode(name token.Token) *ast.Call {
 			if isHTMLNode {
 				parameter.Name = name
 			}
-			parameter.ChildNodes = exprNodes
+			parameter.Expression = exprNode
 			parameters = append(parameters, parameter)
 
 			switch t := p.PeekNextToken(); t.Kind {
@@ -863,9 +899,8 @@ func (p *Parser) parseProcedureOrHTMLNode(name token.Token) *ast.Call {
 		}
 	}
 
-	childStatements := make([]ast.Node, 0, 10)
-	ifExprNodes := make([]ast.Node, 0, 10)
-
+	var childStatements []ast.Node
+	var ifExprNode ast.Expression
 	{
 		storeScannerState := p.ScannerState()
 		switch t := p.GetNextToken(); t.Kind {
@@ -875,7 +910,7 @@ func (p *Parser) parseProcedureOrHTMLNode(name token.Token) *ast.Call {
 			childStatements = p.parseStatements()
 			isHTMLNode = true
 		case token.KeywordIf:
-			ifExprNodes = p.parseExpressionNodes(true)
+			ifExprNode = p.parseExpression(true)
 			if t := p.GetNextToken(); t.Kind != token.BraceOpen {
 				p.AddExpectError(t, token.BraceOpen)
 				return nil
@@ -908,7 +943,7 @@ func (p *Parser) parseProcedureOrHTMLNode(name token.Token) *ast.Call {
 	node.Name = name
 	node.Parameters = parameters
 	node.ChildNodes = childStatements
-	node.IfExpression.ChildNodes = ifExprNodes
+	node.IfExpression = ifExprNode
 	p.validateHTMLNode(node)
 	return node
 }

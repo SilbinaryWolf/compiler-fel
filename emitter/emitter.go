@@ -1165,7 +1165,7 @@ func (emit *Emitter) emitCSSProperty(opcodes []bytecode.Code, property *ast.CSSP
 
 func (emit *Emitter) emitFor(opcodes []bytecode.Code, node *ast.For) []bytecode.Code {
 	typeInfo := node.Array.TypeInfo
-	//opcodes = emit.emitExpression(opcodes, &node.Array)
+	opcodes = emit.emitExpression(opcodes, &node.Array)
 	if node.IsDeclareSet {
 		opcodes = emit.emitDeclareVariable(opcodes, node.IndexName.String(), typeInfo)
 	} else {
