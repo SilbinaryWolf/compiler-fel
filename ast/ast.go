@@ -177,28 +177,29 @@ type Return struct {
 }
 
 type LeftHandSideExpression struct {
-	tokens []token.Token
+	childNodes []Node
 }
 
-func (leftHandSideExpression *LeftHandSideExpression) Nodes() []token.Token {
-	return leftHandSideExpression.tokens
+func (leftHandSideExpression *LeftHandSideExpression) Nodes() []Node {
+	return leftHandSideExpression.childNodes
 }
 
-func NewLeftHandSideExpression(tokens []token.Token) LeftHandSideExpression {
+func NewLeftHandSideExpression(nodes []Node) LeftHandSideExpression {
 	return LeftHandSideExpression{
-		tokens: tokens,
+		childNodes: nodes,
 	}
 }
 
 func (leftHandSideExpression *LeftHandSideExpression) String() string {
 	parts := leftHandSideExpression.Nodes()
 	result := ""
-	for i, val := range parts {
-		if i != 0 {
-			result += "." + val.String()
-			continue
+	for _, val := range parts {
+		switch val := val.(type) {
+		case *Token:
+			result += val.Token.String()
+		default:
+			panic(fmt.Sprintf("LeftHandSideExpression::String: Unhandled type: %T", val))
 		}
-		result += val.String()
 	}
 	return result
 }

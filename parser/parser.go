@@ -507,57 +507,36 @@ func (p *Parser) parseLeftHandSideExpression() ast.LeftHandSideExpression {
 		p.AddExpectError(t, token.Identifier)
 		return ast.LeftHandSideExpression{}
 	}
-	leftHandSideTokens := make([]token.Token, 0, 5)
-	name := p.GetNextToken()
-	leftHandSideTokens = append(leftHandSideTokens, name)
+	childNodes := make([]ast.Node, 0, 5)
+	//name := p.GetNextToken()
+	//leftHandSideTokens = append(leftHandSideTokens, name)
 
-	expectDot := true
 Loop:
 	for {
 		switch t := p.PeekNextToken(); t.Kind {
 		case token.Dot:
-			if !expectDot {
-				p.AddExpectError(t, token.Identifier)
-				return ast.NewLeftHandSideExpression(leftHandSideTokens)
-			}
+			//if !expectDot {
+			//	p.AddExpectError(t, token.Identifier)
+			//	return ast.LeftHandSideExpression{}
+			//}
 			t := p.GetNextToken()
-			leftHandSideTokens = append(leftHandSideTokens, t)
-			expectDot = false
-			// NOTE(Jake): 2018-04-28
-			//
-			// Old logic from when tbis was inline in parseExpression.
-			//
-			/*for {
-				identToken := p.GetNextToken()
-				leftHandSideTokens = append(leftHandSideTokens, identToken)
-				if identToken.Kind != token.Identifier {
-					p.AddExpectError(identToken, token.Identifier)
-					return empty
-				}
-				t := p.PeekNextToken()
-				if t.Kind == token.Dot {
-					p.GetNextToken()
-					continue
-				}
-				if t.IsOperator() ||
-					t.Kind == token.Comma ||
-					t.Kind == token.Newline ||
-					t.Kind == token.ParenClose {
-					break
-				}
-				p.AddExpectError(t, token.Operator, token.Newline, token.ParenClose)
-				return empty
-			}*/
+			childNodes = append(childNodes, &ast.Token{
+				Token: t,
+			})
 		case token.Identifier:
-			if expectDot {
-				p.AddExpectError(t, token.Identifier, token.Operator, token.Semicolon, token.ParenClose, token.Comma)
-				break Loop
-			}
+			//if expectDot {
+			//	p.AddExpectError(t, token.Identifier, token.Operator, token.Semicolon, token.ParenClose, token.Comma)
+			//	break Loop
+			//}
 			t := p.GetNextToken()
-			leftHandSideTokens = append(leftHandSideTokens, t)
+			childNodes = append(childNodes, &ast.Token{
+				Token: t,
+			})
 		case token.BracketOpen:
 			t := p.GetNextToken()
-			leftHandSideTokens = append(leftHandSideTokens, t)
+			childNodes = append(childNodes, &ast.Token{
+				Token: t,
+			})
 			_ = p.parseExpression(true)
 			panic("todo(Jake): Parse array access.")
 		case token.Comma,
@@ -577,7 +556,7 @@ Loop:
 			break Loop
 		}
 	}
-	return ast.NewLeftHandSideExpression(leftHandSideTokens)
+	return ast.NewLeftHandSideExpression(childNodes)
 }
 
 // todo(Jake): 2018-04-28
@@ -640,73 +619,79 @@ Loop:
 				if len(leftHandSideNodes) > 1 {
 					panic("StructLiteral: Unhandled. Left hand side with multiples tokens")
 				}
-				name := leftHandSideNodes[0]
-				p.GetNextToken()
+				node := leftHandSideNodes[0]
+				switch node := node.(type) {
+				case *ast.Token:
+					name := node.Token
+					p.GetNextToken()
 
-				{
-					p.eatNewlines()
-					if t := p.PeekNextToken(); t.Kind == token.BraceClose {
-						p.GetNextToken()
-						expectOperator = true
+					{
+						p.eatNewlines()
+						if t := p.PeekNextToken(); t.Kind == token.BraceClose {
+							p.GetNextToken()
+							expectOperator = true
 
-						infixNodes = append(infixNodes, &ast.StructLiteral{
-							Name: name,
-						})
-						continue Loop
+							infixNodes = append(infixNodes, &ast.StructLiteral{
+								Name: name,
+							})
+							continue Loop
+						}
 					}
-				}
 
-				var errorMsgLastToken token.Token
-				fields := make([]ast.Parameter, 0, 10)
-			StructLiteralLoop:
-				for i := 0; true; i++ {
-					propertyName := p.GetNextToken()
-					for propertyName.Kind == token.Newline {
-						propertyName = p.GetNextToken()
-					}
-					if propertyName.Kind != token.Identifier {
-						if i == 0 {
-							p.AddError(propertyName, fmt.Errorf("Expected identifier after %s{ not %s", name, propertyName.Kind.String()))
+					var errorMsgLastToken token.Token
+					fields := make([]ast.Parameter, 0, 10)
+				StructLiteralLoop:
+					for i := 0; true; i++ {
+						propertyName := p.GetNextToken()
+						for propertyName.Kind == token.Newline {
+							propertyName = p.GetNextToken()
+						}
+						if propertyName.Kind != token.Identifier {
+							if i == 0 {
+								p.AddError(propertyName, fmt.Errorf("Expected identifier after %s{ not %s", name, propertyName.Kind.String()))
+								return nil
+							}
+							p.AddError(propertyName, fmt.Errorf("Expected identifier after \"%s\" not %s", errorMsgLastToken, propertyName.Kind.String()))
 							return nil
 						}
-						p.AddError(propertyName, fmt.Errorf("Expected identifier after \"%s\" not %s", errorMsgLastToken, propertyName.Kind.String()))
-						return nil
-					}
-					if t := p.GetNextToken(); t.Kind != token.Colon {
-						if i == 0 {
-							p.AddError(t, fmt.Errorf("Expected : after \"%s{%s\"", name.String(), propertyName.String()))
+						if t := p.GetNextToken(); t.Kind != token.Colon {
+							if i == 0 {
+								p.AddError(t, fmt.Errorf("Expected : after \"%s{%s\"", name.String(), propertyName.String()))
+								return nil
+							}
+							p.AddError(t, fmt.Errorf("Expected : after property \"%s\"", propertyName.String()))
 							return nil
 						}
-						p.AddError(t, fmt.Errorf("Expected : after property \"%s\"", propertyName.String()))
-						return nil
+						node := ast.Parameter{}
+						node.Name = propertyName
+						node.Expression = p.parseExpression(false)
+						fields = append(fields, node)
+						switch t := p.GetNextToken(); t.Kind {
+						case token.BraceClose:
+							break StructLiteralLoop
+						case token.Comma:
+							// OK
+						default:
+							p.AddExpectError(t, token.BraceClose, token.Comma)
+							return nil
+						}
+						p.eatNewlines()
+						if t := p.PeekNextToken(); t.Kind == token.BraceClose {
+							// Allow for trailing comma
+							p.GetNextToken()
+							break StructLiteralLoop
+						}
+						errorMsgLastToken = propertyName
 					}
-					node := ast.Parameter{}
-					node.Name = propertyName
-					node.Expression = p.parseExpression(false)
-					fields = append(fields, node)
-					switch t := p.GetNextToken(); t.Kind {
-					case token.BraceClose:
-						break StructLiteralLoop
-					case token.Comma:
-						// OK
-					default:
-						p.AddExpectError(t, token.BraceClose, token.Comma)
-						return nil
-					}
-					p.eatNewlines()
-					if t := p.PeekNextToken(); t.Kind == token.BraceClose {
-						// Allow for trailing comma
-						p.GetNextToken()
-						break StructLiteralLoop
-					}
-					errorMsgLastToken = propertyName
+					expectOperator = true
+					infixNodes = append(infixNodes, &ast.StructLiteral{
+						Name:   name,
+						Fields: fields,
+					})
+					continue Loop
+				default:
+					panic(fmt.Sprintf("StructLiteral: Unhandled type: %T", node))
 				}
-				expectOperator = true
-				infixNodes = append(infixNodes, &ast.StructLiteral{
-					Name:   name,
-					Fields: fields,
-				})
-				continue Loop
 			case token.Newline,
 				token.ParenClose: // for handling the end of an outer function
 				// no-op
@@ -888,8 +873,10 @@ Loop:
 }
 
 func (p *Parser) parseProcedureOrHTMLNode_OLD(name token.Token) *ast.Call {
-	lhsExpr := make([]token.Token, 1)
-	lhsExpr[0] = name
+	lhsExpr := make([]ast.Node, 1)
+	lhsExpr[0] = &ast.Token{
+		Token: name,
+	}
 	return p.parseProcedureOrHTMLNode(ast.NewLeftHandSideExpression(lhsExpr))
 }
 
@@ -1019,17 +1006,20 @@ func (p *Parser) parseProcedureOrHTMLNode(lhsExpr ast.LeftHandSideExpression) *a
 	// Update this AST node to support LeftHandSide expressions
 	// properly
 	//
-	name := lhsExpr.Nodes()[0]
+	name, ok := lhsExpr.Nodes()[0].(*ast.Token)
+	if !ok {
+		panic("parseProcedureOrHTML: Expected ast.Token, Left Hand Side expressions not fully supported")
+	}
 
 	if !isHTMLNode {
 		node := ast.NewCall()
-		node.Name = name
+		node.Name = name.Token
 		node.Parameters = parameters
 		p.dependencies[name.String()] = true
 		return node
 	}
 	node := ast.NewHTMLNode()
-	node.Name = name
+	node.Name = name.Token
 	node.Parameters = parameters
 	node.ChildNodes = childStatements
 	node.IfExpression = ifExprNode
