@@ -176,10 +176,47 @@ type Return struct {
 	Expression
 }
 
+type LeftHandSideExpression struct {
+	tokens []token.Token
+}
+
+func (leftHandSideExpression *LeftHandSideExpression) Nodes() []token.Token {
+	return leftHandSideExpression.tokens
+}
+
+func NewLeftHandSideExpression(tokens []token.Token) LeftHandSideExpression {
+	return LeftHandSideExpression{
+		tokens: tokens,
+	}
+}
+
+func (leftHandSideExpression *LeftHandSideExpression) String() string {
+	parts := leftHandSideExpression.Nodes()
+	result := ""
+	for i, val := range parts {
+		if i != 0 {
+			result += "." + val.String()
+			continue
+		}
+		result += val.String()
+	}
+	return result
+}
+
 type Expression struct {
 	TypeInfo       TypeInfo  // determined at typecheck time (2017-12-30)
 	TypeIdentifier TypeIdent // optional, for declare statements
-	Base
+	childNodes     []Node
+}
+
+func NewExpression(nodes []Node) Expression {
+	return Expression{
+		childNodes: nodes,
+	}
+}
+
+func (exprNode *Expression) Nodes() []Node {
+	return exprNode.childNodes
 }
 
 func (exprNode *Expression) String() string {
@@ -216,7 +253,7 @@ type OpStatement struct {
 }
 
 type ArrayAccessStatement struct {
-	LeftHandSide []token.Token
+	LeftHandSide LeftHandSideExpression
 	Expression
 }
 
@@ -266,26 +303,49 @@ func (node *TokenList) String() string {
 }
 
 type StructDefinition struct {
-	Name   token.Token
-	Fields []StructField
+	name   token.Token
+	fields []StructField
 }
 
-func (node *StructDefinition) GetFieldByName(name string) *StructField {
-	for i := 0; i < len(node.Fields); i++ {
-		field := &node.Fields[i]
-		if field.Name.String() == name {
+func (structDef *StructDefinition) Name() token.Token     { return structDef.name }
+func (structDef *StructDefinition) Fields() []StructField { return structDef.fields }
+
+func NewStructDefinition(name token.Token, fields []StructField) *StructDefinition {
+	return &StructDefinition{
+		name:   name,
+		fields: fields,
+	}
+}
+
+func (structDef *StructDefinition) GetFieldByName(name string) *StructField {
+	fields := structDef.Fields()
+	for i := 0; i < len(fields); i++ {
+		field := &fields[i]
+		if field.Name().String() == name {
 			return field
 		}
 	}
 	return nil
 }
 
-func (node *StructDefinition) Nodes() []Node {
+func (structDef *StructDefinition) Nodes() []Node {
 	return nil
 }
 
 type StructField struct {
-	Name  token.Token
-	Index int
+	name  token.Token
+	index int
 	Expression
+}
+
+func (field *StructField) Name() token.Token { return field.name }
+func (field *StructField) Index() int        { return field.index }
+
+func CreateStructField(name token.Token, index int, expression Expression, typeIdentifier TypeIdent) StructField {
+	expression.TypeIdentifier = typeIdentifier
+	return StructField{
+		name:       name,
+		index:      index,
+		Expression: expression,
+	}
 }

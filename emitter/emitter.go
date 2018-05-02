@@ -467,10 +467,16 @@ func (emit *Emitter) emitHTMLNode(opcodes []bytecode.Code, node *ast.Call) []byt
 			}
 		}
 
+		// NOTE(Jake): 2018-05-03
+		//
+		// This should probably use Struct typeinfo
+		// rather than the struct definition ast.
+		//
 		if structDef := definition.Struct; structDef != nil {
-			for i := 0; i < len(structDef.Fields); i++ {
-				structField := structDef.Fields[i]
-				name := structField.Name.String()
+			structDefFields := structDef.Fields()
+			for i := 0; i < len(structDefFields); i++ {
+				structField := &structDefFields[i]
+				name := structField.Name().String()
 				exprNode := &structField.Expression
 				for _, parameterField := range node.Parameters {
 					if name == parameterField.Name.String() {
@@ -759,11 +765,12 @@ func (emit *Emitter) emitHTMLComponentDefinition(node *ast.HTMLComponentDefiniti
 			parameterCount++
 		}
 		if structDef := node.Struct; structDef != nil {
-			parameterCount += len(structDef.Fields)
-			for i := len(structDef.Fields) - 1; i >= 0; i-- {
-				structField := structDef.Fields[i]
+			structDefFields := structDef.Fields()
+			parameterCount += len(structDefFields)
+			for i := len(structDefFields) - 1; i >= 0; i-- {
+				structField := structDefFields[i]
 				exprNode := &structField.Expression
-				opcodes = emit.emitParameter(opcodes, structField.Name.String(), exprNode.TypeInfo, (parameterCount-1)-emit.scope.stackPos)
+				opcodes = emit.emitParameter(opcodes, structField.Name().String(), exprNode.TypeInfo, (parameterCount-1)-emit.scope.stackPos)
 				emit.scope.stackPos++
 			}
 		}

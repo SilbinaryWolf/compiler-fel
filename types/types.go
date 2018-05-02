@@ -115,17 +115,17 @@ func (_ *Struct) ImplementsTypeInfo()      {}
 
 //func (info *Struct) Definition() *ast.StructDefinition { return info.definition }
 
-func NewStruct(definiton *ast.StructDefinition) *Struct {
-	name := definiton.Name
-	fields := definiton.Fields
+func NewStruct(structDef *ast.StructDefinition) *Struct {
+	name := structDef.Name().String()
+	fields := structDef.Fields()
 
 	result := new(Struct)
-	result.name = name.String()
+	result.name = name
 	result.fields = make([]StructField, 0, len(fields))
 	for i, field := range fields {
 		result.fields = append(result.fields, StructField{
 			index: i,
-			Name:  field.Name.String(),
+			Name:  field.Name().String(),
 			TypeIdentifier: Identifier{
 				Name:       field.TypeIdentifier.Name.String(),
 				ArrayDepth: field.TypeIdentifier.ArrayDepth,

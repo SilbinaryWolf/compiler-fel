@@ -111,7 +111,13 @@ Loop:
 		switch t.Kind {
 		case token.Identifier:
 			storeScannerState := p.ScannerState()
+
+			// todo(Jake): 2018-04-28
+			//
+			// replace with left hand side expression
+			//
 			name := p.GetNextToken()
+
 			switch t := p.GetNextToken(); t.Kind {
 			// myVar := {Expression} \n
 			//
@@ -267,7 +273,7 @@ Loop:
 			// div(class="hey")  -or-  div(class="hey") if expr {
 			//    ^						  ^
 			case token.ParenOpen:
-				node := p.parseProcedureOrHTMLNode(name)
+				node := p.parseProcedureOrHTMLNode_OLD(name)
 				if node == nil {
 					return nil
 				}
@@ -453,6 +459,7 @@ func (p *Parser) isParseTypeAhead() bool {
 
 func (p *Parser) parseTypeIdent() ast.TypeIdent {
 	result := ast.TypeIdent{}
+	oldScannerState := p.ScannerState()
 
 	t := p.GetNextToken()
 	if t.Kind == token.BracketOpen {
@@ -463,6 +470,7 @@ func (p *Parser) parseTypeIdent() ast.TypeIdent {
 			t = p.GetNextToken()
 			if t.Kind != token.BracketClose {
 				p.AddExpectError(t, token.BracketClose)
+				p.SetScannerState(oldScannerState)
 				return ast.TypeIdent{}
 			}
 			t = p.GetNextToken()
@@ -475,6 +483,7 @@ func (p *Parser) parseTypeIdent() ast.TypeIdent {
 	}
 	if t.Kind != token.Identifier {
 		p.AddExpectError(t, "type identifier")
+		p.SetScannerState(oldScannerState)
 		return ast.TypeIdent{}
 	}
 	result.Name = t
@@ -482,8 +491,8 @@ func (p *Parser) parseTypeIdent() ast.TypeIdent {
 }
 
 func (p *Parser) parseExpression(disableStructLiteral bool) ast.Expression {
-	node := ast.Expression{}
-	node.ChildNodes = p.__parseExpressionNodes(disableStructLiteral)
+	childNodes := p.__parseExpressionNodes(disableStructLiteral)
+	node := ast.NewExpression(childNodes)
 	return node
 }
 
@@ -491,6 +500,84 @@ func (p *Parser) parseExpressionPtr(disableStructLiteral bool) *ast.Expression {
 	node := new(ast.Expression)
 	*node = p.parseExpression(disableStructLiteral)
 	return node
+}
+
+func (p *Parser) parseLeftHandSideExpression() ast.LeftHandSideExpression {
+	if t := p.PeekNextToken(); t.Kind != token.Identifier {
+		p.AddExpectError(t, token.Identifier)
+		return ast.LeftHandSideExpression{}
+	}
+	leftHandSideTokens := make([]token.Token, 0, 5)
+	name := p.GetNextToken()
+	leftHandSideTokens = append(leftHandSideTokens, name)
+
+	expectDot := true
+Loop:
+	for {
+		switch t := p.PeekNextToken(); t.Kind {
+		case token.Dot:
+			if !expectDot {
+				p.AddExpectError(t, token.Identifier)
+				return ast.NewLeftHandSideExpression(leftHandSideTokens)
+			}
+			t := p.GetNextToken()
+			leftHandSideTokens = append(leftHandSideTokens, t)
+			expectDot = false
+			// NOTE(Jake): 2018-04-28
+			//
+			// Old logic from when tbis was inline in parseExpression.
+			//
+			/*for {
+				identToken := p.GetNextToken()
+				leftHandSideTokens = append(leftHandSideTokens, identToken)
+				if identToken.Kind != token.Identifier {
+					p.AddExpectError(identToken, token.Identifier)
+					return empty
+				}
+				t := p.PeekNextToken()
+				if t.Kind == token.Dot {
+					p.GetNextToken()
+					continue
+				}
+				if t.IsOperator() ||
+					t.Kind == token.Comma ||
+					t.Kind == token.Newline ||
+					t.Kind == token.ParenClose {
+					break
+				}
+				p.AddExpectError(t, token.Operator, token.Newline, token.ParenClose)
+				return empty
+			}*/
+		case token.Identifier:
+			if expectDot {
+				p.AddExpectError(t, token.Identifier, token.Operator, token.Semicolon, token.ParenClose, token.Comma)
+				break Loop
+			}
+			t := p.GetNextToken()
+			leftHandSideTokens = append(leftHandSideTokens, t)
+		case token.BracketOpen:
+			t := p.GetNextToken()
+			leftHandSideTokens = append(leftHandSideTokens, t)
+			_ = p.parseExpression(true)
+			panic("todo(Jake): Parse array access.")
+		case token.Comma,
+			token.Newline,
+			token.Semicolon,
+			token.Colon,
+			token.BraceOpen, // NOTE(Jake: 2018-05-02, LeftHandSide parsing will never need to use a struct literal.
+			token.ParenClose:
+			// Stop parsing LHS
+			break Loop
+		default:
+			if t.IsOperator() {
+				// Stop parsing LHS
+				break Loop
+			}
+			p.AddExpectError(t, token.Identifier, token.Operator, token.Semicolon, token.ParenClose, token.Comma)
+			break Loop
+		}
+	}
+	return ast.NewLeftHandSideExpression(leftHandSideTokens)
 }
 
 // todo(Jake): 2018-04-28
@@ -512,48 +599,31 @@ Loop:
 		t := p.PeekNextToken()
 		switch t.Kind {
 		case token.Identifier:
-			name := p.GetNextToken()
 			if expectOperator {
-				p.AddError(name, fmt.Errorf("Expected operator instead got identifier (%s).", name.String()))
+				p.AddExpectError(t, token.Operator)
 				return nil
 			}
+			// todo(Jake):
+			leftHandSide := p.parseLeftHandSideExpression()
 			switch t := p.PeekNextToken(); t.Kind {
-			case token.Dot:
-				p.GetNextToken()
-				tokens := make([]token.Token, 0, 5)
-				tokens = append(tokens, name)
-				for {
-					identToken := p.GetNextToken()
-					tokens = append(tokens, identToken)
-					if identToken.Kind != token.Identifier {
-						p.AddExpectError(identToken, token.Identifier)
-						return nil
-					}
-					t := p.PeekNextToken()
-					if t.Kind == token.Dot {
-						p.GetNextToken()
-						continue
-					}
-					if t.IsOperator() ||
-						t.Kind == token.Comma ||
-						t.Kind == token.Newline ||
-						t.Kind == token.ParenClose {
-						break
-					}
-					p.AddExpectError(t, token.Operator, token.Newline, token.ParenClose)
-					return nil
-				}
-				expectOperator = true
-				infixNodes = append(infixNodes, ast.NewTokenList(tokens))
-				continue Loop
 			case token.BracketOpen:
 				p.GetNextToken()
 
 				indexExpression := p.parseExpression(true)
-				panic(fmt.Sprintf("todo(Jake): Parse array access, %v", indexExpression))
+				if t := p.GetNextToken(); t.Kind != token.BracketClose {
+					p.AddExpectError(t, token.BracketClose)
+					return nil
+				}
+
+				expectOperator = true
+				infixNodes = append(infixNodes, &ast.ArrayAccessStatement{
+					LeftHandSide: leftHandSide,
+					Expression:   indexExpression,
+				})
+				continue Loop
 			case token.ParenOpen:
 				p.GetNextToken()
-				node := p.parseProcedureOrHTMLNode(name)
+				node := p.parseProcedureOrHTMLNode(leftHandSide)
 				if node == nil {
 					return nil
 				}
@@ -566,6 +636,11 @@ Loop:
 					// (ie. "if isBool {")
 					break
 				}
+				leftHandSideNodes := leftHandSide.Nodes()
+				if len(leftHandSideNodes) > 1 {
+					panic("StructLiteral: Unhandled. Left hand side with multiples tokens")
+				}
+				name := leftHandSideNodes[0]
 				p.GetNextToken()
 
 				{
@@ -573,6 +648,7 @@ Loop:
 					if t := p.PeekNextToken(); t.Kind == token.BraceClose {
 						p.GetNextToken()
 						expectOperator = true
+
 						infixNodes = append(infixNodes, &ast.StructLiteral{
 							Name: name,
 						})
@@ -646,7 +722,7 @@ Loop:
 				if t.IsOperator() {
 					break
 				}
-				p.AddError(t, fmt.Errorf("Expected operator, instead got %s. (after: %s)", t.String(), name.String()))
+				p.AddError(t, fmt.Errorf("Expected operator, instead got %s. (after: %s)", t.String(), leftHandSide.String()))
 				return nil
 			}
 			expectOperator = true
@@ -811,7 +887,13 @@ Loop:
 	return infixNodes
 }
 
-func (p *Parser) parseProcedureOrHTMLNode(name token.Token) *ast.Call {
+func (p *Parser) parseProcedureOrHTMLNode_OLD(name token.Token) *ast.Call {
+	lhsExpr := make([]token.Token, 1)
+	lhsExpr[0] = name
+	return p.parseProcedureOrHTMLNode(ast.NewLeftHandSideExpression(lhsExpr))
+}
+
+func (p *Parser) parseProcedureOrHTMLNode(lhsExpr ast.LeftHandSideExpression) *ast.Call {
 	hasDeterminedMode := false
 	isHTMLNode := false
 	parameters := make([]*ast.Parameter, 0, 10)
@@ -932,6 +1014,13 @@ func (p *Parser) parseProcedureOrHTMLNode(name token.Token) *ast.Call {
 	//	isHTMLNode = true
 	//}
 
+	// todo(Jake): 2018-04-28
+	//
+	// Update this AST node to support LeftHandSide expressions
+	// properly
+	//
+	name := lhsExpr.Nodes()[0]
+
 	if !isHTMLNode {
 		node := ast.NewCall()
 		node.Name = name
@@ -946,6 +1035,67 @@ func (p *Parser) parseProcedureOrHTMLNode(name token.Token) *ast.Call {
 	node.IfExpression = ifExprNode
 	p.validateHTMLNode(node)
 	return node
+}
+
+func (p *Parser) parseStructDefinition(name token.Token) *ast.StructDefinition {
+	structFields := make([]ast.StructField, 0, 6)
+
+Loop:
+	for {
+		name := p.GetNextToken()
+		switch name.Kind {
+		case token.Identifier:
+			if t := p.GetNextToken(); t.Kind != token.Colon {
+				p.AddExpectError(t, token.Colon)
+				return nil
+			}
+			typeIdent := p.parseTypeIdent()
+			if typeIdent.Name.Kind == token.Unknown {
+				// Hit parser errors
+				return nil
+			}
+			var expr ast.Expression
+			if t := p.PeekNextToken(); t.Kind == token.Equal {
+				p.GetNextToken() // =
+				expr = p.parseExpression(false)
+			}
+			expr.TypeIdentifier = typeIdent
+			field := ast.CreateStructField(name, len(structFields), expr, typeIdent)
+			structFields = append(structFields, field)
+		case token.Newline:
+			continue Loop
+		case token.BraceClose:
+			break Loop
+		default:
+			panic(fmt.Sprintf("parseStructDefinition:propertyLoop: Unknown token kind: %s", name.Kind.String()))
+		}
+	}
+
+	structDef := ast.NewStructDefinition(name, structFields)
+	return structDef
+	/*childNodes := p.parseStatements()
+	fields := make([]ast.StructField, 0, len(childNodes))
+	fieldIndex := 0
+	// NOTE(Jake): A bit of a hack, we should have a 'parseStruct' function
+	for _, itNode := range childNodes {
+		switch node := itNode.(type) {
+		case *ast.DeclareStatement:
+			field := ast.StructField{}
+			field.Name = node.Name
+			field.Index = fieldIndex
+			fieldIndex++
+			//field.Expression.TypeIdentifier = node.Expression.TypeIdentifier
+			field.Expression = node.Expression
+			fields = append(fields, field)
+		default:
+			p.AddError(name, fmt.Errorf("Expected statement, instead got %T.", itNode))
+			return nil
+		}
+	}
+	node := new(ast.StructDefinition)
+	node.Name = name
+	node.Fields = fields
+	return node*/
 }
 
 func (p *Parser) parseProcedureDefinition(name token.Token) *ast.ProcedureDefinition {
@@ -1042,31 +1192,7 @@ func (p *Parser) parseDefinition(name token.Token) ast.Node {
 				p.AddExpectError(t, token.BraceOpen)
 				return nil
 			}
-			//
-			//
-			childNodes := p.parseStatements()
-			fields := make([]ast.StructField, 0, len(childNodes))
-			fieldIndex := 0
-			// NOTE(Jake): A bit of a hack, we should have a 'parseStruct' function
-			for _, itNode := range childNodes {
-				switch node := itNode.(type) {
-				case *ast.DeclareStatement:
-					field := ast.StructField{}
-					field.Name = node.Name
-					field.Index = fieldIndex
-					fieldIndex++
-					//field.Expression.TypeIdentifier = node.Expression.TypeIdentifier
-					field.Expression = node.Expression
-					fields = append(fields, field)
-				default:
-					p.AddError(name, fmt.Errorf("Expected statement, instead got %T.", itNode))
-					return nil
-				}
-			}
-			node := new(ast.StructDefinition)
-			node.Name = name
-			node.Fields = fields
-			return node
+			return p.parseStructDefinition(name)
 		case "html":
 			if t := p.GetNextToken(); t.Kind != token.BraceOpen {
 				p.AddExpectError(t, token.BraceOpen)
@@ -1097,43 +1223,39 @@ func (p *Parser) parseDefinition(name token.Token) ast.Node {
 				//}
 			}
 
-			if name.Kind != token.Unknown {
-				// Retrieve properties block
-				var cssDef *ast.CSSDefinition
-				var structDef *ast.StructDefinition
-			RetrievePropertyDefinitionLoop:
-				for _, itNode := range childNodes {
-					switch node := itNode.(type) {
-					case *ast.StructDefinition:
-						if structDef != nil {
-							p.AddError(node.Name, fmt.Errorf("Cannot declare \":: struct\" twice in the same HTML component."))
-							p.AddError(structDef.Name, fmt.Errorf("Cannot declare \":: struct\" twice in the same HTML component."))
-							break RetrievePropertyDefinitionLoop
-						}
-						structDef = node
-					case *ast.CSSDefinition:
-						if cssDef != nil {
-							p.AddError(node.Name, fmt.Errorf("Cannot declare \":: css\" twice in the same HTML component."))
-							break RetrievePropertyDefinitionLoop
-						}
-						cssDef = node
-					}
-				}
-
-				// Component
-				node := new(ast.HTMLComponentDefinition)
-				node.Name = name
-				node.Struct = structDef
-				node.CSSDefinition = cssDef
-				node.ChildNodes = childNodes
-
-				return node
+			if name.Kind == token.Unknown {
+				p.AddError(name, fmt.Errorf("Cannot have un-named \":: html\" definition."))
 			}
 
-			// TODO(Jake): Disallow ":: properties" block in un-named HTML
-			node := new(ast.HTMLBlock)
-			node.HTMLKeyword = keywordToken
+			// Retrieve properties block
+			var cssDef *ast.CSSDefinition
+			var structDef *ast.StructDefinition
+		RetrievePropertyDefinitionLoop:
+			for _, itNode := range childNodes {
+				switch node := itNode.(type) {
+				case *ast.StructDefinition:
+					if structDef != nil {
+						p.AddError(node.Name(), fmt.Errorf("Cannot declare \":: struct\" twice in the same HTML component."))
+						p.AddError(structDef.Name(), fmt.Errorf("Cannot declare \":: struct\" twice in the same HTML component."))
+						break RetrievePropertyDefinitionLoop
+					}
+					structDef = node
+				case *ast.CSSDefinition:
+					if cssDef != nil {
+						p.AddError(node.Name, fmt.Errorf("Cannot declare \":: css\" twice in the same HTML component."))
+						break RetrievePropertyDefinitionLoop
+					}
+					cssDef = node
+				}
+			}
+
+			// Component
+			node := new(ast.HTMLComponentDefinition)
+			node.Name = name
+			node.Struct = structDef
+			node.CSSDefinition = cssDef
 			node.ChildNodes = childNodes
+
 			return node
 		}
 	}
@@ -1236,11 +1358,12 @@ func (p *Parser) parseCSSConfigRuleDefinition(name token.Token) *ast.CSSConfigDe
 }
 
 func (p *Parser) getBoolFromCSSConfigProperty(node *ast.CSSProperty) (bool, bool) {
-	if len(node.ChildNodes) == 0 && len(node.ChildNodes) > 1 {
+	childNodes := node.Nodes()
+	if len(childNodes) == 0 && len(childNodes) > 1 {
 		p.AddError(node.Name, fmt.Errorf("Expected \"true\" or \"false\" after \"%s\".", node.Name.String()))
 		return false, false
 	}
-	itNode := node.ChildNodes[0]
+	itNode := childNodes[0]
 	switch node := itNode.(type) {
 	case *ast.Token:
 		t := node.Token

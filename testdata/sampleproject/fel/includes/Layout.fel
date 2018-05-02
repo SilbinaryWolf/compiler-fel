@@ -17,7 +17,7 @@ Layout :: css {
 
 Layout :: html {
 	:: struct {
-		body_class := ""
+		body_class : string = ""
 	}
 
 	html(lang="en-AU") {

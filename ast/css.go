@@ -49,5 +49,5 @@ func (node *CSSAttributeSelector) Nodes() []Node {
 
 type CSSProperty struct {
 	Name token.Token
-	Expression
+	Base
 }

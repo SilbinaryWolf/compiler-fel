@@ -18,7 +18,7 @@ Layout(body_class="HomePage") {
 		"test",
 		"meow",
 	}
-	link[0]
+	//link[0]
 	/*for link := socialLinks {
 		div() {
 			"Test"

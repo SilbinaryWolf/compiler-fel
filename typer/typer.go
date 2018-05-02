@@ -53,7 +53,8 @@ func (p *Typer) typerStructLiteral(scope *Scope, literal *ast.StructLiteral) {
 		p.AddError(literal.Name, fmt.Errorf("Expected \"%s\" to be \"%s :: struct\", not \"%s\".", name, name, symbol.GetType()))
 		return
 	}
-	if len(def.Fields) == 0 && len(literal.Fields) > 0 {
+	defFields := def.Fields()
+	if len(defFields) == 0 && len(literal.Fields) > 0 {
 		p.AddError(literal.Name, fmt.Errorf("Struct %s does not have any fields.", name))
 		return
 	}
@@ -64,13 +65,14 @@ func (p *Typer) typerStructLiteral(scope *Scope, literal *ast.StructLiteral) {
 	}
 
 	// Check literal against definition
-	for _, defField := range def.Fields {
+	for _, defField := range defFields {
 		defTypeInfo := defField.Expression.TypeInfo
 		if defTypeInfo == nil {
-			p.PanicError(defField.Name, fmt.Errorf("Missing type info from field \"%s\" on \"%s :: struct\".", defField.Name.String(), name))
+			defName := defField.Name()
+			p.PanicError(defName, fmt.Errorf("Missing type info from field \"%s\" on \"%s :: struct\".", defName.String(), name))
 			return
 		}
-		defName := defField.Name.String()
+		defName := defField.Name().String()
 		for i := 0; i < len(literal.Fields); i++ {
 			property := &literal.Fields[i]
 			if defName != property.Name.String() {
@@ -87,8 +89,8 @@ func (p *Typer) typerStructLiteral(scope *Scope, literal *ast.StructLiteral) {
 	for _, property := range literal.Fields {
 		propertyName := property.Name.String()
 		hasFieldNameOnDef := false
-		for _, defField := range def.Fields {
-			hasFieldNameOnDef = hasFieldNameOnDef || defField.Name.String() == propertyName
+		for _, defField := range def.Fields() {
+			hasFieldNameOnDef = hasFieldNameOnDef || defField.Name().String() == propertyName
 		}
 		if !hasFieldNameOnDef {
 			p.AddError(property.Name, fmt.Errorf("Field \"%s\" does not exist on \"%s :: struct\"", propertyName, name))
@@ -498,14 +500,14 @@ func (p *Typer) typerHTMLNode(scope *Scope, node *ast.Call) {
 	}
 
 	structDef := node.HTMLDefinition.Struct
-	if structDef != nil && len(structDef.Fields) > 0 {
+	if structDef != nil && len(structDef.Fields()) > 0 {
 		// Check if parameters exist
 	ParameterCheckLoop:
 		for i, _ := range node.Parameters {
 			parameterNode := node.Parameters[i]
 			paramName := parameterNode.Name.String()
-			for _, field := range structDef.Fields {
-				if paramName == field.Name.String() {
+			for _, field := range structDef.Fields() {
+				if paramName == field.Name().String() {
 					parameterType := parameterNode.TypeInfo
 					componentStructType := field.TypeInfo
 					if parameterType != componentStructType {
@@ -550,7 +552,7 @@ func (p *Typer) typerHTMLDefinition(htmlDefinition *ast.HTMLComponentDefinition,
 	if structDef := symbol.structDefinition; structDef != nil {
 		if htmlDefinition.Struct != nil {
 			anonymousStructDef := htmlDefinition.Struct
-			p.AddError(anonymousStructDef.Name, fmt.Errorf("Cannot have \"%s :: struct\" and embedded \":: struct\" inside \"%s :: html\"", structDef.Name.String(), htmlDefinition.Name.String()))
+			p.AddError(anonymousStructDef.Name(), fmt.Errorf("Cannot have \"%s :: struct\" and embedded \":: struct\" inside \"%s :: html\"", structDef.Name().String(), htmlDefinition.Name.String()))
 		} else {
 			htmlDefinition.Struct = structDef
 		}
@@ -570,16 +572,17 @@ func (p *Typer) typerHTMLDefinition(htmlDefinition *ast.HTMLComponentDefinition,
 	scope.SetVariable("children", p.typeinfo.NewHTMLNode())
 
 	if structDef := htmlDefinition.Struct; structDef != nil {
-		for i, _ := range structDef.Fields {
-			var propertyNode *ast.StructField = &structDef.Fields[i]
+		structDefFields := structDef.Fields()
+		for i, _ := range structDefFields {
+			var propertyNode *ast.StructField = &structDefFields[i]
 			p.typerExpression(scope, &propertyNode.Expression)
-			name := propertyNode.Name.String()
+			name := propertyNode.Name().String()
 			if symbol := scope.GetSymbol(name); symbol != nil {
 				if name == "children" {
-					p.AddError(propertyNode.Name, fmt.Errorf("Cannot use \"children\" as it's a reserved property."))
+					p.AddError(propertyNode.Name(), fmt.Errorf("Cannot use \"children\" as it's a reserved property."))
 					continue
 				}
-				p.AddError(propertyNode.Name, fmt.Errorf("Property \"%s\" declared twice.", name))
+				p.AddError(propertyNode.Name(), fmt.Errorf("Property \"%s\" declared twice.", name))
 				continue
 			}
 			/*_, ok := scope.GetVariable(name)
@@ -828,11 +831,12 @@ func (p *Typer) typerStatements(topNode ast.Node, scope *Scope) {
 
 func (p *Typer) typerStruct(node *ast.StructDefinition, scope *Scope) {
 	// Add typeinfo to each struct field
-	for i := 0; i < len(node.Fields); i++ {
-		structField := &node.Fields[i]
+	structDefFields := node.Fields()
+	for i := 0; i < len(structDefFields); i++ {
+		structField := &structDefFields[i]
 		typeIdent := structField.TypeIdentifier.Name
 		if typeIdent.Kind == token.Unknown {
-			p.AddError(structField.Name, fmt.Errorf("Missing type identifier on \"%s :: struct\" field \"%s\"", structField.Name, node.Name.String()))
+			p.PanicError(structField.Name(), fmt.Errorf("Missing type identifier on \"%s :: struct\" field: \"%s\"", node.Name().String(), structField.Name()))
 			continue
 		}
 		typeIdentString := typeIdent.String()
@@ -975,16 +979,16 @@ func (p *Typer) ApplyTypeInfoAndTypecheck(files []*ast.File) {
 					p.PanicMessage(fmt.Errorf("Found nil top-level %T.", node))
 					continue
 				}
-				if node.Name.Kind == token.Unknown {
-					p.AddError(node.Name, fmt.Errorf("Cannot declare anonymous \":: struct\" block."))
+				if structName := node.Name(); structName.Kind == token.Unknown {
+					p.AddError(structName, fmt.Errorf("Cannot declare anonymous \":: struct\" block."))
 					continue
 				}
-				name := node.Name.String()
+				name := node.Name().String()
 				symbol := scope.getOrCreateSymbol(name)
 				if definition := symbol.structDefinition; definition != nil {
 					errorMessage := fmt.Errorf("Cannot redeclare \"%s :: struct\" more than once in global scope.", name)
-					p.AddError(definition.Name, errorMessage)
-					p.AddError(node.Name, errorMessage)
+					p.AddError(definition.Name(), errorMessage)
+					p.AddError(node.Name(), errorMessage)
 					continue
 				}
 				p.typerStruct(node, scope)

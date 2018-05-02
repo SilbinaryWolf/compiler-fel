@@ -132,8 +132,8 @@ func (e *ErrorHandler) AddError(token token.Token, message error) {
 		details := runtime.FuncForPC(pc)
 		for i := 0; i < 3; i++ {
 			// Go up one call stack higher if one of these functions
-			if name := details.Name(); strings.Contains(name, "fatalErrorToken") ||
-				strings.Contains(name, "fatalError") {
+			if name := details.Name(); strings.Contains(name, "PanicMessage") ||
+				strings.Contains(name, "PanicError") {
 				callIndex++
 			}
 			pc, file, line, ok = runtime.Caller(callIndex)
